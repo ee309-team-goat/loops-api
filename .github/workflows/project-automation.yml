@@ -1,0 +1,243 @@
+name: Project Automation
+
+on:
+  issues:
+    types: [opened, labeled, assigned, closed]
+  pull_request:
+    types: [opened, ready_for_review, review_requested, closed]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  add-to-project:
+    name: Add issue/PR to project
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    steps:
+      - name: Add to project
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/users/YOUR_USERNAME/projects/YOUR_PROJECT_NUMBER
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+
+  auto-assign-labels:
+    name: Auto-assign labels
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' && github.event.action == 'opened'
+    steps:
+      - name: Check if critical priority
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+
+            // 이슈 본문에서 우선순위 확인
+            if (body.includes('Critical') || body.includes('즉시 필요')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['priority:critical']
+              });
+            }
+
+  notify-fe-team:
+    name: Notify FE team for dependencies
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issues' &&
+      (github.event.action == 'opened' || github.event.action == 'labeled') &&
+      contains(github.event.issue.body, 'Blocks FE')
+    steps:
+      - name: Create comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const comment = `
+            🔔 **프론트엔드 팀 알림**
+
+            이 백엔드 작업이 완료되어야 프론트엔드 작업을 시작할 수 있습니다.
+
+            - 담당자: ${issue.assignee ? '@' + issue.assignee.login : '미정'}
+            - 우선순위: ${issue.labels.find(l => l.name.startsWith('priority:'))?.name || '미정'}
+
+            프론트엔드 레포지토리에 관련 이슈를 생성해주세요.
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: comment
+            });
+
+  pr-auto-label:
+    name: Auto-label PR based on files changed
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'opened'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Auto-label based on files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            const labels = new Set();
+
+            for (const file of files) {
+              const path = file.filename;
+
+              // 파일 경로에 따라 라벨 추가
+              if (path.includes('alembic/') || path.includes('models/')) {
+                labels.add('area:database');
+              }
+              if (path.includes('api/')) {
+                labels.add('area:api');
+              }
+              if (path.includes('services/')) {
+                labels.add('area:service');
+              }
+              if (path.includes('test') || path.includes('spec')) {
+                labels.add('type:test');
+              }
+              if (path.includes('.md') || path.includes('docs/')) {
+                labels.add('type:docs');
+              }
+            }
+
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: Array.from(labels)
+              });
+            }
+
+  check-migrations:
+    name: Check if migration is needed
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for model changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+
+            const hasModelChanges = files.some(file =>
+              file.filename.includes('app/models/') &&
+              !file.filename.includes('__init__.py')
+            );
+
+            const hasMigration = files.some(file =>
+              file.filename.includes('alembic/versions/')
+            );
+
+            if (hasModelChanges && !hasMigration) {
+              const comment = `
+              ⚠️ **마이그레이션 체크**
+
+              모델 파일이 변경되었지만 마이그레이션이 포함되지 않았습니다.
+
+              마이그레이션이 필요한 경우:
+              \`\`\`bash
+              just revision "description of changes"
+              \`\`\`
+
+              마이그레이션이 필요하지 않은 경우 이 코멘트를 무시하세요.
+              `;
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: comment
+              });
+            }
+
+  update-issue-on-pr-merge:
+    name: Update linked issues when PR is merged
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    steps:
+      - name: Add completion comment to linked issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const prBody = pr.body || '';
+
+            // PR 본문에서 Closes #123 형태의 이슈 번호 추출
+            const issueRefs = prBody.match(/(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#(\d+)/gi);
+
+            if (issueRefs) {
+              for (const ref of issueRefs) {
+                const issueNumber = ref.match(/#(\d+)/)[1];
+
+                const comment = `
+                ✅ **완료됨**
+
+                이 이슈는 PR #${pr.number}에서 해결되어 머지되었습니다.
+
+                - 머지됨: ${new Date().toISOString()}
+                - 머지한 사람: @${pr.merged_by.login}
+                `;
+
+                try {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: parseInt(issueNumber),
+                    body: comment
+                  });
+                } catch (error) {
+                  console.log(`Failed to comment on issue #${issueNumber}: ${error.message}`);
+                }
+              }
+            }
+
+  pr-review-notification:
+    name: Notify on PR review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_review'
+    steps:
+      - name: Notify on changes requested
+        uses: actions/github-script@v7
+        if: github.event.review.state == 'changes_requested'
+        with:
+          script: |
+            const comment = `
+            🔄 **변경 요청됨**
+
+            @${context.payload.pull_request.user.login} 리뷰어가 변경을 요청했습니다.
+
+            리뷰 코멘트를 확인하고 수정해주세요.
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: comment
+            });

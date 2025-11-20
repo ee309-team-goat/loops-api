@@ -152,12 +152,23 @@ just dev
 
 프로젝트 문서는 `docs/` 폴더에 정리되어 있습니다:
 
+**개발 문서**
+
 - **[DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - 개발 가이드 및 프로젝트 구조
 - **[COMMANDS.md](./docs/COMMANDS.md)** - 명령어 레퍼런스 (Just, UV)
 - **[API.md](./docs/API.md)** - API 엔드포인트 문서 및 테스트 예제
 - **[DATABASE.md](./docs/DATABASE.md)** - 데이터베이스 스키마 & 마이그레이션
 - **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - 배포 가이드
 - **[TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** - 문제 해결 가이드
+
+**프로젝트 관리**
+
+- **[PROJECT_MANAGEMENT.md](./docs/PROJECT_MANAGEMENT.md)** - 프로젝트 관리 및 워크플로우 가이드
+- **[GITHUB_PROJECTS_SETUP.md](./docs/GITHUB_PROJECTS_SETUP.md)** - GitHub Projects 세팅 가이드
+- **[GITHUB_ISSUES_TEMPLATE.md](./docs/GITHUB_ISSUES_TEMPLATE.md)** - 이슈 템플릿 및 에픽 목록
+
+**기타**
+
 - **[CLAUDE.md](./CLAUDE.md)** - AI 협업 가이드 (Claude Code용)
 
 ---

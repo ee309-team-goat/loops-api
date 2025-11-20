@@ -1,6 +1,6 @@
-# Loops API - AI 기반 한국어 학습 시스템
+# Loops API - AI 기반 영어 학습 시스템
 
-FSRS(Free Spaced Repetition Scheduler) 알고리즘을 활용한 AI 기반 한국어 학습 백엔드 API
+FSRS(Free Spaced Repetition Scheduler) 알고리즘을 활용한 AI 기반 영어 학습 백엔드 API
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
@@ -10,7 +10,7 @@ FSRS(Free Spaced Repetition Scheduler) 알고리즘을 활용한 AI 기반 한�
 
 ## 🎯 프로젝트 소개
 
-Loops API는 과학적으로 검증된 FSRS 알고리즘을 활용하여 최적의 복습 주기를 제공하는 한국어 학습 플랫폼의 백엔드입니다.
+Loops API는 과학적으로 검증된 FSRS 알고리즘을 활용하여 최적의 복습 주기를 제공하는 영어 학습 플랫폼의 백엔드입니다.
 
 ### 핵심 특징
 
@@ -45,6 +45,7 @@ Loops API는 과학적으로 검증된 FSRS 알고리즘을 활용하여 최적�
 **ML & AI**
 
 - FSRS 6.3.0 - 간격 반복 학습 알고리즘
+- Upstage - LLM API (예문 생성)
 
 ---
 

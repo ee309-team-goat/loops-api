@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fsrs import FSRS, Card, Rating, State as FSRSState
+from fsrs import Scheduler, Card, Rating, State as FSRSState
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -16,7 +16,7 @@ class UserCardProgressService:
     """Service for user card progress CRUD operations and FSRS integration."""
 
     # Initialize FSRS scheduler
-    fsrs = FSRS()
+    fsrs = Scheduler()
 
     @staticmethod
     def progress_to_card(progress: UserCardProgress) -> Card:

@@ -44,6 +44,24 @@ current:
     @echo "📍 Current revision:"
     uv run alembic current
 
+# List all migration files
+migrations:
+    @echo "📂 Migration files:"
+    @ls -lth alembic/versions/ | head -20
+
+# View latest migration file
+migration-latest:
+    @echo "📄 Latest migration file:"
+    @ls -t alembic/versions/*.py | head -1 | xargs cat
+
+# Check for pending migrations
+check-migrations:
+    @echo "🔍 Checking for pending migrations..."
+    @uv run alembic current
+    @echo ""
+    @echo "Expected head:"
+    @uv run alembic heads
+
 # Reset database (requires confirmation)
 [confirm("⚠️  This will reset the database. Continue?")]
 reset:
@@ -51,57 +69,83 @@ reset:
     uv run alembic downgrade base
     uv run alembic upgrade head
 
+# Seed database with sample data
+db-seed:
+    @echo "🌱 Seeding database..."
+    uv run python src/scripts/seed_data.py
+
+# Reset and seed database (requires confirmation)
+[confirm("⚠️  This will reset and seed the database. Continue?")]
+db-refresh:
+    @echo "🔄 Refreshing database..."
+    uv run alembic downgrade base
+    uv run alembic upgrade head
+    uv run python src/scripts/seed_data.py
+    @echo "✅ Database refreshed!"
+
 # Test database connection
 db-test:
     @echo "🔌 Testing database connection..."
-    uv run python cli.py db:test
+    @uv run python -c "import asyncio; from app.database import engine; from sqlalchemy import text; exec('async def test():\\n    async with engine.begin() as conn:\\n        await conn.execute(text(\"SELECT 1\"))\\n        print(\"✅ Database connection successful!\")\\nasyncio.run(test())')"
 
 # Check API health
 health:
     @echo "🏥 Checking API health..."
-    uv run python cli.py health
+    @curl -f -s http://localhost:8000/health | python -m json.tool || echo "❌ API not running at http://localhost:8000"
 
-# Create a new user (interactive)
-user-create NAME="" EMAIL="":
-    #!/usr/bin/env bash
-    if [ -z "{{NAME}}" ] || [ -z "{{EMAIL}}" ]; then
-        uv run python cli.py user:create
-    else
-        uv run python cli.py user:create -n "{{NAME}}" -e "{{EMAIL}}"
-    fi
-
-# List all users
-user-list:
-    @echo "📋 Listing users..."
-    uv run python cli.py user:list
-
-# Start Docker containers
-docker-up BUILD="":
-    #!/usr/bin/env bash
-    if [ "{{BUILD}}" = "build" ]; then
-        docker-compose up --build -d
-    else
-        docker-compose up -d
-    fi
+# Start Docker containers with build
+docker-up:
+    @echo "🐳 Starting Docker containers..."
+    docker-compose up --build -d
     @echo "✅ Docker containers started"
 
 # Stop Docker containers
-docker-down VOLUMES="":
-    #!/usr/bin/env bash
-    if [ "{{VOLUMES}}" = "volumes" ]; then
-        docker-compose down -v
-    else
-        docker-compose down
-    fi
+docker-down:
+    @echo "🛑 Stopping Docker containers..."
+    docker-compose down
 
-# View Docker logs
-docker-logs SERVICE="":
-    #!/usr/bin/env bash
-    if [ -z "{{SERVICE}}" ]; then
-        docker-compose logs -f
-    else
-        docker-compose logs -f {{SERVICE}}
-    fi
+# View Docker logs (follow mode)
+docker-logs:
+    docker-compose logs -f
+
+# Docker Alembic Commands
+# ========================
+
+# Run migrations inside Docker container
+docker-migrate:
+    @echo "📦 Running migrations in Docker..."
+    docker-compose exec api uv run alembic upgrade head
+
+# Create new migration inside Docker container
+docker-revision MESSAGE:
+    @echo "📝 Creating migration in Docker: {{MESSAGE}}"
+    docker-compose exec api uv run alembic revision --autogenerate -m "{{MESSAGE}}"
+
+# Rollback last migration inside Docker container
+docker-rollback:
+    @echo "↩️  Rolling back migration in Docker..."
+    docker-compose exec api uv run alembic downgrade -1
+
+# Reset database inside Docker container
+[confirm("⚠️  This will reset the database in Docker. Continue?")]
+docker-reset:
+    @echo "🔄 Resetting database in Docker..."
+    docker-compose exec api uv run alembic downgrade base
+    docker-compose exec api uv run alembic upgrade head
+
+# Seed database inside Docker container
+docker-seed:
+    @echo "🌱 Seeding database in Docker..."
+    docker-compose exec api uv run python src/scripts/seed_data.py
+
+# Reset and seed database inside Docker container
+[confirm("⚠️  This will reset and seed the database in Docker. Continue?")]
+docker-refresh:
+    @echo "🔄 Refreshing database in Docker..."
+    docker-compose exec api uv run alembic downgrade base
+    docker-compose exec api uv run alembic upgrade head
+    docker-compose exec api uv run python src/scripts/seed_data.py
+    @echo "✅ Database refreshed in Docker!"
 
 # Clean Python cache files
 clean:
@@ -121,17 +165,11 @@ install:
 add PACKAGE:
     uv add {{PACKAGE}}
 
-# Run all database tests
-test-db: db-test
-    @echo "✅ Database tests passed"
-
-# Full check (db + api health)
-check: db-test health
-    @echo "✅ All checks passed"
-
 # Show environment info
 info:
     @echo "📊 Environment Info:"
     @echo "Python: $(python --version)"
     @echo "UV: $(uv --version)"
-    @echo "Database: $(grep DATABASE_URL .env | cut -d= -f2 | cut -d@ -f2 | cut -d/ -f1)"
+    @echo ""
+    @echo "🗄️  Database Migration Status:"
+    @uv run alembic current 2>/dev/null || echo "Not initialized"

@@ -12,13 +12,9 @@ class StudySessionBase(SQLModel):
     session_date: date = Field(index=True)
     duration_minutes: int = Field(default=0)
     cards_studied: int = Field(default=0)
-    cards_new: int = Field(default=0)
-    cards_reviewed: int = Field(default=0)
     correct_answers: int = Field(default=0)
     wrong_answers: int = Field(default=0)
     accuracy_rate: float = Field(default=0.0)
-    average_response_time: int = Field(default=0)  # in seconds
-    device_type: Optional[str] = Field(default=None, max_length=50)  # mobile/tablet/desktop
 
 
 class StudySession(StudySessionBase, table=True):
@@ -53,9 +49,6 @@ class StudySessionUpdate(SQLModel):
     ended_at: Optional[datetime] = None
     duration_minutes: Optional[int] = None
     cards_studied: Optional[int] = None
-    cards_new: Optional[int] = None
-    cards_reviewed: Optional[int] = None
     correct_answers: Optional[int] = None
     wrong_answers: Optional[int] = None
     accuracy_rate: Optional[float] = None
-    average_response_time: Optional[int] = None

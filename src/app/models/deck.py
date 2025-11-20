@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -24,8 +24,6 @@ class Deck(DeckBase, TimestampMixin, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True, nullable=False)
     creator_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
-    card_count: int = Field(default=0)
-    learning_count: int = Field(default=0)
 
 
 class DeckCreate(DeckBase):
@@ -39,8 +37,6 @@ class DeckRead(DeckBase):
 
     id: int
     creator_id: Optional[int] = None
-    card_count: int
-    learning_count: int
     created_at: datetime
     updated_at: Optional[datetime] = None
 

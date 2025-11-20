@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.auth import router as auth_router
 from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
-from app.models.sync_queue import SyncQueueCreate, SyncQueueRead, SyncQueueUpdate
 from app.models.user import User, UserRead, UserUpdate
 from app.models.user_card_progress import ReviewRequest, ReviewResponse, UserCardProgressRead
 from app.models.vocabulary_card import (
@@ -17,7 +16,6 @@ from app.models.vocabulary_card import (
     VocabularyCardRead,
     VocabularyCardUpdate,
 )
-from app.services.sync_queue_service import SyncQueueService
 from app.services.user_card_progress_service import UserCardProgressService
 from app.services.user_service import UserService
 from app.services.vocabulary_card_service import VocabularyCardService
@@ -300,110 +298,3 @@ async def get_card_progress(
             detail="Progress not found for this card",
         )
     return progress
-
-
-# ============================================================================
-# SYNC QUEUE ENDPOINTS
-# ============================================================================
-
-
-@router.post("/sync", response_model=SyncQueueRead, status_code=status.HTTP_201_CREATED)
-async def enqueue_sync_operation(
-    queue_data: SyncQueueCreate,
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
-):
-    """Enqueue a sync operation (requires authentication)."""
-    # Ensure user_id matches current user
-    if queue_data.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Can only create sync operations for yourself",
-        )
-
-    queue_entry = await SyncQueueService.enqueue_operation(session, queue_data)
-    return queue_entry
-
-
-@router.get("/sync/pending", response_model=list[SyncQueueRead])
-async def get_pending_sync_operations(
-    limit: int = Query(default=100, ge=1, le=100),
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
-):
-    """Get pending sync operations (requires authentication)."""
-    operations = await SyncQueueService.get_pending_operations(
-        session, current_user.id, limit=limit
-    )
-    return operations
-
-
-@router.get("/sync/failed", response_model=list[SyncQueueRead])
-async def get_failed_sync_operations(
-    limit: int = Query(default=100, ge=1, le=100),
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
-):
-    """Get failed sync operations (requires authentication)."""
-    operations = await SyncQueueService.get_failed_operations(
-        session, current_user.id, limit=limit
-    )
-    return operations
-
-
-@router.patch("/sync/{sync_id}", response_model=SyncQueueRead)
-async def update_sync_operation(
-    sync_id: int,
-    queue_data: SyncQueueUpdate,
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
-):
-    """Update a sync operation (requires authentication)."""
-    # Get the sync entry to verify ownership
-    sync_entry = await SyncQueueService.get_queue_entry(session, sync_id)
-    if not sync_entry:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sync operation not found",
-        )
-
-    # Verify user owns this sync operation
-    if sync_entry.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this sync operation",
-        )
-
-    updated_entry = await SyncQueueService.update_queue_entry(session, sync_id, queue_data)
-    return updated_entry
-
-
-@router.delete("/sync/{sync_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sync_operation(
-    sync_id: int,
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
-):
-    """Delete a sync operation (requires authentication)."""
-    # Get the sync entry to verify ownership
-    sync_entry = await SyncQueueService.get_queue_entry(session, sync_id)
-    if not sync_entry:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sync operation not found",
-        )
-
-    # Verify user owns this sync operation
-    if sync_entry.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this sync operation",
-        )
-
-    success = await SyncQueueService.delete_queue_entry(session, sync_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sync operation not found",
-        )
-    return None

@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlmodel import Column, Enum, Field, ForeignKey, JSON, SQLModel, UniqueConstraint
+from sqlmodel import Column, Enum, Field, JSON, SQLModel, UniqueConstraint
 
 from app.models.base import TimestampMixin
 
@@ -23,7 +23,6 @@ class UserCardProgressBase(SQLModel):
     card_id: int = Field(foreign_key="vocabulary_cards.id", index=True)
 
     # FSRS Algorithm Parameters
-    easiness_factor: float = Field(default=2.5)  # SM-2 compatibility (deprecated in FSRS)
     interval: int = Field(default=0)  # Days until next review
     repetitions: int = Field(default=0)  # Number of successful reviews
 
@@ -32,7 +31,6 @@ class UserCardProgressBase(SQLModel):
     correct_count: int = Field(default=0)
     wrong_count: int = Field(default=0)
     accuracy_rate: float = Field(default=0.0)
-    average_response_time: int = Field(default=0)  # in seconds
 
     # FSRS Extended Parameters
     stability: Optional[float] = Field(default=0.0)  # Memory stability
@@ -41,7 +39,6 @@ class UserCardProgressBase(SQLModel):
 
     # Additional FSRS fields for py-fsrs compatibility
     lapses: int = Field(default=0)  # Number of times forgotten
-    reps_since_lapse: int = Field(default=0)  # Successful reps since last lapse
     elapsed_days: int = Field(default=0)  # Days between reviews
 
 
@@ -64,7 +61,6 @@ class UserCardProgress(UserCardProgressBase, TimestampMixin, table=True):
 
     # Milestone Dates
     first_studied_at: Optional[datetime] = Field(default=None)
-    mastered_at: Optional[datetime] = Field(default=None)
 
     # Quality History (JSONB)
     # Format: [{"date": "2024-01-01T10:00:00Z", "quality": 3, "interval": 1, "stability": 2.5, "difficulty": 5.0}, ...]
@@ -94,7 +90,6 @@ class UserCardProgressRead(UserCardProgressBase):
 class UserCardProgressUpdate(SQLModel):
     """Schema for updating user card progress."""
 
-    easiness_factor: Optional[float] = None
     interval: Optional[int] = None
     repetitions: Optional[int] = None
     next_review_date: Optional[datetime] = None

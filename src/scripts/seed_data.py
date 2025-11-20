@@ -7,6 +7,7 @@ This script adds:
 
 Run with: uv run python src/scripts/seed_data.py
 """
+
 import asyncio
 
 from sqlmodel import select

@@ -1,9 +1,3 @@
-from app.models.ai_interaction import (
-    AIInteraction,
-    AIInteractionCreate,
-    AIInteractionRead,
-    AIInteractionUpdate,
-)
 from app.models.base import TimestampMixin
 from app.models.deck import Deck, DeckCreate, DeckRead, DeckUpdate
 from app.models.study_session import (
@@ -12,15 +6,7 @@ from app.models.study_session import (
     StudySessionRead,
     StudySessionUpdate,
 )
-from app.models.sync_queue import (
-    OperationType,
-    SyncQueue,
-    SyncQueueCreate,
-    SyncQueueRead,
-    SyncQueueUpdate,
-)
 from app.models.user import (
-    SubscriptionType,
     User,
     UserCreate,
     UserLogin,
@@ -53,7 +39,6 @@ __all__ = [
     "UserRead",
     "UserUpdate",
     "UserLogin",
-    "SubscriptionType",
     # VocabularyCard
     "VocabularyCard",
     "VocabularyCardCreate",
@@ -67,12 +52,6 @@ __all__ = [
     "CardState",
     "ReviewRequest",
     "ReviewResponse",
-    # SyncQueue
-    "SyncQueue",
-    "SyncQueueCreate",
-    "SyncQueueRead",
-    "SyncQueueUpdate",
-    "OperationType",
     # Deck
     "Deck",
     "DeckCreate",
@@ -88,9 +67,4 @@ __all__ = [
     "StudySessionCreate",
     "StudySessionRead",
     "StudySessionUpdate",
-    # AIInteraction
-    "AIInteraction",
-    "AIInteractionCreate",
-    "AIInteractionRead",
-    "AIInteractionUpdate",
 ]

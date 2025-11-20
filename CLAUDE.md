@@ -8,46 +8,173 @@ This is a FastAPI application using SQLModel (SQLAlchemy + Pydantic) for async d
 
 ## Common Commands
 
+This project uses [just](https://just.systems) as a command runner for convenience. Install it with `brew install just` (macOS) or see the [installation guide](https://just.systems/man/en/packages.html).
+
+### Quick Start with Just
+
+```bash
+# List all available commands
+just --list
+
+# Complete project setup (install deps, create .env)
+just setup
+
+# Start development server
+just dev
+
+# Apply database migrations
+just migrate
+
+# Create new migration
+just revision "description of changes"
+```
+
 ### Running the Application
 
 ```bash
-# Development mode with auto-reload
-uv run python main.py
+# Development server (recommended)
+just dev
 
-# Docker Compose (includes PostgreSQL)
+# Docker Compose
+just docker-up
+
+# Docker Compose (detached)
+just docker-up-d
+
+# View Docker logs
+just docker-logs
+
+# Stop Docker containers
+just docker-down
+
+# Raw commands (if not using just)
+uv run python src/main.py
 docker-compose up --build
-
-# Run migrations inside Docker
-docker-compose exec api uv run alembic upgrade head
 ```
 
-### Database Migrations
+### Database Migrations with Just
 
 ```bash
-# Create a new migration after model changes
-uv run alembic revision --autogenerate -m "description"
+# Apply all pending migrations
+just migrate
 
-# Apply migrations
-uv run alembic upgrade head
+# Create new migration with auto-generated changes
+just revision "add user profile fields"
 
 # Rollback last migration
-uv run alembic downgrade -1
+just rollback
+
+# Rollback to specific revision
+just downgrade-to <revision_id>
 
 # View migration history
+just history
+
+# Show current revision
+just current
+
+# Show head revision
+just heads
+
+# List all migration files
+just migrations
+
+# View latest migration file content
+just migration-latest
+
+# Check for pending migrations
+just check-migrations
+
+# Show specific migration details
+just show <revision_id>
+
+# Reset database (⚠️ destructive - requires confirmation)
+just reset
+
+# Merge multiple heads
+just merge "merge description"
+
+# Stamp database to specific revision (⚠️ advanced)
+just stamp <revision_id>
+```
+
+### Database Operations
+
+```bash
+# Seed database with sample data
+just db-seed
+
+# Reset and seed database (⚠️ requires confirmation)
+just db-refresh
+
+# Test database connection
+just db-test
+
+# Raw commands (if not using just)
+uv run alembic upgrade head
+uv run alembic revision --autogenerate -m "description"
+uv run alembic downgrade -1
 uv run alembic history
+uv run python src/scripts/seed_data.py
+```
+
+### Docker Database Operations
+
+```bash
+# Apply migrations inside Docker
+just docker-migrate
+
+# Create migration inside Docker
+just docker-revision "description"
+
+# Rollback inside Docker
+just docker-rollback
+
+# Show current revision inside Docker
+just docker-current
+
+# Show migration history inside Docker
+just docker-history
+
+# Reset database inside Docker (⚠️ requires confirmation)
+just docker-reset
+
+# Seed database inside Docker
+just docker-seed
+
+# Reset and seed inside Docker (⚠️ requires confirmation)
+just docker-refresh
 ```
 
 ### Dependencies
 
 ```bash
+# Install/sync all dependencies
+just install
+
 # Add a new dependency
-uv add <package-name>
+just add <package-name>
 
-# Add a development dependency
-uv add --dev <package-name>
-
-# Sync dependencies
+# Raw commands (if not using just)
 uv sync
+uv add <package-name>
+uv add --dev <package-name>
+```
+
+### Utility Commands
+
+```bash
+# Show environment and database info
+just info
+
+# Clean Python cache files
+just clean
+
+# Test database connection
+just db-test
+
+# Check API health (requires server running)
+just health
 ```
 
 ## Architecture
@@ -124,6 +251,83 @@ Alembic is configured to work with SQLModel's async engine:
 
 **Critical**: When adding new models, import them in `app/models/__init__.py` so Alembic detects them.
 
+### Using Justfile (Command Runner)
+
+The project uses [just](https://just.systems) as a command runner to simplify common development tasks. All commands are defined in the `justfile` at the project root.
+
+**Installation**:
+
+```bash
+# macOS
+brew install just
+
+# Linux
+cargo install just
+
+# See https://just.systems/man/en/packages.html for other options
+```
+
+**Key Features**:
+
+- **Safety Confirmations**: Destructive operations like `reset`, `db-refresh`, `stamp` require confirmation
+- **Smart Defaults**: Commands use sensible defaults and handle common cases automatically
+- **Organized Categories**: Commands grouped by purpose (migrations, database ops, Docker, utilities)
+- **Both Environments**: Separate commands for local (`just migrate`) and Docker (`just docker-migrate`)
+- **Visibility**: `just --list` shows all available commands with descriptions
+
+**Common Patterns**:
+
+```bash
+# Local development workflow
+just dev                                    # Start dev server
+just revision "add feature"                 # Create migration
+just migrate                                # Apply migration
+
+# Docker workflow
+just docker-up                              # Start containers
+just docker-revision "add feature"          # Create migration in Docker
+just docker-migrate                         # Apply migration in Docker
+
+# Checking migration status
+just check-migrations                       # Check if migrations pending
+just info                                   # Environment info + migration status
+just current                                # Current revision
+just heads                                  # Head revision
+
+# Advanced Alembic operations
+just downgrade-to abc123                    # Downgrade to specific revision
+just show abc123                            # Show migration details
+just merge "merge branches"                 # Merge multiple heads
+just stamp abc123                           # Mark DB at revision (⚠️ advanced)
+```
+
+**Confirmation-Required Commands**:
+
+These commands require explicit confirmation before running:
+
+- `just reset` - Downgrades to base then upgrades to head
+- `just db-refresh` - Resets and seeds database
+- `just stamp <revision>` - Stamps without running migrations (dangerous)
+- `just docker-reset` - Resets database in Docker
+- `just docker-refresh` - Resets and seeds in Docker
+
+**Adding Custom Commands**:
+
+Edit the `justfile` to add project-specific commands:
+
+```just
+# Example: Run tests with coverage
+test:
+    @echo "Running tests with coverage..."
+    uv run pytest --cov=app tests/
+
+# Example: Format code
+format:
+    @echo "Formatting code..."
+    uv run black app/
+    uv run isort app/
+```
+
 ## Development Patterns
 
 ### Adding a New Model/Entity
@@ -132,8 +336,19 @@ Alembic is configured to work with SQLModel's async engine:
 2. Import model in `app/models/__init__.py`
 3. Create service in `app/services/` with CRUD operations
 4. Add routes in `app/api/routes.py` using the service
-5. Generate migration: `uv run alembic revision --autogenerate -m "add entity"`
-6. Review and apply migration: `uv run alembic upgrade head`
+5. Generate migration: `just revision "add entity"` (or `uv run alembic revision --autogenerate -m "add entity"`)
+6. Review and apply migration: `just migrate` (or `uv run alembic upgrade head`)
+
+**Example workflow**:
+
+```bash
+# After creating model and service files
+just revision "add product model"
+just migrations                    # View migration files
+just migration-latest              # Review generated migration
+just migrate                       # Apply if looks good
+just current                       # Verify migration applied
+```
 
 ### Database Queries
 
@@ -533,9 +748,14 @@ OSError: Connect call failed
 **Solution**: Ensure PostgreSQL is running:
 
 ```bash
-docker-compose up -d db  # Start just the database
-# or
-pg_ctl start  # If using local PostgreSQL
+# Using just
+just docker-up          # Start all containers including database
+
+# Or using raw docker-compose
+docker-compose up -d db # Start just the database
+
+# Or if using local PostgreSQL
+pg_ctl start
 ```
 
 **2. Migration Autogenerate Not Detecting Changes**
@@ -772,6 +992,7 @@ review_result = response.json()
 3. **Use dependency injection** for session and auth
 4. **Import models in `__init__.py`** for Alembic detection
 5. **Use type hints** with `Annotated` for FastAPI dependencies
+6. **Prefer just commands** - Use `just <command>` instead of raw commands when available (e.g., `just migrate` instead of `uv run alembic upgrade head`)
 
 ### Security Checklist
 
@@ -787,9 +1008,21 @@ review_result = response.json()
 - [ ] Use indexes on frequently queried fields (id, foreign keys, status fields)
 - [ ] Add unique constraints where appropriate
 - [ ] Use CASCADE for foreign key deletions where appropriate
-- [ ] Review migrations before applying (`uv run alembic upgrade head`)
+- [ ] Review migrations before applying (`just migration-latest` then `just migrate`)
+- [ ] Check for pending migrations regularly (`just check-migrations`)
+- [ ] Always test migrations in development before production
 - [ ] Use `scalar_one_or_none()` for single results (returns None if not found)
 - [ ] Use `scalars().all()` for multiple results
+
+### Migration Workflow Best Practices
+
+- [ ] After creating/modifying models, run `just revision "descriptive message"`
+- [ ] Review generated migration with `just migration-latest`
+- [ ] Verify current state with `just current` before applying
+- [ ] Apply migration with `just migrate`
+- [ ] Confirm application with `just check-migrations`
+- [ ] Never edit applied migrations - create new ones instead
+- [ ] Use descriptive migration messages (e.g., "add user profile fields" not "update user")
 
 ### FSRS Integration Checklist
 
@@ -810,9 +1043,45 @@ review_result = response.json()
 
 ## Quick Reference Commands
 
+### Most Common Just Commands
+
+```bash
+# View all available commands
+just --list
+
+# Development workflow
+just dev                              # Start development server
+just revision "your message"          # Create new migration
+just migrate                          # Apply migrations
+just check-migrations                 # Check for pending migrations
+just db-seed                          # Seed database
+
+# Docker workflow
+just docker-up                        # Start Docker containers
+just docker-migrate                   # Apply migrations in Docker
+just docker-seed                      # Seed database in Docker
+just docker-logs                      # View logs
+just docker-down                      # Stop containers
+
+# Database management
+just reset                            # Reset database (⚠️ confirmation required)
+just db-refresh                       # Reset and seed (⚠️ confirmation required)
+just rollback                         # Rollback last migration
+just history                          # View migration history
+just current                          # Show current revision
+
+# Utilities
+just info                             # Show environment info
+just db-test                          # Test database connection
+just health                           # Check API health
+just clean                            # Clean Python cache
+```
+
+### Raw Commands (Without Just)
+
 ```bash
 # Start development server
-uv run python main.py
+uv run python src/main.py
 
 # Start with Docker
 docker-compose up --build

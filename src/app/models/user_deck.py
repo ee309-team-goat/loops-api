@@ -12,13 +12,9 @@ class UserDeckBase(SQLModel):
     user_id: int = Field(foreign_key="users.id", index=True)
     deck_id: int = Field(foreign_key="decks.id", index=True)
     is_active: bool = Field(default=True)
-    cards_new: int = Field(default=0)
-    cards_learning: int = Field(default=0)
-    cards_review: int = Field(default=0)
-    progress_percentage: float = Field(default=0.0)
 
 
-class UserDeck(UserDeckBase, table=True):
+class UserDeck(UserDeckBase, TimestampMixin, table=True):
     """UserDeck database model for user-deck relationships."""
 
     __tablename__ = "user_decks"
@@ -41,14 +37,12 @@ class UserDeckRead(UserDeckBase):
     id: int
     started_at: datetime
     last_studied_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
 
 class UserDeckUpdate(SQLModel):
     """Schema for updating a user-deck relationship."""
 
     is_active: Optional[bool] = None
-    cards_new: Optional[int] = None
-    cards_learning: Optional[int] = None
-    cards_review: Optional[int] = None
-    progress_percentage: Optional[float] = None
     last_studied_at: Optional[datetime] = None

@@ -22,8 +22,6 @@ from app.models.schemas import (
     DeckRead,
     DeckUpdate,
     ReviewRequest,
-    UserCreate,
-    UserLogin,
     UserRead,
     UserUpdate,
     UserCardProgressCreate,
@@ -49,10 +47,8 @@ __all__ = [
     "UserCardProgressBase",
     "DeckBase",
     # User Schemas
-    "UserCreate",
     "UserRead",
     "UserUpdate",
-    "UserLogin",
     # VocabularyCard Schemas
     "VocabularyCardCreate",
     "VocabularyCardRead",

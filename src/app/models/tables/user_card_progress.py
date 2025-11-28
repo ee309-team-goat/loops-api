@@ -1,0 +1,47 @@
+from datetime import datetime
+from typing import Any, Optional
+
+from sqlmodel import Column, Enum, Field, JSON, SQLModel, UniqueConstraint
+
+from app.models.base import TimestampMixin
+from app.models.enums import CardState
+
+
+class UserCardProgressBase(SQLModel):
+    """Base UserCardProgress model with shared fields."""
+
+    user_id: int = Field(foreign_key="users.id", index=True)
+    card_id: int = Field(foreign_key="vocabulary_cards.id", index=True)
+
+    # FSRS Algorithm Parameters
+    interval: int = Field(default=0)
+    repetitions: int = Field(default=0)
+
+    # Statistics
+    total_reviews: int = Field(default=0)
+    correct_count: int = Field(default=0)
+
+    # FSRS Extended Parameters
+    stability: Optional[float] = Field(default=0.0)
+    difficulty: Optional[float] = Field(default=5.0)
+    scheduled_days: int = Field(default=0)
+    lapses: int = Field(default=0)
+    elapsed_days: int = Field(default=0)
+
+
+class UserCardProgress(UserCardProgressBase, TimestampMixin, table=True):
+    """UserCardProgress database model for tracking FSRS progress."""
+
+    __tablename__ = "user_card_progress"
+    __table_args__ = (UniqueConstraint("user_id", "card_id", name="uq_user_card"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True, nullable=False)
+
+    next_review_date: datetime = Field(index=True)
+    last_review_date: Optional[datetime] = Field(default=None)
+
+    card_state: CardState = Field(
+        default=CardState.NEW, sa_column=Column(Enum(CardState), nullable=False, index=True)
+    )
+
+    quality_history: Optional[dict[str, Any] | list[Any]] = Field(default=None, sa_column=Column(JSON))

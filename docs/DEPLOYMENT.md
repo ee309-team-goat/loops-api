@@ -123,7 +123,7 @@ curl http://localhost:8000/health
 ### docker-compose.yaml (프로덕션 최적화)
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   api:
@@ -467,7 +467,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install UV
         run: curl -LsSf https://astral.sh/uv/install.sh | sh

@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.security import decode_access_token
 from app.database import get_session
-from app.models.user import User
+from app.models import User
 from app.services.user_service import UserService
 
 # OAuth2 scheme for token extraction from Authorization header

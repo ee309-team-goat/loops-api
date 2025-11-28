@@ -67,6 +67,7 @@ CREATE INDEX ix_users_username ON users(username);
 ```
 
 **주요 필드:**
+
 - `subscription_type`: free, premium, enterprise
 - `current_streak`: 연속 학습 일수
 - `last_study_date`: 마지막 학습 날짜 (streak 계산용)
@@ -101,6 +102,7 @@ CREATE INDEX ix_cards_deck_id ON vocabulary_cards(deck_id);
 ```
 
 **JSONB 필드:**
+
 - `example_sentences`: 예문 배열
 - `synonyms`, `antonyms`, `related_words`: 관련 단어 배열
 - `collocations`: 연어(collocation) 배열
@@ -152,6 +154,7 @@ CREATE INDEX ix_progress_card_state ON user_card_progress(card_state);
 ```
 
 **FSRS 필드 설명:**
+
 - `stability`: 기억 안정성 (FSRS 계산값)
 - `difficulty`: 난이도 1-10
 - `card_state`: NEW, LEARNING, REVIEW, RELEARNING

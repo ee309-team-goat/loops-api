@@ -1,30 +1,33 @@
+# Base
 from app.models.base import TimestampMixin
-from app.models.deck import Deck, DeckCreate, DeckRead, DeckUpdate
-from app.models.study_session import (
-    StudySession,
-    StudySessionCreate,
-    StudySessionRead,
-    StudySessionUpdate,
-)
-from app.models.user import (
+
+# Enums
+from app.models.enums import CardState
+
+# Tables (DB Models) - includes Base classes
+from app.models.tables import (
+    Deck,
+    DeckBase,
     User,
+    UserBase,
+    UserCardProgress,
+    UserCardProgressBase,
+    VocabularyCard,
+    VocabularyCardBase,
+)
+
+# Schemas (DTOs)
+from app.models.schemas import (
+    DeckCreate,
+    DeckRead,
+    DeckUpdate,
+    ReviewRequest,
     UserCreate,
     UserLogin,
     UserRead,
     UserUpdate,
-)
-from app.models.user_card_progress import (
-    CardState,
-    ReviewRequest,
-    ReviewResponse,
-    UserCardProgress,
     UserCardProgressCreate,
     UserCardProgressRead,
-    UserCardProgressUpdate,
-)
-from app.models.user_deck import UserDeck, UserDeckCreate, UserDeckRead, UserDeckUpdate
-from app.models.vocabulary_card import (
-    VocabularyCard,
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
@@ -33,38 +36,33 @@ from app.models.vocabulary_card import (
 __all__ = [
     # Base
     "TimestampMixin",
-    # User
+    # Enums
+    "CardState",
+    # Tables
     "User",
+    "VocabularyCard",
+    "UserCardProgress",
+    "Deck",
+    # Base classes (from tables)
+    "UserBase",
+    "VocabularyCardBase",
+    "UserCardProgressBase",
+    "DeckBase",
+    # User Schemas
     "UserCreate",
     "UserRead",
     "UserUpdate",
     "UserLogin",
-    # VocabularyCard
-    "VocabularyCard",
+    # VocabularyCard Schemas
     "VocabularyCardCreate",
     "VocabularyCardRead",
     "VocabularyCardUpdate",
-    # UserCardProgress
-    "UserCardProgress",
+    # UserCardProgress Schemas
     "UserCardProgressCreate",
     "UserCardProgressRead",
-    "UserCardProgressUpdate",
-    "CardState",
     "ReviewRequest",
-    "ReviewResponse",
-    # Deck
-    "Deck",
+    # Deck Schemas
     "DeckCreate",
     "DeckRead",
     "DeckUpdate",
-    # UserDeck
-    "UserDeck",
-    "UserDeckCreate",
-    "UserDeckRead",
-    "UserDeckUpdate",
-    # StudySession
-    "StudySession",
-    "StudySessionCreate",
-    "StudySessionRead",
-    "StudySessionUpdate",
 ]

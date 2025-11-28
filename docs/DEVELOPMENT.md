@@ -80,21 +80,25 @@ loops-api/
 ### 주요 디렉토리 설명
 
 #### `src/app/models/`
+
 - SQLModel 기반 데이터베이스 모델
 - 각 모델은 Base, Table, Create, Read, Update 스키마로 구성
 - `__init__.py`에 모든 모델을 등록해야 Alembic이 감지 가능
 
 #### `src/app/services/`
+
 - 비즈니스 로직을 담당하는 서비스 레이어
 - Static 메서드 사용 (인스턴스 상태 없음)
 - 각 모델에 대응하는 서비스 클래스
 
 #### `src/app/api/`
+
 - FastAPI 라우터 및 엔드포인트
 - `auth.py`: 인증 관련 엔드포인트
 - `routes.py`: 메인 라우터 (모든 엔드포인트 등록)
 
 #### `src/alembic/`
+
 - 데이터베이스 마이그레이션 파일
 - `versions/`: 마이그레이션 파일들
 - `env.py`: Alembic 설정 (비동기 지원)
@@ -146,12 +150,14 @@ just dev
 ### IDE 설정
 
 **VS Code 추천 확장:**
+
 - Python
 - Pylance
 - SQLTools
 - Thunder Client (API 테스트)
 
 **설정 (.vscode/settings.json):**
+
 ```json
 {
   "python.linting.enabled": true,
@@ -172,6 +178,7 @@ just dev
 **Step 1: 모델 파일 생성**
 
 `src/app/models/your_entity.py`:
+
 ```python
 from sqlmodel import SQLModel, Field
 from typing import Optional
@@ -212,6 +219,7 @@ class YourEntityUpdate(SQLModel):
 **Step 2: 모델 등록**
 
 `src/app/models/__init__.py`에 추가:
+
 ```python
 from app.models.your_entity import (
     YourEntity,
@@ -240,6 +248,7 @@ just migrate           # 적용
 ### 2. 서비스 레이어 추가
 
 `src/app/services/your_entity_service.py`:
+
 ```python
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -320,6 +329,7 @@ class YourEntityService:
 ### 3. API 엔드포인트 추가
 
 `src/app/api/routes.py`에 추가:
+
 ```python
 from typing import Annotated
 from fastapi import Depends, HTTPException

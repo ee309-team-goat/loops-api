@@ -31,6 +31,7 @@
 ### 2. 프로젝트 설정
 
 **Settings > General**:
+
 - **Visibility**: Private (팀 내부용) 또는 Public (오픈소스)
 - **Description**: "FSRS 기반 영어 학습 플랫폼 백엔드 API 개발 관리"
 - **README**: 프로젝트 개요 및 현재 진행 상황 작성
@@ -149,18 +150,21 @@ gh issue create \
 Epic(대형 작업)을 관리하는 방법:
 
 **방법 1: 이슈 라벨 사용**
+
 ```
 라벨: epic:database-migration
 관련 이슈들에 동일한 epic 라벨 추가
 ```
 
 **방법 2: Milestones 사용**
+
 ```
 Milestone: "Core Infrastructure"
 관련 이슈들을 마일스톤에 할당
 ```
 
 **방법 3: Tracking Issue (추천)**
+
 ```
 타이틀: "[EPIC] 데이터베이스 마이그레이션"
 본문에 체크리스트로 관련 이슈 링크:
@@ -352,13 +356,16 @@ jobs:
 # Backend Issue #15: User Authentication API
 
 ## Description
+
 JWT 기반 사용자 인증 API 구현
 
 ## Frontend Dependencies
+
 - 프론트엔드 이슈: username/loops-fe#23
 - API 명세: [링크]
 
 ## API Endpoints
+
 - POST /api/v1/auth/login
 - POST /api/v1/auth/register
 - GET /api/v1/auth/me
@@ -370,9 +377,11 @@ JWT 기반 사용자 인증 API 구현
 # Frontend Issue #23: Login Page Implementation
 
 ## Description
+
 로그인 페이지 UI 및 API 연동
 
 ## Backend Dependencies
+
 - 백엔드 이슈: username/loops-api#15
 - Blocked until: API 엔드포인트 완료
 ```

@@ -143,6 +143,7 @@ Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `skip` (int, optional): 건너뛸 레코드 수 (기본값: 0)
 - `limit` (int, optional): 반환할 최대 레코드 수 (기본값: 100)
 
@@ -221,9 +222,7 @@ Authorization: Bearer <token>
   "definition_en": "A polite greeting in Korean",
   "difficulty_level": 1,
   "cefr_level": "A1",
-  "example_sentences": [
-    "안녕하세요, 만나서 반갑습니다."
-  ],
+  "example_sentences": ["안녕하세요, 만나서 반갑습니다."],
   "synonyms": ["여보세요"],
   "usage_notes": "Formal greeting used in most situations"
 }
@@ -256,6 +255,7 @@ Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `skip` (int, optional): 건너뛸 레코드 수
 - `limit` (int, optional): 최대 반환 레코드 수
 - `difficulty_level` (int, optional): 난이도 필터 (1-10)
@@ -271,6 +271,7 @@ Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `q` (string, required): 검색어 (한국어 단어 또는 의미에서 검색)
 - `limit` (int, optional): 최대 결과 수 (기본값: 20)
 
@@ -346,6 +347,7 @@ Authorization: Bearer <token>
 ```
 
 **Rating 값:**
+
 - `1` - Again (완전히 잊음)
 - `2` - Hard (어렵게 기억)
 - `3` - Good (적당히 기억)
@@ -387,6 +389,7 @@ Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `limit` (int, optional): 최대 카드 수 (기본값: 20)
 
 **Response (200 OK):**

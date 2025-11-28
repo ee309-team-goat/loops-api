@@ -10,7 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.dependencies import CurrentActiveUser
 from app.core.security import create_access_token
 from app.database import get_session
-from app.models.user import User, UserCreate, UserRead
+from app.models import User, UserCreate, UserRead
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -21,20 +21,7 @@ async def register(
     user_data: UserCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> User:
-    """
-    Register a new user.
-
-    Args:
-        user_data: User registration data
-        session: Database session
-
-    Returns:
-        Created user
-
-    Raises:
-        HTTPException: If email or username already exists
-    """
-    # Check if email already exists
+    """Register a new user."""
     existing_user = await UserService.get_user_by_email(session, user_data.email)
     if existing_user:
         raise HTTPException(
@@ -42,7 +29,6 @@ async def register(
             detail="Email already registered",
         )
 
-    # Check if username already exists
     existing_user = await UserService.get_user_by_username(session, user_data.username)
     if existing_user:
         raise HTTPException(
@@ -50,7 +36,6 @@ async def register(
             detail="Username already taken",
         )
 
-    # Create user
     user = await UserService.create_user(session, user_data)
     return user
 
@@ -60,20 +45,7 @@ async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, str]:
-    """
-    Login with username and password.
-
-    Args:
-        form_data: OAuth2 form data with username and password
-        session: Database session
-
-    Returns:
-        Access token and token type
-
-    Raises:
-        HTTPException: If authentication fails
-    """
-    # Authenticate user
+    """Login with username and password."""
     user = await UserService.authenticate_user(
         session, form_data.username, form_data.password
     )
@@ -85,12 +57,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Update last login
-    await UserService.update_last_login(session, user.id)
-
-    # Create access token
     access_token = create_access_token(data={"sub": str(user.id)})
-
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -98,13 +65,5 @@ async def login(
 async def get_current_user(
     current_user: CurrentActiveUser,
 ) -> User:
-    """
-    Get the current authenticated user.
-
-    Args:
-        current_user: Current authenticated user from dependency
-
-    Returns:
-        Current user
-    """
+    """Get the current authenticated user."""
     return current_user

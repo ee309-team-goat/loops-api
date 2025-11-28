@@ -25,8 +25,8 @@ async def seed_users(session: AsyncSession) -> None:
 
     # Check if users already exist
     statement = select(User).where(User.email == "test@example.com")
-    result = await session.execute(statement)
-    if result.scalar_one_or_none():
+    result = await session.exec(statement)
+    if result.one_or_none():
         print("  ⚠️  Users already exist, skipping...")
         return
 
@@ -71,8 +71,8 @@ async def seed_vocabulary_cards(session: AsyncSession) -> None:
 
     # Check if cards already exist
     statement = select(VocabularyCard).where(VocabularyCard.word == "contract")
-    result = await session.execute(statement)
-    if result.scalar_one_or_none():
+    result = await session.exec(statement)
+    if result.one_or_none():
         print("  ⚠️  Vocabulary cards already exist, skipping...")
         return
 

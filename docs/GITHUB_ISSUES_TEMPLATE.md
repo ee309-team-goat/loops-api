@@ -7,18 +7,21 @@
 ## 🏷️ Labels 목록 (먼저 생성)
 
 ### Priority
+
 - `priority: critical` 🔴
 - `priority: high` 🟠
 - `priority: medium` 🟡
 - `priority: low` 🟢
 
 ### Type
+
 - `type: feature` ✨
 - `type: enhancement` 🔧
 - `type: refactor` ♻️
 - `type: testing` 🧪
 
 ### Area
+
 - `area: database` 🗄️
 - `area: api` 🌐
 - `area: service` ⚙️
@@ -30,15 +33,19 @@
 ## 🎯 Milestones 목록 (먼저 생성)
 
 ### Milestone 1: Core Infrastructure
+
 **Status**: ✅ 완료
 
 ### Milestone 2: Database Migration
+
 **Due**: 최우선
 
 ### Milestone 3: Deck System
+
 **Due**: TBD
 
 ### Milestone 4: Analytics & AI
+
 **Due**: TBD
 
 ---
@@ -52,32 +59,40 @@
 ### Issue #1
 
 **Title:**
+
 ```
 Database migration to new schema
 ```
 
 **Labels:**
+
 ```
 priority: critical, type: refactor, area: database
 ```
 
 **Milestone:**
+
 ```
 Database Migration
 ```
 
 **Description:**
-```markdown
+
+````markdown
 ## 개요
+
 새로운 모델 스키마에 맞춰 데이터베이스 마이그레이션 수행
 
 ## 작업 내용
+
 - [ ] Docker Compose로 PostgreSQL 실행 확인
 - [ ] .env 파일의 DATABASE_URL 검증
 - [ ] Alembic 마이그레이션 파일 자동 생성
   ```bash
   just revision "update schema to match new models"
   ```
+````
+
 - [ ] 생성된 마이그레이션 파일 검토
 - [ ] 마이그레이션 적용
   ```bash
@@ -86,16 +101,20 @@ Database Migration
 - [ ] 데이터베이스 스키마 검증
 
 ## ⚠️ Breaking Changes
+
 - `User.last_study_date`: TIMESTAMP → DATE
 - `SyncQueue.is_synced`: INTEGER → BOOLEAN
 
 ## 검증
+
 - [ ] 모든 테이블 생성 확인
 - [ ] Foreign key 관계 확인
 - [ ] 인덱스 생성 확인
 
 ## 참고
+
 - [DATABASE.md](./docs/DATABASE.md)
+
 ```
 
 ---
@@ -104,18 +123,24 @@ Database Migration
 
 **Title:**
 ```
+
 Update SyncQueueService to use boolean for is_synced
+
 ```
 
 **Labels:**
 ```
+
 priority: critical, type: refactor, area: service
+
 ```
 
 **Milestone:**
 ```
+
 Database Migration
-```
+
+````
 
 **Description:**
 ```markdown
@@ -144,64 +169,76 @@ Database Migration
 
 ## 의존성
 Depends on: #1
-```
+````
 
 ---
 
 ### Issue #3
 
 **Title:**
+
 ```
 Test all existing API endpoints after migration
 ```
 
 **Labels:**
+
 ```
 priority: high, type: testing, area: api
 ```
 
 **Milestone:**
+
 ```
 Database Migration
 ```
 
 **Description:**
+
 ```markdown
 ## 개요
+
 마이그레이션 후 기존 API 엔드포인트 정상 작동 확인
 
 ## 테스트 대상
 
 ### Authentication
+
 - [ ] POST `/api/v1/auth/register`
 - [ ] POST `/api/v1/auth/login`
 - [ ] GET `/api/v1/auth/me`
 
 ### Users
+
 - [ ] GET `/api/v1/users`
 - [ ] GET `/api/v1/users/{id}`
 - [ ] PATCH `/api/v1/users/{id}`
 
 ### Vocabulary Cards
+
 - [ ] POST `/api/v1/cards`
 - [ ] GET `/api/v1/cards`
 - [ ] GET `/api/v1/cards/search?q=keyword`
 - [ ] PATCH `/api/v1/cards/{id}`
 
 ### User Card Progress (FSRS)
+
 - [ ] POST `/api/v1/progress/review`
 - [ ] GET `/api/v1/progress/user/{user_id}`
 - [ ] GET `/api/v1/progress/user/{user_id}/due`
 
 ### Sync Queue
+
 - [ ] POST `/api/v1/sync`
 - [ ] GET `/api/v1/sync/user/{user_id}/pending`
 - [ ] PATCH `/api/v1/sync/{id}/synced`
 
 ## 테스트 방법
+
 Swagger UI 사용: http://localhost:8000/docs
 
 ## 의존성
+
 Depends on: #1, #2
 ```
 
@@ -214,31 +251,38 @@ Depends on: #1, #2
 ### Issue #4
 
 **Title:**
+
 ```
 Implement DeckService for deck CRUD operations
 ```
 
 **Labels:**
+
 ```
 priority: high, type: feature, area: service
 ```
 
 **Milestone:**
+
 ```
 Deck System
 ```
 
 **Description:**
+
 ```markdown
 ## 개요
+
 덱 관리를 위한 서비스 레이어 구현
 
 ## 파일
+
 `src/app/services/deck_service.py` (신규 생성)
 
 ## 작업 내용
 
 ### CRUD 메서드
+
 - [ ] `create_deck(session, data)`
 - [ ] `get_deck(session, deck_id)`
 - [ ] `get_decks(session, skip, limit, filters)`
@@ -246,21 +290,25 @@ Deck System
 - [ ] `delete_deck(session, deck_id)`
 
 ### 필터링
+
 - [ ] 공개/비공개 덱 필터 (`is_public`)
 - [ ] 생성자별 필터 (`creator_id`)
 - [ ] 카드 수 기준 정렬
 
 ### 통계
+
 - [ ] `get_deck_statistics(session, deck_id)`
   - 총 카드 수
   - 학습 중인 카드 수
   - 평균 난이도
 
 ## 참고
+
 - `src/app/services/vocabulary_card_service.py`
 - `src/app/services/user_service.py`
 
 ## 테스트
+
 - [ ] CRUD 작업 테스트
 - [ ] 필터링 로직 테스트
 ```
@@ -270,31 +318,38 @@ Deck System
 ### Issue #5
 
 **Title:**
+
 ```
 Implement Deck API endpoints
 ```
 
 **Labels:**
+
 ```
 priority: high, type: feature, area: api
 ```
 
 **Milestone:**
+
 ```
 Deck System
 ```
 
 **Description:**
+
 ```markdown
 ## 개요
+
 덱 관리 REST API 엔드포인트 구현
 
 ## 파일
+
 `src/app/api/routes.py` (수정)
 
 ## 엔드포인트
 
 ### 기본 CRUD
+
 - [ ] `POST /api/v1/decks` - 덱 생성
 - [ ] `GET /api/v1/decks` - 덱 목록
   - Query: `is_public`, `creator_id`, `skip`, `limit`
@@ -303,16 +358,19 @@ Deck System
 - [ ] `DELETE /api/v1/decks/{deck_id}` - 덱 삭제 (생성자만)
 
 ### 추가 기능
+
 - [ ] `GET /api/v1/decks/public` - 공개 덱 목록
 - [ ] `GET /api/v1/decks/official` - 공식 덱 목록 (creator_id NULL)
 
 ## 요구사항
+
 - JWT 인증 필수
 - 권한 검증 (생성자만 수정/삭제)
 - 페이지네이션 지원
 - Response: `DeckRead` 스키마
 
 ## 의존성
+
 Depends on: #4
 ```
 
@@ -321,52 +379,63 @@ Depends on: #4
 ### Issue #6
 
 **Title:**
+
 ```
 Implement UserDeckService for user-deck relationships
 ```
 
 **Labels:**
+
 ```
 priority: high, type: feature, area: service
 ```
 
 **Milestone:**
+
 ```
 Deck System
 ```
 
 **Description:**
+
 ```markdown
 ## 개요
+
 사용자-덱 관계 및 진행률 관리 서비스
 
 ## 파일
+
 `src/app/services/user_deck_service.py` (신규 생성)
 
 ## 작업 내용
 
 ### 덱 구독 관리
+
 - [ ] `subscribe_deck(session, user_id, deck_id)`
   - `is_active = True` 설정
 - [ ] `unsubscribe_deck(session, user_id, deck_id)`
 - [ ] `get_user_decks(session, user_id, is_active=None)`
 
 ### 진행률 계산
+
 - [ ] `update_deck_progress(session, user_id, deck_id)`
 - [ ] `calculate_progress_percentage(session, user_id, deck_id)`
   - 진행률 = (완료 카드 / 전체 카드) × 100
 
 ### 카드 상태 집계
+
 - [ ] `get_deck_card_states(session, user_id, deck_id)`
   - NEW, LEARNING, REVIEW 카드 수 계산
   - `cards_new`, `cards_learning`, `cards_review` 업데이트
 
 ## 비즈니스 로직
+
 - 덱 구독 시 자동으로 `is_active = True`
 - 복습 완료 시 `last_studied_at` 자동 업데이트
 - 진행률 자동 계산
 
 ## 의존성
+
 Depends on: #4
 ```
 
@@ -375,44 +444,55 @@ Depends on: #4
 ### Issue #7
 
 **Title:**
+
 ```
 Implement UserDeck API endpoints
 ```
 
 **Labels:**
+
 ```
 priority: high, type: feature, area: api
 ```
 
 **Milestone:**
+
 ```
 Deck System
 ```
 
 **Description:**
-```markdown
+
+````markdown
 ## 개요
+
 사용자의 덱 관리 API 엔드포인트
 
 ## 파일
+
 `src/app/api/routes.py` (수정)
 
 ## 엔드포인트
 
 ### 내 덱 관리
+
 - [ ] `POST /api/v1/my/decks`
+
   - Body: `{ "deck_id": 1 }`
   - 덱 구독
 
 - [ ] `GET /api/v1/my/decks`
+
   - Query: `is_active` (optional)
   - 내 덱 목록
 
 - [ ] `GET /api/v1/my/decks/{deck_id}/stats`
+
   - 덱별 통계
   - Response: 진행률, 카드 상태별 수, 마지막 학습
 
 - [ ] `PATCH /api/v1/my/decks/{deck_id}`
+
   - Body: `{ "is_active": false }`
   - 덱 설정 변경
 
@@ -420,9 +500,11 @@ Deck System
   - 덱 구독 취소
 
 ## 권한
+
 - 현재 로그인한 사용자만 자신의 덱 관리 가능
 
 ## 응답 예시
+
 ```json
 {
   "deck_id": 1,
@@ -434,9 +516,12 @@ Deck System
   "last_studied_at": "2025-01-20T12:00:00Z"
 }
 ```
+````
 
 ## 의존성
+
 Depends on: #6
+
 ```
 
 ---
@@ -449,18 +534,24 @@ Depends on: #6
 
 **Title:**
 ```
+
 Implement StudySessionService for session tracking
+
 ```
 
 **Labels:**
 ```
+
 priority: medium, type: feature, area: service, area: analytics
+
 ```
 
 **Milestone:**
 ```
+
 Analytics & AI
-```
+
+````
 
 **Description:**
 ```markdown
@@ -496,12 +587,14 @@ Analytics & AI
 ```python
 duration_minutes = (end_time - start_time).total_seconds() / 60
 accuracy_rate = (correct_count / total_count) * 100
-```
+````
 
 ## 집계 기간
+
 - 일일: 오늘 (00:00 ~ 23:59)
 - 주간: 최근 7일
 - 월간: 최근 30일
+
 ```
 
 ---
@@ -510,18 +603,24 @@ accuracy_rate = (correct_count / total_count) * 100
 
 **Title:**
 ```
+
 Implement StudySession API endpoints
+
 ```
 
 **Labels:**
 ```
+
 priority: medium, type: feature, area: api, area: analytics
+
 ```
 
 **Milestone:**
 ```
+
 Analytics & AI
-```
+
+````
 
 **Description:**
 ```markdown
@@ -561,10 +660,12 @@ Analytics & AI
   "average_accuracy_rate": 87.5,
   "session_count": 2
 }
-```
+````
 
 ## 의존성
+
 Depends on: #8
+
 ```
 
 ---
@@ -577,18 +678,24 @@ Depends on: #8
 
 **Title:**
 ```
+
 Implement AIInteractionService for AI logging
+
 ```
 
 **Labels:**
 ```
+
 priority: low, type: feature, area: service, area: ai
+
 ```
 
 **Milestone:**
 ```
+
 Analytics & AI
-```
+
+````
 
 **Description:**
 ```markdown
@@ -626,7 +733,8 @@ AI 상호작용 로깅 및 분석 서비스
 input_cost = (tokens / 1000) * 0.0015
 output_cost = (tokens / 1000) * 0.002
 total_cost = input_cost + output_cost
-```
+````
+
 ```
 
 ---
@@ -635,18 +743,24 @@ total_cost = input_cost + output_cost
 
 **Title:**
 ```
+
 Implement AI interaction API endpoints
+
 ```
 
 **Labels:**
 ```
+
 priority: low, type: feature, area: api, area: ai
+
 ```
 
 **Milestone:**
 ```
+
 Analytics & AI
-```
+
+````
 
 **Description:**
 ```markdown
@@ -688,15 +802,18 @@ async def generate_example(word: str) -> str:
         ]
     )
     return response.choices[0].message.content
-```
+````
 
 ## 요구사항
+
 - OpenAI API key 환경 변수 설정
 - 토큰 제한 관리
 - 에러 핸들링
 
 ## 의존성
+
 Depends on: #10
+
 ```
 
 ---
@@ -709,18 +826,24 @@ Depends on: #10
 
 **Title:**
 ```
+
 Add sample deck data to seed script
+
 ```
 
 **Labels:**
 ```
+
 priority: low, type: enhancement, area: database
+
 ```
 
 **Milestone:**
 ```
+
 Analytics & AI
-```
+
+````
 
 **Description:**
 ```markdown
@@ -769,7 +892,8 @@ user_deck = UserDeck(
     cards_review=50
 )
 session.add(user_deck)
-```
+````
+
 ```
 
 ---
@@ -782,18 +906,24 @@ session.add(user_deck)
 
 **Title:**
 ```
+
 Implement deck sharing and cloning features
+
 ```
 
 **Labels:**
 ```
+
 priority: low, type: feature, area: api
+
 ```
 
 **Milestone:**
 ```
+
 Future
-```
+
+````
 
 **Description:**
 ```markdown
@@ -821,50 +951,59 @@ Future
 - `POST /api/v1/decks/{id}/clone` - 덱 복제
 - `POST /api/v1/decks/merge` - 덱 병합
 - `GET /api/v1/decks/popular` - 인기 덱 (공유 횟수순)
-```
+````
 
 ---
 
 ### Issue #14
 
 **Title:**
+
 ```
 Implement learning pattern analysis and recommendations
 ```
 
 **Labels:**
+
 ```
 priority: low, type: feature, area: analytics, area: ai
 ```
 
 **Milestone:**
+
 ```
 Future
 ```
 
 **Description:**
+
 ```markdown
 ## 개요
+
 학습 패턴 분석 및 AI 기반 추천
 
 ## 분석 기능
 
 ### 취약 단어 감지
+
 - [ ] 정답률 낮은 카드 자동 필터링
 - [ ] 반복해서 틀리는 카드 감지
 - [ ] 취약 단어 목록 제공
 
 ### 학습 시간 분석
+
 - [ ] 시간대별 학습 효율 분석
 - [ ] 최적 학습 시간 추천
 - [ ] 학습 패턴 인사이트
 
 ### AI 추천
+
 - [ ] 복습 우선순위 제안
 - [ ] 맞춤형 학습 계획 생성
 - [ ] 유사 난이도 단어 추천
 
 ## API
+
 - `GET /api/v1/insights/weak-cards`
 - `GET /api/v1/insights/best-time`
 - `GET /api/v1/insights/recommendations`
@@ -875,42 +1014,51 @@ Future
 ### Issue #15
 
 **Title:**
+
 ```
 Implement comprehensive statistics dashboard API
 ```
 
 **Labels:**
+
 ```
 priority: low, type: feature, area: analytics
 ```
 
 **Milestone:**
+
 ```
 Future
 ```
 
 **Description:**
-```markdown
+
+````markdown
 ## 개요
+
 종합 학습 통계 대시보드 API
 
 ## 엔드포인트
 
 ### 개요
+
 - [ ] `GET /api/v1/dashboard/overview`
   - 전체 학습 현황 요약
   - 오늘/이번 주/이번 달 통계
 
 ### 상세 통계
+
 - [ ] `GET /api/v1/dashboard/daily` - 일일 리포트
 - [ ] `GET /api/v1/dashboard/weekly` - 주간 통계
 - [ ] `GET /api/v1/dashboard/monthly` - 월간 통계
 
 ### 목표 및 비교
+
 - [ ] `GET /api/v1/dashboard/goals` - 목표 달성률
 - [ ] `GET /api/v1/dashboard/compare` - 다른 사용자와 비교
 
 ## 포함 데이터
+
 - 학습 시간 추이 (차트용)
 - 카드 학습 진행률
 - 정답률 변화
@@ -918,6 +1066,7 @@ Future
 - 주간/월간 평균 비교
 
 ## 응답 예시
+
 ```json
 {
   "overview": {
@@ -932,6 +1081,8 @@ Future
   ]
 }
 ```
+````
+
 ```
 
 ---
@@ -966,3 +1117,4 @@ Future
 ---
 
 각 Issue를 복사해서 GitHub에 붙여넣으면 됩니다! 🚀
+```

@@ -20,6 +20,7 @@ Loops API 개발 중 발생할 수 있는 일반적인 문제와 해결 방법�
 ### 데이터베이스 연결 실패
 
 **증상:**
+
 ```
 OSError: Connect call failed
 sqlalchemy.exc.OperationalError: could not connect to server
@@ -58,6 +59,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.
 ### 데이터베이스가 없음
 
 **증상:**
+
 ```
 sqlalchemy.exc.OperationalError: database "loops" does not exist
 ```
@@ -81,6 +83,7 @@ just docker-up
 ### 권한 문제
 
 **증상:**
+
 ```
 psycopg2.OperationalError: FATAL: password authentication failed
 ```
@@ -106,6 +109,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:new_password@localhost:5432/loops
 ### 마이그레이션 자동 감지 안됨
 
 **증상:**
+
 ```
 INFO  [alembic.autogenerate.compare] Detected NULL
 ```
@@ -137,6 +141,7 @@ just revision "Add your_model"
 ### 마이그레이션 충돌
 
 **증상:**
+
 ```
 ERROR [alembic.util.messaging] Multiple head revisions are present
 ```
@@ -158,6 +163,7 @@ just migrate
 ### 마이그레이션 롤백 실패
 
 **증상:**
+
 ```
 ERROR [alembic.runtime.migration] Can't locate revision identified by...
 ```
@@ -182,6 +188,7 @@ just db-seed
 ### 마이그레이션 적용 오류
 
 **증상:**
+
 ```
 sqlalchemy.exc.ProgrammingError: relation "table_name" already exists
 ```
@@ -205,6 +212,7 @@ just migrate
 ### JWT 토큰 invalid 오류
 
 **증상:**
+
 ```
 HTTPException: Could not validate credentials
 401 Unauthorized
@@ -231,6 +239,7 @@ just dev
 ### 토큰 만료
 
 **증상:**
+
 ```
 Token has expired
 ```
@@ -250,6 +259,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60  # 기본값: 30분
 ### 비밀번호 해싱 오류
 
 **증상:**
+
 ```
 ValueError: Invalid salt
 ```
@@ -274,6 +284,7 @@ just dev
 ### Docker 컨테이너 시작 실패
 
 **증상:**
+
 ```
 ERROR: Cannot start service...
 ```
@@ -297,6 +308,7 @@ docker-compose up
 ### Docker 네트워크 오류
 
 **증상:**
+
 ```
 ERROR: Network loops-api_default declared as external, but could not be found
 ```
@@ -315,6 +327,7 @@ just docker-up
 ### Docker 볼륨 문제
 
 **증상:**
+
 ```
 데이터가 사라짐 또는 이전 데이터가 남아있음
 ```
@@ -357,6 +370,7 @@ docker-compose logs --tail=100
 ### ImportError: cannot import name
 
 **증상:**
+
 ```
 ImportError: cannot import name 'FSRS' from 'fsrs'
 ```
@@ -381,6 +395,7 @@ uv add --reinstall fsrs
 ### UV 동기화 오류
 
 **증상:**
+
 ```
 error: Failed to download distributions
 ```
@@ -403,6 +418,7 @@ uv add <패키지>
 ### Python 버전 불일치
 
 **증상:**
+
 ```
 ERROR: Python 3.12 is required
 ```
@@ -430,6 +446,7 @@ uv sync
 ### FSRS 계산 오류
 
 **증상:**
+
 ```
 TypeError: unsupported operand type(s)
 ```
@@ -451,6 +468,7 @@ uv add --upgrade fsrs
 ### Rating 값 오류
 
 **증상:**
+
 ```
 ValueError: Rating must be 1 (Again), 2 (Hard), 3 (Good), or 4 (Easy)
 ```
@@ -472,6 +490,7 @@ ValueError: Rating must be 1 (Again), 2 (Hard), 3 (Good), or 4 (Easy)
 ### 포트 이미 사용 중
 
 **증상:**
+
 ```
 OSError: [Errno 48] Address already in use
 ```
@@ -493,6 +512,7 @@ uvicorn.run("app.main:app", host="0.0.0.0", port=8001)
 ### CORS 오류
 
 **증상:**
+
 ```
 Access to fetch at '...' has been blocked by CORS policy
 ```
@@ -514,6 +534,7 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 ### 메모리 부족
 
 **증상:**
+
 ```
 MemoryError
 Out of memory
@@ -544,6 +565,7 @@ services:
 ### 느린 쿼리
 
 **증상:**
+
 ```
 응답 시간이 느림
 ```

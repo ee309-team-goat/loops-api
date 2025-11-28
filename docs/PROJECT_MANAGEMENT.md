@@ -37,6 +37,7 @@ Loops API 프로젝트를 효율적으로 관리하기 위한 실전 가이드�
 ```
 
 **프로젝트 URL 찾는 방법:**
+
 ```
 예: https://github.com/users/yourusername/projects/1
 여기서 YOUR_USERNAME = yourusername
@@ -109,15 +110,18 @@ gh issue create \
 # 좋은 이슈 본문의 특징:
 
 1. 명확한 설명
+
    - 무엇을 하려는지 한 문장으로 요약
    - 왜 필요한지 배경 설명
 
 2. 구체적인 요구사항
+
    - 체크리스트 형태로 작업 항목 나열
    - [ ] 첫 번째 작업
    - [ ] 두 번째 작업
 
 3. 기술적 세부사항
+
    - API 엔드포인트, 데이터베이스 스키마 등
    - 코드 블록 사용
 
@@ -200,22 +204,27 @@ gh pr create \
 
 ```markdown
 ## 📝 변경 사항
+
 FSRS 알고리즘 기반 카드 복습 스케줄링 API 추가
 
 ## 🔗 관련 이슈
+
 Closes #123
 
 ## 🎯 변경 타입
+
 - [x] ✨ Feature
 
 ## 🧪 테스트 방법
+
 \`\`\`bash
 curl -X POST http://localhost:8000/api/v1/progress/review \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"card_id": 1, "rating": 3}'
+ -H "Authorization: Bearer $TOKEN" \
+ -d '{"card_id": 1, "rating": 3}'
 \`\`\`
 
 ## ✅ 체크리스트
+
 - [x] 코드가 정상적으로 동작합니다
 - [x] 새로운 테스트를 추가했습니다
 - [x] API.md 문서를 업데이트했습니다

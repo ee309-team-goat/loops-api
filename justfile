@@ -16,7 +16,7 @@ setup:
 # Start development server
 dev:
     @echo "🚀 Starting development server..."
-    uv run python src/main.py
+    cd src && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run database migrations
 migrate:

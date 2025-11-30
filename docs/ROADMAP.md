@@ -12,7 +12,7 @@
 
 ### 핵심 플로우
 
-```
+```text
 홈 화면
 ├── 오늘의 목표 (예: 20개)
 ├── 오늘의 진행도 (예: 12/20)
@@ -129,6 +129,22 @@ CREATE TABLE user_selected_decks (
 | BE-F2 | `POST /api/v1/favorites/{card_id}`   | 즐겨찾기 추가 | ❌                 | 🟡 Med   |
 | BE-F3 | `DELETE /api/v1/favorites/{card_id}` | 즐겨찾기 제거 | ❌                 | 🟡 Med   |
 
+### ⚙️ 사용자 설정 API (BE-SET)
+
+| ID      | 엔드포인트                    | 설명                           | 상태 | 우선순위 |
+| ------- | ----------------------------- | ------------------------------ | ---- | -------- |
+| BE-SET1 | `GET /api/v1/users/me/config` | 사용자 설정 조회               | ❌   | 🟢 Low   |
+| BE-SET2 | `PUT /api/v1/users/me/config` | 사용자 설정 변경               | ❌   | 🟢 Low   |
+| BE-SET3 | User 테이블에 설정 필드 추가  | timezone, theme, notification  | ❌   | 🟢 Low   |
+
+### 🔊 음성/오디오 API (BE-A)
+
+| ID    | 엔드포인트                          | 설명                         | 상태 | 우선순위 |
+| ----- | ----------------------------------- | ---------------------------- | ---- | -------- |
+| BE-A1 | `GET /api/v1/cards/{id}/audio`      | 단어 발음 오디오 파일 제공   | ❌   | 🟢 Low   |
+| BE-A2 | VocabularyCard에 `audio_url` 추가  | 발음 오디오 파일 경로        | ❌   | 🟢 Low   |
+| BE-A3 | TTS 통합 (Google/AWS Polly)         | 실시간 음성 생성 (선택적)    | ❌   | 🟢 Low   |
+
 ### 📖 학습 플로우 API (BE-L)
 
 | ID    | 엔드포인트                                       | 설명                                      | 상태    | 우선순위 |
@@ -153,6 +169,8 @@ CREATE TABLE user_selected_decks (
 | DB-5 | VocabularyCard에 `frequency_rank` 필드 추가 (영어 빈도 기준)     | 🔴 High  |
 | DB-6 | VocabularyCard에 `category` 필드 추가 (학습 섹션 분류용)         | 🟡 Med   |
 | DB-7 | VocabularyCard 필드명 확인/수정 (english_word, pronunciation 등) | 🔴 High  |
+| DB-8 | User 테이블에 설정 필드 추가 (timezone, theme, notification)     | 🟢 Low   |
+| DB-9 | VocabularyCard에 `audio_url` 필드 추가                           | 🟢 Low   |
 
 ### 새 모델 정의
 
@@ -188,6 +206,8 @@ class Favorite(TimestampMixin, table=True):
 | DATA-3 | 기존 VocabularyCard에 frequency_rank 업데이트   | 🔴 High  |
 | DATA-4 | 샘플 덱 데이터 준비 (Basic 1000, TOEFL, GRE 등) | 🟡 Med   |
 | DATA-5 | 단어 카드에 CEFR 레벨 매핑 (A1-C2)              | 🟡 Med   |
+| DATA-6 | 발음 오디오 파일 수집/생성                      | 🟢 Low   |
+| DATA-7 | 예문 데이터 확장 (AI 생성 또는 크롤링)          | 🟢 Low   |
 
 ---
 
@@ -243,7 +263,34 @@ class Favorite(TimestampMixin, table=True):
 | F-F1 | 즐겨찾기 화면 레이아웃         | -            | 🟡 Med   |
 | F-F2 | 즐겨찾기 단어 리스트 표시      | BE-F1        | 🟡 Med   |
 | F-F3 | 단어 카드에 즐겨찾기 토글 버튼 | BE-F2, BE-F3 | 🟡 Med   |
-| F-F4 | 즐겨찾기 단어 검색/필터        | -            | 🟢 Low   |
+
+### ⚙️ 설정 화면 (F-SET)
+
+| ID     | 태스크                      | 의존성  | 우선순위 |
+| ------ | --------------------------- | ------- | -------- |
+| F-SET1 | 설정 화면 레이아웃          | -       | 🟢 Low   |
+| F-SET2 | 일일 목표 설정              | BE-SET2 | 🟢 Low   |
+| F-SET3 | 새 단어 순서 설정           | BE-SET2 | 🟢 Low   |
+| F-SET4 | 알림 설정                   | BE-SET2 | 🟢 Low   |
+| F-SET5 | 다크 모드 토글              | -       | 🟢 Low   |
+| F-SET6 | 계정 정보 (이메일, 프로필)  | -       | 🟢 Low   |
+
+### 🔊 오디오/발음 (F-A)
+
+| ID   | 태스크                    | 의존성 | 우선순위 |
+| ---- | ------------------------- | ------ | -------- |
+| F-A1 | 발음 듣기 버튼 (카드별)   | BE-A1  | 🟢 Low   |
+| F-A2 | 자동 재생 설정            | -      | 🟢 Low   |
+| F-A3 | 재생 속도 조절            | -      | 🟢 Low   |
+
+### 🎯 온보딩/튜토리얼 (F-ON)
+
+| ID    | 태스크                  | 의존성 | 우선순위 |
+| ----- | ----------------------- | ------ | -------- |
+| F-ON1 | 온보딩 화면 (첫 방문)   | -      | 🟢 Low   |
+| F-ON2 | 목표 설정 단계          | -      | 🟢 Low   |
+| F-ON3 | 첫 덱 선택 안내         | -      | 🟢 Low   |
+| F-ON4 | 학습 플로우 튜토리얼    | -      | 🟢 Low   |
 
 ### 📖 학습 플로우 (F-L)
 
@@ -276,6 +323,37 @@ class Favorite(TimestampMixin, table=True):
 │  [계속 학습하기]  [홈으로]       │
 └─────────────────────────────────┘
 ```
+
+---
+
+---
+
+## 🔐 보안 & 인프라 태스크
+
+| ID    | 태스크                                    | 우선순위 |
+| ----- | ----------------------------------------- | -------- |
+| SEC-1 | Rate Limiting 구현 (API 요청 제한)        | 🟡 Med   |
+| SEC-2 | CORS 설정 검증                            | 🔴 High  |
+| SEC-3 | 에러 핸들링 표준화 (HTTPException)        | 🟡 Med   |
+| SEC-4 | 입력 검증 강화 (Pydantic validators)      | 🟡 Med   |
+| SEC-5 | SQL Injection 방어 확인                   | 🔴 High  |
+| SEC-6 | 로깅 시스템 구축 (structlog)              | 🟡 Med   |
+| SEC-7 | 모니터링 (Sentry/DataDog)                 | 🟢 Low   |
+| SEC-8 | Health check 엔드포인트 강화              | 🟡 Med   |
+
+---
+
+## 🧪 테스트 전략
+
+| ID     | 태스크                                   | 우선순위 |
+| ------ | ---------------------------------------- | -------- |
+| TEST-1 | Unit 테스트 - Service 레이어             | 🟡 Med   |
+| TEST-2 | Integration 테스트 - API 엔드포인트      | 🟡 Med   |
+| TEST-3 | FSRS 로직 테스트 (정확도 검증)           | 🔴 High  |
+| TEST-4 | Streak 계산 테스트 (엣지 케이스)         | 🔴 High  |
+| TEST-5 | DB 마이그레이션 테스트                   | 🟡 Med   |
+| TEST-6 | Load 테스트 (동시 사용자 100명)          | 🟢 Low   |
+| TEST-7 | E2E 테스트 (프론트 + 백엔드)             | 🟢 Low   |
 
 ---
 
@@ -314,32 +392,85 @@ class Favorite(TimestampMixin, table=True):
 
 - [ ] F-H7 ~ F-H9 (덱 선택)
 - [ ] F-F1 ~ F-F3 (즐겨찾기)
+- [ ] DB-6 (category 필드)
 
-### Sprint 3: 통계 & 폴리싱
+### Sprint 3: 통계 & 보안 & 테스트
 
-**목표:** 학습 통계 및 UX 개선
+**목표:** 학습 통계, 보안 강화, 테스트 작성
 
 **백엔드:**
 
 - [ ] BE-S1 ~ BE-S5 (통계 API)
-- [ ] BE-L3 (세션 완료 처리)
+- [ ] SEC-1, SEC-2, SEC-3, SEC-4, SEC-5 (보안 강화)
+- [ ] TEST-1, TEST-2, TEST-3, TEST-4 (테스트)
 
 **프론트엔드:**
 
 - [ ] F-S1 ~ F-S6 (통계 화면)
-- [ ] F-F4 (즐겨찾기 검색)
+
+### Sprint 4: 설정 & 오디오 & 온보딩 (선택적)
+
+**목표:** 사용자 경험 개선
+
+**백엔드:**
+
+- [ ] BE-SET1, BE-SET2, BE-SET3 (설정 API)
+- [ ] BE-A1, BE-A2 (오디오 API)
+- [ ] DATA-6, DATA-7 (오디오 & 예문 데이터)
+
+**프론트엔드:**
+
+- [ ] F-SET1 ~ F-SET6 (설정 화면)
+- [ ] F-A1, F-A2, F-A3 (오디오 재생)
+- [ ] F-ON1 ~ F-ON4 (온보딩)
 
 ---
 
 ## 📊 진행 상황 요약
 
-| 카테고리   | 완료  | 진행중 | 대기   | 총     |
-| ---------- | ----- | ------ | ------ | ------ |
-| 백엔드 API | 2     | 0      | 21     | 23     |
-| DB 스키마  | 0     | 0      | 7      | 7      |
-| 데이터     | 0     | 0      | 5      | 5      |
-| 프론트엔드 | 0     | 0      | 26     | 26     |
-| **총합**   | **2** | **0**  | **59** | **61** |
+| 카테고리       | 완료  | 진행중 | 대기   | 총     |
+| -------------- | ----- | ------ | ------ | ------ |
+| 백엔드 API     | 2     | 0      | 32     | 34     |
+| DB 스키마      | 0     | 0      | 9      | 9      |
+| 데이터         | 0     | 0      | 7      | 7      |
+| 프론트엔드     | 0     | 0      | 39     | 39     |
+| 보안/인프라    | 0     | 0      | 8      | 8      |
+| 테스트         | 0     | 0      | 7      | 7      |
+| **총합**       | **2** | **0**  | **102** | **104** |
+
+---
+
+## 💡 추가 고려사항 (향후 기능)
+
+### 소셜 기능
+- [ ] 친구 추가/팔로우
+- [ ] 리더보드 (주간/월간)
+- [ ] 학습 그룹/스터디 룸
+- [ ] 공유하기 (SNS)
+
+### 고급 학습 기능
+- [ ] 스펠링 테스트 모드
+- [ ] 리스닝 테스트
+- [ ] 문장 만들기 연습
+- [ ] AI 기반 대화 연습
+
+### 게이미피케이션
+- [ ] 배지/업적 시스템
+- [ ] 레벨/경험치
+- [ ] 일일 챌린지
+- [ ] 학습 마일스톤 보상
+
+### 데이터 분석
+- [ ] 학습 패턴 분석
+- [ ] 취약점 진단
+- [ ] 맞춤 학습 추천
+- [ ] 예상 CEFR 레벨 측정
+
+### 모바일 앱
+- [ ] React Native / Flutter
+- [ ] 오프라인 모드
+- [ ] 푸시 알림
+- [ ] 위젯
 
 ---
 
@@ -349,6 +480,7 @@ class Favorite(TimestampMixin, table=True):
 - [API.md](./API.md) - API 명세
 - [DATABASE.md](./DATABASE.md) - 데이터베이스 스키마
 - [DEVELOPMENT.md](./DEVELOPMENT.md) - 개발 가이드
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - 문제 해결 가이드
 
 ---
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
 from app.models.enums import CardState
 from app.models.tables.user_card_progress import UserCardProgressBase
@@ -28,5 +28,5 @@ class UserCardProgressRead(UserCardProgressBase):
 class ReviewRequest(SQLModel):
     """Schema for submitting a card review."""
 
-    card_id: int
+    card_id: int = Field(gt=0, description="Card ID must be positive")
     is_correct: bool

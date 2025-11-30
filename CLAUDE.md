@@ -1003,6 +1003,58 @@ review_result = response.json()
 - [ ] Validate user input with Pydantic models
 - [ ] Use HTTPS in production
 
+### Error Handling
+
+The application uses standardized error handling with custom exception classes:
+
+**Custom Exception Classes** (`app/core/exceptions.py`):
+
+- `LoopsAPIException`: Base exception for all custom exceptions
+- `ValidationError`: 400 - Input validation failures
+- `AuthenticationError`: 401 - Authentication failures
+- `AuthorizationError`: 403 - Permission denied
+- `NotFoundError`: 404 - Resource not found
+- `ConflictError`: 409 - Resource conflicts (duplicates, etc.)
+- `DatabaseError`: 500 - Database operation failures
+- `ExternalServiceError`: 503 - External service failures (TTS, etc.)
+
+**Error Response Format**:
+
+All errors return a consistent JSON structure:
+
+```json
+{
+  "error": "error_type",
+  "message": "Human-readable error message",
+  "details": {}  // Optional additional context
+}
+```
+
+**Usage in Route Handlers**:
+
+```python
+from app.core.exceptions import NotFoundError, ValidationError
+
+@router.get("/users/{user_id}")
+async def get_user(user_id: int, session: AsyncSession = Depends(get_session)):
+    user = await session.get(User, user_id)
+    if not user:
+        raise NotFoundError(f"User with id {user_id} not found", resource="user")
+    return user
+```
+
+**Global Exception Handlers**:
+
+- Custom exceptions: Automatically converted to proper HTTP responses
+- Pydantic validation errors: Return validation_error with details
+- Uncaught exceptions: Logged with full traceback (debug mode only)
+- Production mode: Hides stack traces and sensitive internal details
+
+**Error Logging**:
+
+All errors are automatically logged with context (method, path, timestamp).
+Uncaught exceptions include full traceback in logs for debugging.
+
 ### Database Best Practices
 
 - [ ] Use indexes on frequently queried fields (id, foreign keys, status fields)

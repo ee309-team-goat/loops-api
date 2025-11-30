@@ -8,10 +8,12 @@ from app.models.enums import CardState
 from app.models.tables import (
     Deck,
     DeckBase,
+    Favorite,
     User,
     UserBase,
     UserCardProgress,
     UserCardProgressBase,
+    UserSelectedDeck,
     VocabularyCard,
     VocabularyCardBase,
 )
@@ -21,6 +23,8 @@ from app.models.schemas import (
     DeckCreate,
     DeckRead,
     DeckUpdate,
+    FavoriteCreate,
+    FavoriteRead,
     ReviewRequest,
     UserCreate,
     UserLogin,
@@ -28,6 +32,8 @@ from app.models.schemas import (
     UserUpdate,
     UserCardProgressCreate,
     UserCardProgressRead,
+    UserSelectedDeckCreate,
+    UserSelectedDeckRead,
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
@@ -43,6 +49,8 @@ __all__ = [
     "VocabularyCard",
     "UserCardProgress",
     "Deck",
+    "Favorite",
+    "UserSelectedDeck",
     # Base classes (from tables)
     "UserBase",
     "VocabularyCardBase",
@@ -65,4 +73,10 @@ __all__ = [
     "DeckCreate",
     "DeckRead",
     "DeckUpdate",
+    # Favorite Schemas
+    "FavoriteCreate",
+    "FavoriteRead",
+    # UserSelectedDeck Schemas
+    "UserSelectedDeckCreate",
+    "UserSelectedDeckRead",
 ]

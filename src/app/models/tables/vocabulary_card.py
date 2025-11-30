@@ -21,6 +21,13 @@ class VocabularyCardBase(SQLModel):
     # Categorization
     difficulty_level: Optional[str] = Field(default=None, max_length=50, index=True)  # beginner, intermediate, advanced
     cefr_level: Optional[str] = Field(default=None, max_length=10)  # A1-C2
+    category: Optional[str] = Field(default=None, max_length=50)  # DB-6: e.g., "business", "travel", "academic"
+
+    # Word frequency and selection (DB-5)
+    frequency_rank: Optional[int] = Field(default=None, index=True)  # Lower rank = more common word (1=most common)
+
+    # Audio (DB-9)
+    audio_url: Optional[str] = Field(default=None, max_length=500)  # Path or URL to pronunciation audio
 
     # Deck Organization
     deck_id: Optional[int] = Field(default=None, foreign_key="decks.id", index=True)

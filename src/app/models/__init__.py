@@ -22,7 +22,9 @@ from app.models.tables import (
 from app.models.schemas import (
     DeckCreate,
     DeckRead,
+    DecksListResponse,
     DeckUpdate,
+    DeckWithProgressRead,
     FavoriteCreate,
     FavoriteRead,
     ReviewRequest,
@@ -73,6 +75,8 @@ __all__ = [
     "DeckCreate",
     "DeckRead",
     "DeckUpdate",
+    "DeckWithProgressRead",
+    "DecksListResponse",
     # Favorite Schemas
     "FavoriteCreate",
     "FavoriteRead",

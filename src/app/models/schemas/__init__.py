@@ -1,4 +1,10 @@
-from app.models.schemas.deck import DeckCreate, DeckRead, DeckUpdate
+from app.models.schemas.deck import (
+    DeckCreate,
+    DeckRead,
+    DeckUpdate,
+    DecksListResponse,
+    DeckWithProgressRead,
+)
 from app.models.schemas.favorite import FavoriteCreate, FavoriteRead
 from app.models.schemas.user import UserCreate, UserLogin, UserRead, UserUpdate
 from app.models.schemas.user_card_progress import (
@@ -34,6 +40,8 @@ __all__ = [
     "DeckCreate",
     "DeckRead",
     "DeckUpdate",
+    "DeckWithProgressRead",
+    "DecksListResponse",
     # Favorite
     "FavoriteCreate",
     "FavoriteRead",

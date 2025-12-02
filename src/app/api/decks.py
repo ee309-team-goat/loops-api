@@ -11,6 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
 from app.models import Deck, DecksListResponse, DeckWithProgressRead
+from app.services.deck_service import DeckService
 
 router = APIRouter(prefix="/decks", tags=["decks"])
 
@@ -26,9 +27,6 @@ async def get_decks_list(
     Get list of all accessible decks with progress information.
 
     Returns public decks and user's own decks with learning progress statistics.
-
-    TODO: Progress calculation will be implemented in Issue #9 (DeckService).
-    Currently returns placeholder values (0) for progress fields.
     """
     # Query for accessible decks (public or created by user)
     decks_query = (
@@ -47,19 +45,17 @@ async def get_decks_list(
     result = await session.exec(count_query)
     total_count = result.one()
 
-    # Build response with placeholder progress values
-    # TODO: Replace with actual progress calculation in Issue #9
+    # Calculate progress for each deck
     decks_with_progress = []
     for deck in decks:
+        progress = await DeckService.calculate_deck_progress(
+            session, current_user.id, deck.id
+        )
         deck_dict = {
             "id": deck.id,
             "name": deck.name,
             "description": deck.description,
-            "total_cards": 0,  # TODO: Calculate in Issue #9
-            "learned_cards": 0,  # TODO: Calculate in Issue #9
-            "learning_cards": 0,  # TODO: Calculate in Issue #9
-            "new_cards": 0,  # TODO: Calculate in Issue #9
-            "progress_percent": 0.0,  # TODO: Calculate in Issue #9
+            **progress,
         }
         decks_with_progress.append(DeckWithProgressRead(**deck_dict))
 

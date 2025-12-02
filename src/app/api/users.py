@@ -1,7 +1,7 @@
 """
 User-related API endpoints.
 """
-from datetime import date
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -31,7 +31,7 @@ async def get_daily_goal(
 ) -> dict:
     """Get the current user's daily goal and today's completion count."""
     # Count today's reviews from UserCardProgress
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     statement = select(func.count(UserCardProgress.id)).where(
         UserCardProgress.user_id == current_user.id,
         func.date(UserCardProgress.last_review_date) == today

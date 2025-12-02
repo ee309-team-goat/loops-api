@@ -8,7 +8,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
-from app.models import User, UserRead, UserUpdate
+from app.models import TodayProgressRead, User, UserRead, UserUpdate
+from app.services.user_card_progress_service import UserCardProgressService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -20,6 +21,18 @@ async def get_current_user_profile(
 ) -> User:
     """Get the current authenticated user's profile."""
     return current_user
+
+
+@router.get("/me/today-progress", response_model=TodayProgressRead)
+async def get_today_progress(
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: CurrentActiveUser = None,
+):
+    """Get today's learning progress statistics."""
+    progress_data = await UserCardProgressService.get_today_progress(
+        session, current_user.id, current_user.daily_goal
+    )
+    return TodayProgressRead(**progress_data)
 
 
 @router.get("/{user_id}", response_model=UserRead)

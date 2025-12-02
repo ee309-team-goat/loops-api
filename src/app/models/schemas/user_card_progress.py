@@ -30,3 +30,14 @@ class ReviewRequest(SQLModel):
 
     card_id: int = Field(gt=0, description="Card ID must be positive")
     is_correct: bool
+
+
+class TodayProgressRead(SQLModel):
+    """Schema for reading today's learning progress statistics."""
+
+    total_reviews: int
+    correct_count: int
+    wrong_count: int
+    accuracy_rate: float
+    daily_goal: int
+    goal_progress: float

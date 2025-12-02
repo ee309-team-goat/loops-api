@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from fsrs import Scheduler, Card, Rating, State as FSRSState
 from sqlmodel import select
@@ -210,3 +210,62 @@ class UserCardProgressService:
         await session.refresh(progress)
 
         return progress
+
+    @staticmethod
+    async def get_today_progress(
+        session: AsyncSession, user_id: int, daily_goal: int
+    ) -> dict:
+        """
+        Get today's learning progress statistics.
+
+        Returns:
+            dict with total_reviews, correct_count, wrong_count, accuracy_rate,
+            daily_goal, and goal_progress
+        """
+        now = datetime.now(timezone.utc)
+        today = now.date()  # Use UTC date for consistency
+
+        # Get all progress records for user where last_review_date is today
+        statement = select(UserCardProgress).where(
+            UserCardProgress.user_id == user_id,
+            UserCardProgress.last_review_date >= datetime.combine(
+                today, datetime.min.time()
+            ).replace(tzinfo=timezone.utc),
+            UserCardProgress.last_review_date < datetime.combine(
+                today, datetime.max.time()
+            ).replace(tzinfo=timezone.utc),
+        )
+        result = await session.exec(statement)
+        progress_records = list(result.all())
+
+        # Count reviews from quality_history for today
+        total_reviews = 0
+        correct_count = 0
+
+        for progress in progress_records:
+            if progress.quality_history and isinstance(progress.quality_history, list):
+                for entry in progress.quality_history:
+                    if isinstance(entry, dict):
+                        entry_date_str = entry.get("date")
+                        if entry_date_str:
+                            try:
+                                entry_date = datetime.fromisoformat(entry_date_str).date()
+                                if entry_date == today:
+                                    total_reviews += 1
+                                    if entry.get("is_correct", False):
+                                        correct_count += 1
+                            except (ValueError, AttributeError):
+                                continue
+
+        wrong_count = total_reviews - correct_count
+        accuracy_rate = (correct_count / total_reviews * 100) if total_reviews > 0 else 0.0
+        goal_progress = (total_reviews / daily_goal * 100) if daily_goal > 0 else 0.0
+
+        return {
+            "total_reviews": total_reviews,
+            "correct_count": correct_count,
+            "wrong_count": wrong_count,
+            "accuracy_rate": round(accuracy_rate, 1),
+            "daily_goal": daily_goal,
+            "goal_progress": round(goal_progress, 1),
+        }

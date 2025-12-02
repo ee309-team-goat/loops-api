@@ -3,6 +3,7 @@ from app.models.schemas.favorite import FavoriteCreate, FavoriteRead
 from app.models.schemas.user import UserCreate, UserLogin, UserRead, UserUpdate
 from app.models.schemas.user_card_progress import (
     ReviewRequest,
+    TodayProgressRead,
     UserCardProgressCreate,
     UserCardProgressRead,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "UserCardProgressCreate",
     "UserCardProgressRead",
     "ReviewRequest",
+    "TodayProgressRead",
     # Deck
     "DeckCreate",
     "DeckRead",

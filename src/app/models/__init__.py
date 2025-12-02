@@ -8,6 +8,7 @@ from app.models.enums import CardState
 from app.models.schemas import (
     DailyGoalRead,
     DeckCreate,
+    DeckDetailRead,
     DeckRead,
     DecksListResponse,
     DeckUpdate,
@@ -17,9 +18,9 @@ from app.models.schemas import (
     GetSelectedDecksResponse,
     NewCardsCountRead,
     ReviewRequest,
+    SelectedDeckInfo,
     SelectDecksRequest,
     SelectDecksResponse,
-    SelectedDeckInfo,
     TodayProgressRead,
     UserCardProgressCreate,
     UserCardProgressRead,
@@ -47,7 +48,6 @@ from app.models.tables import (
     VocabularyCard,
     VocabularyCardBase,
 )
-
 __all__ = [
     # Base
     "TimestampMixin",
@@ -84,6 +84,7 @@ __all__ = [
     "DeckRead",
     "DeckUpdate",
     "DeckWithProgressRead",
+    "DeckDetailRead",
     "DecksListResponse",
     # Favorite Schemas
     "FavoriteCreate",

@@ -135,6 +135,31 @@ Authorization: Bearer <your_jwt_token>
 
 ## 👤 사용자 (Users)
 
+### 일일 학습 목표 조회
+
+```http
+GET /api/v1/users/me/daily-goal
+Authorization: Bearer <token>
+```
+
+**Description:**
+
+사용자의 일일 학습 목표와 오늘의 완료 수를 조회합니다.
+
+**Response (200 OK):**
+
+```json
+{
+  "daily_goal": 20,
+  "completed_today": 12
+}
+```
+
+**Response Fields:**
+
+- `daily_goal` (int): 사용자가 설정한 하루 학습 목표 카드 수
+- `completed_today` (int): 오늘 완료한 복습 카드 수
+
 ### 사용자 목록 조회
 
 ```http

@@ -7,6 +7,7 @@ from app.models.schemas.deck import (
     DeckWithProgressRead,
 )
 from app.models.schemas.favorite import FavoriteCreate, FavoriteRead
+from app.models.schemas.stats import TotalLearnedRead
 from app.models.schemas.user import (
     DailyGoalRead,
     StreakRead,
@@ -71,4 +72,6 @@ __all__ = [
     "SelectDecksResponse",
     "SelectedDeckInfo",
     "GetSelectedDecksResponse",
+    # Stats
+    "TotalLearnedRead",
 ]

@@ -18,9 +18,10 @@ from app.models.schemas import (
     GetSelectedDecksResponse,
     NewCardsCountRead,
     ReviewRequest,
+    SelectedDeckInfo,
     SelectDecksRequest,
     SelectDecksResponse,
-    SelectedDeckInfo,
+    StreakRead,
     TodayProgressRead,
     UserCardProgressCreate,
     UserCardProgressRead,
@@ -48,7 +49,6 @@ from app.models.tables import (
     VocabularyCard,
     VocabularyCardBase,
 )
-
 __all__ = [
     # Base
     "TimestampMixin",
@@ -69,7 +69,10 @@ __all__ = [
     # User Schemas
     "UserRead",
     "UserUpdate",
+    "UserCreate",
+    "UserLogin",
     "DailyGoalRead",
+    "StreakRead",
     # VocabularyCard Schemas
     "VocabularyCardCreate",
     "VocabularyCardRead",

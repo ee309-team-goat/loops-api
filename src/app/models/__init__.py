@@ -28,6 +28,8 @@ from app.models.schemas import (
     FavoriteCreate,
     FavoriteRead,
     ReviewRequest,
+    SelectDecksRequest,
+    SelectDecksResponse,
     UserCreate,
     UserLogin,
     UserRead,
@@ -83,4 +85,6 @@ __all__ = [
     # UserSelectedDeck Schemas
     "UserSelectedDeckCreate",
     "UserSelectedDeckRead",
+    "SelectDecksRequest",
+    "SelectDecksResponse",
 ]

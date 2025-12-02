@@ -13,6 +13,8 @@ from app.models.schemas.user_card_progress import (
     UserCardProgressRead,
 )
 from app.models.schemas.user_selected_deck import (
+    SelectDecksRequest,
+    SelectDecksResponse,
     UserSelectedDeckCreate,
     UserSelectedDeckRead,
 )
@@ -48,4 +50,6 @@ __all__ = [
     # UserSelectedDeck
     "UserSelectedDeckCreate",
     "UserSelectedDeckRead",
+    "SelectDecksRequest",
+    "SelectDecksResponse",
 ]

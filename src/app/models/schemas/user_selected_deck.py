@@ -22,3 +22,17 @@ class UserSelectedDeckRead(SQLModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+
+class SelectDecksRequest(SQLModel):
+    """Schema for selecting decks."""
+
+    select_all: bool
+    deck_ids: Optional[list[int]] = None
+
+
+class SelectDecksResponse(SQLModel):
+    """Schema for selected decks response."""
+
+    select_all: bool
+    selected_deck_ids: list[int]
+

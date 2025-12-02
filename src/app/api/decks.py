@@ -4,13 +4,21 @@ Deck-related API endpoints.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
-from sqlmodel import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlmodel import delete, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
-from app.models import Deck, DecksListResponse, DeckWithProgressRead
+from app.models import (
+    Deck,
+    DecksListResponse,
+    DeckWithProgressRead,
+    SelectDecksRequest,
+    SelectDecksResponse,
+    User,
+    UserSelectedDeck,
+)
 from app.services.deck_service import DeckService
 
 router = APIRouter(prefix="/decks", tags=["decks"])
@@ -64,4 +72,69 @@ async def get_decks_list(
         total=total_count,
         skip=skip,
         limit=limit,
+    )
+
+
+@router.put("/selected-decks", response_model=SelectDecksResponse)
+async def update_selected_decks(
+    request: SelectDecksRequest,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: CurrentActiveUser = None,
+):
+    """
+    Update user's selected decks for learning.
+
+    If select_all=true, user will study from all public decks.
+    If select_all=false, user will study only from specified deck_ids.
+    """
+    # Update user's select_all_decks field
+    current_user.select_all_decks = request.select_all
+    session.add(current_user)
+
+    # Clear existing selections
+    delete_stmt = delete(UserSelectedDeck).where(
+        UserSelectedDeck.user_id == current_user.id
+    )
+    await session.exec(delete_stmt)
+
+    selected_deck_ids = []
+
+    # If select_all=false, validate and add specific decks
+    if not request.select_all:
+        if not request.deck_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="deck_ids must be provided when select_all is false",
+            )
+
+        # Validate all deck IDs exist and are accessible
+        for deck_id in request.deck_ids:
+            deck_query = select(Deck).where(
+                Deck.id == deck_id,
+                (Deck.is_public == True) | (Deck.creator_id == current_user.id),
+            )
+            result = await session.exec(deck_query)
+            deck = result.one_or_none()
+
+            if not deck:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Deck with id {deck_id} not found or not accessible",
+                )
+
+        # Add selected decks to user_selected_decks table
+        for deck_id in request.deck_ids:
+            selected_deck = UserSelectedDeck(
+                user_id=current_user.id,
+                deck_id=deck_id,
+            )
+            session.add(selected_deck)
+
+        selected_deck_ids = request.deck_ids
+
+    await session.commit()
+
+    return SelectDecksResponse(
+        select_all=request.select_all,
+        selected_deck_ids=selected_deck_ids,
     )

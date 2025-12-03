@@ -20,6 +20,7 @@ from app.models.tables import (
 
 # Schemas (DTOs)
 from app.models.schemas import (
+    DailyGoalRead,
     DeckCreate,
     DeckRead,
     DeckUpdate,
@@ -61,6 +62,7 @@ __all__ = [
     "UserRead",
     "UserUpdate",
     "UserLogin",
+    "DailyGoalRead",
     # VocabularyCard Schemas
     "VocabularyCardCreate",
     "VocabularyCardRead",

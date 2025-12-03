@@ -129,3 +129,10 @@ class UserLogin(SQLModel):
 
     username: str = Field(max_length=100)
     password: str = Field(max_length=255)
+
+
+class DailyGoalRead(SQLModel):
+    """Schema for reading daily goal information."""
+
+    daily_goal: int
+    completed_today: int

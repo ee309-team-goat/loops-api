@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
-from app.models import User, UserRead, UserUpdate
+from app.models import DailyGoalRead, User, UserRead, UserUpdate
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -20,6 +20,21 @@ async def get_current_user_profile(
 ) -> User:
     """Get the current authenticated user's profile."""
     return current_user
+
+
+@router.get("/me/daily-goal", response_model=DailyGoalRead)
+async def get_daily_goal(
+    current_user: CurrentActiveUser,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    """Get the current user's daily goal and today's completion count."""
+    daily_goal_data = await UserService.get_daily_goal(session, current_user.id)
+    if not daily_goal_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return daily_goal_data
 
 
 @router.get("/{user_id}", response_model=UserRead)

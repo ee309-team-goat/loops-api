@@ -5,12 +5,62 @@ Deck service for calculating deck progress statistics.
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import UserCardProgress, VocabularyCard
+from app.models import Deck, DecksListResponse, DeckWithProgressRead, UserCardProgress, VocabularyCard
 from app.models.enums import CardState
 
 
 class DeckService:
     """Service for deck-related operations."""
+
+    @staticmethod
+    async def get_decks_list(
+        session: AsyncSession,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 10,
+    ) -> DecksListResponse:
+        """
+        Get list of all accessible decks with progress information.
+
+        Returns public decks and user's own decks with learning progress statistics.
+        """
+        # Query for accessible decks (public or created by user)
+        decks_query = (
+            select(Deck)
+            .where((Deck.is_public == True) | (Deck.creator_id == user_id))
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await session.exec(decks_query)
+        decks = list(result.all())
+
+        # Count total accessible decks
+        count_query = select(func.count(Deck.id)).where(
+            (Deck.is_public == True) | (Deck.creator_id == user_id)
+        )
+        result = await session.exec(count_query)
+        total_count = result.one()
+
+        # Calculate progress for each deck
+        decks_with_progress = []
+        for deck in decks:
+            progress = await DeckService.calculate_deck_progress(
+                session, user_id, deck.id
+            )
+            deck_dict = {
+                "id": deck.id,
+                "name": deck.name,
+                "description": deck.description,
+                **progress,
+            }
+            decks_with_progress.append(DeckWithProgressRead(**deck_dict))
+
+        return DecksListResponse(
+            decks=decks_with_progress,
+            total=total_count,
+            skip=skip,
+            limit=limit,
+        )
 
     @staticmethod
     async def calculate_deck_progress(

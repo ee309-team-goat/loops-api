@@ -1,8 +1,10 @@
-from sqlmodel import select
+from datetime import datetime, timezone
+
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.security import get_password_hash, verify_password
-from app.models import User, UserCreate, UserUpdate
+from app.models import User, UserCardProgress, UserCreate, UserUpdate
 
 
 class UserService:
@@ -85,3 +87,24 @@ class UserService:
             return None
 
         return user
+
+    @staticmethod
+    async def get_daily_goal(session: AsyncSession, user_id: int) -> dict:
+        """Get the user's daily goal and today's completion count."""
+        user = await UserService.get_user(session, user_id)
+        if not user:
+            return None
+
+        # Count today's reviews from UserCardProgress
+        today = datetime.now(timezone.utc).date()
+        statement = select(func.count(UserCardProgress.id)).where(
+            UserCardProgress.user_id == user_id,
+            func.date(UserCardProgress.last_review_date) == today
+        )
+        result = await session.exec(statement)
+        completed_today = result.one()
+
+        return {
+            "daily_goal": user.daily_goal,
+            "completed_today": completed_today
+        }

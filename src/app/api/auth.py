@@ -47,7 +47,9 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
-@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
+)
 async def register(
     request: RegisterRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -77,7 +79,7 @@ async def register(
             detail=str(e),
         )
 
-    if auth_response.user is None:
+    if auth_response.user is None or auth_response.session is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to create user in Supabase",

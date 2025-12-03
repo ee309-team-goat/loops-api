@@ -1,65 +1,43 @@
 """
-Security utilities for Supabase JWT token verification.
+Security utilities for Supabase token verification.
 """
 
-from typing import Any, Optional
+from typing import Optional
 
-import jwt
 from supabase import Client, create_client
 
 from app.config import settings
 
-# Supabase client (admin with service role key)
-_supabase_admin: Optional[Client] = None
+# Supabase client with publishable key (for auth operations)
+_supabase_client: Optional[Client] = None
 
 
-def get_supabase_admin() -> Client:
-    """Get Supabase admin client with service role key."""
-    global _supabase_admin
-    if _supabase_admin is None:
-        _supabase_admin = create_client(
+def get_supabase_client() -> Client:
+    """Get Supabase client with publishable key for auth operations."""
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = create_client(
             settings.supabase_url,
-            settings.supabase_service_role_key,
+            settings.supabase_publishable_key,
         )
-    return _supabase_admin
+    return _supabase_client
 
 
-def verify_supabase_token(token: str) -> Optional[dict[str, Any]]:
+def verify_supabase_token(token: str) -> Optional[str]:
     """
-    Verify a Supabase JWT token.
+    Verify a Supabase token using the Supabase client.
 
     Args:
         token: The JWT token from Authorization header
 
     Returns:
-        Decoded token payload if valid, None if invalid
+        Supabase user ID if valid, None if invalid
     """
     try:
-        # Supabase uses HS256 with the JWT secret
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
+        supabase = get_supabase_client()
+        response = supabase.auth.get_user(token)
+        if response and response.user:
+            return response.user.id
         return None
-    except jwt.InvalidTokenError:
+    except Exception:
         return None
-
-
-def get_user_id_from_token(token: str) -> Optional[str]:
-    """
-    Extract the Supabase user ID (sub) from a JWT token.
-
-    Args:
-        token: The JWT token
-
-    Returns:
-        User ID string if valid, None if invalid
-    """
-    payload = verify_supabase_token(token)
-    if payload is None:
-        return None
-    return payload.get("sub")

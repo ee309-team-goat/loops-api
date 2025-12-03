@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveUser
-from app.core.security import get_supabase_admin
+from app.core.security import get_supabase_client
 from app.database import get_session
 from app.models import User, UserRead
 from app.services.user_service import UserService
@@ -53,7 +53,7 @@ async def register(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> AuthResponse:
     """Register a new user via Supabase Auth."""
-    supabase = get_supabase_admin()
+    supabase = get_supabase_client()
 
     # Check if username already exists in our database
     existing_user = await UserService.get_user_by_username(session, request.username)
@@ -104,7 +104,7 @@ async def login(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> AuthResponse:
     """Login with email and password via Supabase Auth."""
-    supabase = get_supabase_admin()
+    supabase = get_supabase_client()
 
     # Authenticate with Supabase
     try:
@@ -149,7 +149,7 @@ async def refresh_token(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> AuthResponse:
     """Refresh access token using refresh token."""
-    supabase = get_supabase_admin()
+    supabase = get_supabase_client()
 
     try:
         auth_response = supabase.auth.refresh_session(request.refresh_token)

@@ -18,11 +18,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/loops"
     database_echo: bool = False
 
-    # Supabase settings
+    # Supabase settings (New API Key System - 2025+)
     supabase_url: str = "https://your-project.supabase.co"
-    supabase_anon_key: str = "your-anon-key"
-    supabase_service_role_key: str = "your-service-role-key"
-    supabase_jwt_secret: str = "your-jwt-secret"
+    supabase_publishable_key: str = "sb_publishable_xxx"
+    # Secret key: for admin operations (user deletion, password reset, etc.)
+    supabase_secret_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

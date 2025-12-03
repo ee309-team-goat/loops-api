@@ -40,13 +40,8 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Verify Supabase JWT
-    payload = verify_supabase_token(credentials.credentials)
-    if payload is None:
-        raise credentials_exception
-
-    # Extract supabase user id from token
-    supabase_uid: str = payload.get("sub")
+    # Verify Supabase token and get user id
+    supabase_uid = verify_supabase_token(credentials.credentials)
     if supabase_uid is None:
         raise credentials_exception
 

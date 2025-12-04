@@ -64,3 +64,21 @@ class DailyGoalRead(SQLModel):
 
     daily_goal: int
     completed_today: int
+
+
+class UserLogin(SQLModel):
+    """Schema for user login."""
+
+    username: str = Field(max_length=100)
+    password: str = Field(max_length=255)
+
+
+class StreakRead(SQLModel):
+    """Schema for reading user streak information."""
+
+    current_streak: int
+    longest_streak: int
+    last_study_date: date | None = None
+    days_studied_this_month: int
+    streak_status: str  # "active" or "broken"
+    message: str

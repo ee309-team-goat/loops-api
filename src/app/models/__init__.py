@@ -21,6 +21,7 @@ from app.models.schemas import (
     SelectDecksRequest,
     SelectDecksResponse,
     SelectedDeckInfo,
+    StreakRead,
     TodayProgressRead,
     UserCardProgressCreate,
     UserCardProgressRead,
@@ -69,7 +70,10 @@ __all__ = [
     # User Schemas
     "UserRead",
     "UserUpdate",
+    "UserCreate",
+    "UserLogin",
     "DailyGoalRead",
+    "StreakRead",
     # VocabularyCard Schemas
     "VocabularyCardCreate",
     "VocabularyCardRead",

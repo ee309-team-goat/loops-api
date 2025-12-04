@@ -100,14 +100,14 @@ class DeckDetailRead(SQLModel):
     # From DeckRead
     id: int
     name: str
-    description: Optional[str] = None
-    category: Optional[str] = None
-    difficulty_level: Optional[str] = None
+    description: str | None = None
+    category: str | None = None
+    difficulty_level: str | None = None
     is_public: bool
     is_official: bool
-    creator_id: Optional[int] = None
+    creator_id: int | None = None
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
     # From progress calculation
     total_cards: int
     learned_cards: int

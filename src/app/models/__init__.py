@@ -14,8 +14,10 @@ from app.models.schemas import (
     DeckWithProgressRead,
     FavoriteCreate,
     FavoriteRead,
+    GetSelectedDecksResponse,
     NewCardsCountRead,
     ReviewRequest,
+    SelectedDeckInfo,
     SelectDecksRequest,
     SelectDecksResponse,
     TodayProgressRead,
@@ -45,7 +47,6 @@ from app.models.tables import (
     VocabularyCard,
     VocabularyCardBase,
 )
-
 __all__ = [
     # Base
     "TimestampMixin",
@@ -91,4 +92,6 @@ __all__ = [
     "UserSelectedDeckRead",
     "SelectDecksRequest",
     "SelectDecksResponse",
+    "SelectedDeckInfo",
+    "GetSelectedDecksResponse",
 ]

@@ -12,6 +12,8 @@ from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
 from app.models import (
     Deck,
+    DeckDetailRead,
+    DeckRead,
     DecksListResponse,
     DeckWithProgressRead,
     GetSelectedDecksResponse,
@@ -72,6 +74,54 @@ async def get_decks_list(
         skip=skip,
         limit=limit,
     )
+
+
+@router.get("/{deck_id}", response_model=DeckDetailRead)
+async def get_deck_detail(
+    deck_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: CurrentActiveUser = None,
+):
+    """
+    Get detailed information about a specific deck with user's progress.
+
+    Returns deck details including progress statistics.
+    Requires authentication.
+    Returns 404 if deck not found.
+    Returns 403 if deck is private and user doesn't have access.
+    """
+    # Get deck
+    deck_query = select(Deck).where(Deck.id == deck_id)
+    result = await session.exec(deck_query)
+    deck = result.one_or_none()
+
+    # Check if deck exists
+    if not deck:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Deck with id {deck_id} not found",
+        )
+
+    # Check access permission (public or user's own deck)
+    if not deck.is_public and deck.creator_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this deck",
+        )
+
+    # Get deck details using DeckRead
+    deck_read = DeckRead.model_validate(deck)
+
+    # Calculate progress
+    progress = await DeckService.calculate_deck_progress(session, current_user.id, deck_id)
+
+    # Combine deck details and progress
+    response = {
+        **deck_read.model_dump(),
+        **progress,
+    }
+
+    return DeckDetailRead(**response)
 
 
 @router.put("/selected-decks", response_model=SelectDecksResponse)

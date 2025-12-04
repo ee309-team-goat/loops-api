@@ -8,6 +8,7 @@ from app.models.enums import CardState
 from app.models.schemas import (
     DailyGoalRead,
     DeckCreate,
+    DeckDetailRead,
     DeckRead,
     DecksListResponse,
     DeckUpdate,
@@ -84,6 +85,7 @@ __all__ = [
     "DeckRead",
     "DeckUpdate",
     "DeckWithProgressRead",
+    "DeckDetailRead",
     "DecksListResponse",
     # Favorite Schemas
     "FavoriteCreate",

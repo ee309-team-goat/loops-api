@@ -92,3 +92,25 @@ class DecksListResponse(SQLModel):
     total: int
     skip: int
     limit: int
+
+
+class DeckDetailRead(SQLModel):
+    """Schema for reading a deck with full details and progress."""
+
+    # From DeckRead
+    id: int
+    name: str
+    description: str | None = None
+    category: str | None = None
+    difficulty_level: str | None = None
+    is_public: bool
+    is_official: bool
+    creator_id: int | None = None
+    created_at: datetime
+    updated_at: datetime | None = None
+    # From progress calculation
+    total_cards: int
+    learned_cards: int
+    learning_cards: int
+    new_cards: int
+    progress_percent: float

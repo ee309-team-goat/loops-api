@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timezone
+from datetime import UTC, datetime
 
 from fsrs import Card, Rating, Scheduler
 from fsrs import State as FSRSState
@@ -217,9 +217,7 @@ class UserCardProgressService:
         return progress
 
     @staticmethod
-    async def get_today_progress(
-        session: AsyncSession, user_id: int, daily_goal: int
-    ) -> dict:
+    async def get_today_progress(session: AsyncSession, user_id: int, daily_goal: int) -> dict:
         """
         Get today's learning progress statistics.
 
@@ -227,18 +225,16 @@ class UserCardProgressService:
             dict with total_reviews, correct_count, wrong_count, accuracy_rate,
             daily_goal, and goal_progress
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         today = now.date()  # Use UTC date for consistency
 
         # Get all progress records for user where last_review_date is today
         statement = select(UserCardProgress).where(
             UserCardProgress.user_id == user_id,
-            UserCardProgress.last_review_date >= datetime.combine(
-                today, datetime.min.time()
-            ).replace(tzinfo=timezone.utc),
-            UserCardProgress.last_review_date < datetime.combine(
-                today, datetime.max.time()
-            ).replace(tzinfo=timezone.utc),
+            UserCardProgress.last_review_date
+            >= datetime.combine(today, datetime.min.time()).replace(tzinfo=UTC),
+            UserCardProgress.last_review_date
+            < datetime.combine(today, datetime.max.time()).replace(tzinfo=UTC),
         )
         result = await session.exec(statement)
         progress_records = list(result.all())

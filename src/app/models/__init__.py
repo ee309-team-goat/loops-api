@@ -43,6 +43,7 @@ from app.models.tables import (
     VocabularyCard,
     VocabularyCardBase,
 )
+
 __all__ = [
     # Base
     "TimestampMixin",

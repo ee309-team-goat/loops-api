@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -33,9 +33,7 @@ class UserService:
         return await session.get(User, user_id)
 
     @staticmethod
-    async def get_user_by_supabase_uid(
-        session: AsyncSession, supabase_uid: str
-    ) -> User | None:
+    async def get_user_by_supabase_uid(session: AsyncSession, supabase_uid: str) -> User | None:
         """Get a user by Supabase UID."""
         statement = select(User).where(User.supabase_uid == supabase_uid)
         result = await session.exec(statement)
@@ -93,7 +91,7 @@ class UserService:
             return None
 
         # Count today's reviews from UserCardProgress
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         statement = select(func.count(UserCardProgress.id)).where(
             UserCardProgress.user_id == user_id,
             func.date(UserCardProgress.last_review_date) == today,

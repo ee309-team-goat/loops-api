@@ -1,8 +1,8 @@
 from app.models.schemas.deck import (
     DeckCreate,
     DeckRead,
-    DeckUpdate,
     DecksListResponse,
+    DeckUpdate,
     DeckWithProgressRead,
 )
 from app.models.schemas.favorite import FavoriteCreate, FavoriteRead

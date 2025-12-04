@@ -107,15 +107,15 @@ ORDER BY difficulty_level ASC, word_length ASC
 ```python
 def calculate_user_level(user_id: int, n_recent: int = 50) -> float:
     """최근 N개 리뷰의 정답률로 사용자 레벨 추정"""
-    
+
     recent_reviews = get_recent_reviews(user_id, limit=n_recent)
-    
+
     if not recent_reviews:
         return 1.0  # 초보자 기본값
-    
+
     accuracy = sum(r.is_correct for r in recent_reviews) / len(recent_reviews)
     avg_difficulty = sum(r.card.difficulty_level for r in recent_reviews) / len(recent_reviews)
-    
+
     # 정답률 기반 조정
     if accuracy > 0.9:
         return avg_difficulty + 0.5  # 레벨 올리기
@@ -207,22 +207,22 @@ def interleave_by_category(cards: list) -> list:
     """카테고리별로 섞기"""
     from itertools import cycle
     from collections import defaultdict
-    
+
     by_category = defaultdict(list)
     for card in cards:
         by_category[card.category].append(card)
-    
+
     # Round-robin으로 섞기
     result = []
     iterators = [iter(cards) for cards in by_category.values()]
-    
+
     while iterators:
         for it in iterators[:]:
             try:
                 result.append(next(it))
             except StopIteration:
                 iterators.remove(it)
-    
+
     return result
 ```
 
@@ -257,7 +257,7 @@ Level 3: have eaten (먹어버렸다) - 현재완료
 ALTER TABLE vocabulary_cards ADD COLUMN prerequisite_ids JSONB;
 
 -- 예: "eating" 카드는 "eat"를 먼저 알아야 함
-UPDATE vocabulary_cards 
+UPDATE vocabulary_cards
 SET prerequisite_ids = '[123]'  -- "eat"의 card_id
 WHERE english_word = 'eating';
 ```
@@ -266,29 +266,29 @@ WHERE english_word = 'eating';
 def topological_sort_cards(cards: list) -> list:
     """선수 조건에 따라 정렬"""
     from collections import defaultdict, deque
-    
+
     graph = defaultdict(list)
     in_degree = defaultdict(int)
-    
+
     for card in cards:
         for prereq_id in (card.prerequisite_ids or []):
             graph[prereq_id].append(card.id)
             in_degree[card.id] += 1
-    
+
     # Kahn's algorithm
     queue = deque([c for c in cards if in_degree[c.id] == 0])
     result = []
-    
+
     while queue:
         card = queue.popleft()
         result.append(card)
-        
+
         for next_id in graph[card.id]:
             in_degree[next_id] -= 1
             if in_degree[next_id] == 0:
                 next_card = next(c for c in cards if c.id == next_id)
                 queue.append(next_card)
-    
+
     return result
 ```
 
@@ -333,23 +333,23 @@ async def get_new_cards_mvp(
     limit: int = 10
 ) -> list[VocabularyCard]:
     """MVP: 빈도 기반 간단 구현"""
-    
+
     # 이미 본 카드 제외
     seen_subquery = select(UserCardProgress.card_id).where(
         UserCardProgress.user_id == user_id
     )
-    
+
     query = select(VocabularyCard).where(
         VocabularyCard.id.not_in(seen_subquery)
     )
-    
+
     # 선택된 덱 필터
     if selected_deck_ids:
         query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids))
-    
+
     # 빈도순 정렬
     query = query.order_by(VocabularyCard.frequency_rank.asc())
-    
+
     result = await session.exec(query.limit(limit))
     return list(result.all())
 ```
@@ -373,61 +373,61 @@ async def get_new_cards_v2(
     limit: int = 10
 ) -> list[VocabularyCard]:
     """V2: i+1 필터링 추가"""
-    
+
     # 1. 사용자 레벨 계산
     user_level = await calculate_user_level(session, user_id)
-    
+
     # 2. 이미 본 카드 제외
     seen_subquery = select(UserCardProgress.card_id).where(
         UserCardProgress.user_id == user_id
     )
-    
+
     query = select(VocabularyCard).where(
         VocabularyCard.id.not_in(seen_subquery)
     )
-    
+
     # 3. 선택된 덱 필터
     if selected_deck_ids:
         query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids))
-    
+
     # 4. i+1 필터링 (레벨 ± 1 범위)
     query = query.where(
         VocabularyCard.difficulty_level >= user_level - 0.5,
         VocabularyCard.difficulty_level <= user_level + 1.5
     )
-    
+
     # 5. 빈도순 정렬
     query = query.order_by(VocabularyCard.frequency_rank.asc())
-    
+
     # 6. 후보 가져오기 (limit의 2배)
     result = await session.exec(query.limit(limit * 2))
     candidates = list(result.all())
-    
+
     # 7. Interleaving (카테고리 섞기)
     interleaved = interleave_by_category(candidates)
-    
+
     return interleaved[:limit]
 
 
 def interleave_by_category(cards: list) -> list:
     """카테고리가 연속되지 않도록 섞기"""
     from collections import defaultdict
-    
+
     by_category = defaultdict(list)
     for card in cards:
         category = card.category or "uncategorized"
         by_category[category].append(card)
-    
+
     result = []
     categories = list(by_category.keys())
     indices = {cat: 0 for cat in categories}
-    
+
     while len(result) < len(cards):
         for cat in categories:
             if indices[cat] < len(by_category[cat]):
                 result.append(by_category[cat][indices[cat]])
                 indices[cat] += 1
-    
+
     return result
 ```
 
@@ -450,26 +450,26 @@ async def get_new_cards_v3(
     limit: int = 10
 ) -> list[VocabularyCard]:
     """V3: ML 기반 최적화"""
-    
+
     # 1. 사용자 프로필 분석
     user_profile = await analyze_user_profile(session, user_id)
     # - 학습 속도
     # - 선호 카테고리
     # - 약점 영역
-    
+
     # 2. 후보 선정 (V2 로직)
     candidates = await get_new_cards_v2(session, user_id, selected_deck_ids, limit * 3)
-    
+
     # 3. ML 모델로 각 카드 점수 계산
     scored = []
     for card in candidates:
         score = ml_model.predict_success_rate(user_profile, card)
         scored.append((card, score))
-    
+
     # 4. 최적 점수 범위 (너무 쉽지도 어렵지도 않게)
     sorted_cards = sorted(scored, key=lambda x: x[1], reverse=True)
     optimal = [card for card, score in sorted_cards if 0.6 <= score <= 0.8]
-    
+
     return optimal[:limit]
 ```
 
@@ -580,4 +580,3 @@ async def get_new_cards_v3(
 - **Oxford 3000/5000**: https://www.oxfordlearnersdictionaries.com/wordlists/oxford3000-5000
 - **Google Books Ngram**: https://books.google.com/ngrams
 - **Wiktionary Frequency Lists**: https://en.wiktionary.org/wiki/Wiktionary:Frequency_lists
-

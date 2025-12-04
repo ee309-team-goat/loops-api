@@ -5,7 +5,13 @@ Deck service for calculating deck progress statistics.
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import Deck, DecksListResponse, DeckWithProgressRead, UserCardProgress, VocabularyCard
+from app.models import (
+    Deck,
+    DecksListResponse,
+    DeckWithProgressRead,
+    UserCardProgress,
+    VocabularyCard,
+)
 from app.models.enums import CardState
 
 
@@ -44,9 +50,7 @@ class DeckService:
         # Calculate progress for each deck
         decks_with_progress = []
         for deck in decks:
-            progress = await DeckService.calculate_deck_progress(
-                session, user_id, deck.id
-            )
+            progress = await DeckService.calculate_deck_progress(session, user_id, deck.id)
             deck_dict = {
                 "id": deck.id,
                 "name": deck.name,
@@ -99,42 +103,49 @@ class DeckService:
 
         # Count cards by state using JOIN
         # Count REVIEW (learned) cards
-        learned_query = select(func.count(UserCardProgress.id)).select_from(
-            VocabularyCard
-        ).join(
-            UserCardProgress,
-            (VocabularyCard.id == UserCardProgress.card_id)
-            & (UserCardProgress.user_id == user_id),
-        ).where(
-            VocabularyCard.deck_id == deck_id,
-            UserCardProgress.card_state == CardState.REVIEW,
+        learned_query = (
+            select(func.count(UserCardProgress.id))
+            .select_from(VocabularyCard)
+            .join(
+                UserCardProgress,
+                (VocabularyCard.id == UserCardProgress.card_id)
+                & (UserCardProgress.user_id == user_id),
+            )
+            .where(
+                VocabularyCard.deck_id == deck_id,
+                UserCardProgress.card_state == CardState.REVIEW,
+            )
         )
         result = await session.exec(learned_query)
         learned_cards = result.one()
 
         # Count LEARNING + RELEARNING cards
-        learning_query = select(func.count(UserCardProgress.id)).select_from(
-            VocabularyCard
-        ).join(
-            UserCardProgress,
-            (VocabularyCard.id == UserCardProgress.card_id)
-            & (UserCardProgress.user_id == user_id),
-        ).where(
-            VocabularyCard.deck_id == deck_id,
-            UserCardProgress.card_state.in_([CardState.LEARNING, CardState.RELEARNING]),
+        learning_query = (
+            select(func.count(UserCardProgress.id))
+            .select_from(VocabularyCard)
+            .join(
+                UserCardProgress,
+                (VocabularyCard.id == UserCardProgress.card_id)
+                & (UserCardProgress.user_id == user_id),
+            )
+            .where(
+                VocabularyCard.deck_id == deck_id,
+                UserCardProgress.card_state.in_([CardState.LEARNING, CardState.RELEARNING]),
+            )
         )
         result = await session.exec(learning_query)
         learning_cards = result.one()
 
         # Count cards with progress (any state)
-        cards_with_progress_query = select(func.count(UserCardProgress.id)).select_from(
-            VocabularyCard
-        ).join(
-            UserCardProgress,
-            (VocabularyCard.id == UserCardProgress.card_id)
-            & (UserCardProgress.user_id == user_id),
-        ).where(
-            VocabularyCard.deck_id == deck_id
+        cards_with_progress_query = (
+            select(func.count(UserCardProgress.id))
+            .select_from(VocabularyCard)
+            .join(
+                UserCardProgress,
+                (VocabularyCard.id == UserCardProgress.card_id)
+                & (UserCardProgress.user_id == user_id),
+            )
+            .where(VocabularyCard.deck_id == deck_id)
         )
         result = await session.exec(cards_with_progress_query)
         cards_with_progress = result.one()

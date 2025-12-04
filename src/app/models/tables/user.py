@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -12,11 +11,11 @@ class UserBase(SQLModel):
     email: str = Field(unique=True, index=True, max_length=255)
     username: str = Field(unique=True, index=True, max_length=100)
     is_active: bool = Field(default=True, index=True)
-    
+
     # Learning preferences (DB-1, DB-2)
     select_all_decks: bool = Field(default=True)  # If true, study from all decks
     daily_goal: int = Field(default=20)  # Daily learning goal (number of cards)
-    
+
     # User settings (DB-8)
     timezone: str = Field(default="UTC", max_length=50)
     theme: str = Field(default="auto", max_length=20)  # light/dark/auto
@@ -28,10 +27,10 @@ class User(UserBase, TimestampMixin, table=True):
 
     __tablename__ = "users"
 
-    id: Optional[int] = Field(default=None, primary_key=True, nullable=False)
+    id: int | None = Field(default=None, primary_key=True, nullable=False)
     supabase_uid: str = Field(unique=True, index=True, max_length=255)
 
     # Streak tracking
     current_streak: int = Field(default=0)
     longest_streak: int = Field(default=0)
-    last_study_date: Optional[date] = Field(default=None, index=True)
+    last_study_date: date | None = Field(default=None, index=True)

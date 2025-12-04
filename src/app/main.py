@@ -1,7 +1,7 @@
 import traceback
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from time import time
 
 from fastapi import FastAPI, Request, Response, status
@@ -11,11 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api import router as api_router
 from app.config import settings
 from app.core.exceptions import LoopsAPIException
 from app.core.logging import logger, setup_logging
 from app.database import engine
-from app.api import router as api_router
 
 # Track application start time for uptime calculation
 APP_START_TIME = time()
@@ -41,6 +41,7 @@ app = FastAPI(
     debug=settings.debug,
     lifespan=lifespan,
 )
+
 
 # Middleware for request ID tracking
 @app.middleware("http")
@@ -195,21 +196,21 @@ async def root():
 async def health(response: Response):
     """
     Health check endpoint.
-    
+
     Tests database connectivity and returns service status.
     Returns 503 Service Unavailable if any critical component is unhealthy.
     """
     uptime_seconds = int(time() - APP_START_TIME)
-    timestamp = datetime.now(timezone.utc).isoformat()
-    
+    timestamp = datetime.now(UTC).isoformat()
+
     health_status = {
         "status": "healthy",
         "version": settings.app_version,
         "uptime_seconds": uptime_seconds,
         "timestamp": timestamp,
-        "database": "unknown"
+        "database": "unknown",
     }
-    
+
     # Test database connection
     try:
         async with engine.connect() as conn:
@@ -220,5 +221,5 @@ async def health(response: Response):
         health_status["database"] = "disconnected"
         health_status["error"] = str(e)
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    
+
     return health_status

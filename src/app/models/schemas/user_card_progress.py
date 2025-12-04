@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -19,10 +18,10 @@ class UserCardProgressRead(UserCardProgressBase):
 
     id: int
     next_review_date: datetime
-    last_review_date: Optional[datetime] = None
+    last_review_date: datetime | None = None
     card_state: CardState
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
 
 class ReviewRequest(SQLModel):

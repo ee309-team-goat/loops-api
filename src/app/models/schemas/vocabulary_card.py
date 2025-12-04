@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
@@ -9,8 +9,8 @@ from app.models.tables.vocabulary_card import VocabularyCardBase
 class VocabularyCardCreate(VocabularyCardBase):
     """Schema for creating a vocabulary card."""
 
-    example_sentences: Optional[list[dict[str, str]]] = None
-    tags: Optional[list[str]] = None
+    example_sentences: list[dict[str, str]] | None = None
+    tags: list[str] | None = None
 
     @field_validator("english_word", "korean_meaning")
     @classmethod
@@ -22,7 +22,7 @@ class VocabularyCardCreate(VocabularyCardBase):
 
     @field_validator("cefr_level")
     @classmethod
-    def cefr_level_valid(cls, v: Optional[str]) -> Optional[str]:
+    def cefr_level_valid(cls, v: str | None) -> str | None:
         """Validate CEFR level is valid."""
         if v is None:
             return v
@@ -34,21 +34,19 @@ class VocabularyCardCreate(VocabularyCardBase):
 
     @field_validator("difficulty_level")
     @classmethod
-    def difficulty_level_valid(cls, v: Optional[str]) -> Optional[str]:
+    def difficulty_level_valid(cls, v: str | None) -> str | None:
         """Validate difficulty level."""
         if v is None:
             return v
         allowed_levels = {"beginner", "intermediate", "advanced"}
         v = v.lower().strip()
         if v not in allowed_levels:
-            raise ValueError(
-                f"Difficulty level must be one of: {', '.join(allowed_levels)}"
-            )
+            raise ValueError(f"Difficulty level must be one of: {', '.join(allowed_levels)}")
         return v
 
     @field_validator("tags")
     @classmethod
-    def tags_not_empty(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+    def tags_not_empty(cls, v: list[str] | None) -> list[str] | None:
         """Validate tags are not empty strings."""
         if v is None:
             return v
@@ -60,36 +58,36 @@ class VocabularyCardRead(VocabularyCardBase):
     """Schema for reading a vocabulary card."""
 
     id: int
-    category: Optional[str] = None
-    frequency_rank: Optional[int] = None
-    audio_url: Optional[str] = None
-    example_sentences: Optional[list[dict[str, str]]] = None
-    tags: Optional[list[str]] = None
+    category: str | None = None
+    frequency_rank: int | None = None
+    audio_url: str | None = None
+    example_sentences: list[dict[str, str]] | None = None
+    tags: list[str] | None = None
     created_at: Any  # datetime
-    updated_at: Optional[Any] = None  # datetime
+    updated_at: Any | None = None  # datetime
 
 
 class VocabularyCardUpdate(SQLModel):
     """Schema for updating a vocabulary card."""
 
-    english_word: Optional[str] = Field(default=None, max_length=255)
-    korean_meaning: Optional[str] = Field(default=None, max_length=255)
-    part_of_speech: Optional[str] = Field(default=None, max_length=50)
-    pronunciation_ipa: Optional[str] = Field(default=None, max_length=255)
-    definition_en: Optional[str] = None
-    example_sentences: Optional[list[dict[str, str]]] = None
-    difficulty_level: Optional[str] = Field(default=None, max_length=50)
-    cefr_level: Optional[str] = Field(default=None, max_length=10)
-    category: Optional[str] = Field(default=None, max_length=50)
-    frequency_rank: Optional[int] = Field(default=None, ge=0)
-    audio_url: Optional[str] = Field(default=None, max_length=500)
-    tags: Optional[list[str]] = None
-    deck_id: Optional[int] = Field(default=None, gt=0)
-    is_verified: Optional[bool] = None
+    english_word: str | None = Field(default=None, max_length=255)
+    korean_meaning: str | None = Field(default=None, max_length=255)
+    part_of_speech: str | None = Field(default=None, max_length=50)
+    pronunciation_ipa: str | None = Field(default=None, max_length=255)
+    definition_en: str | None = None
+    example_sentences: list[dict[str, str]] | None = None
+    difficulty_level: str | None = Field(default=None, max_length=50)
+    cefr_level: str | None = Field(default=None, max_length=10)
+    category: str | None = Field(default=None, max_length=50)
+    frequency_rank: int | None = Field(default=None, ge=0)
+    audio_url: str | None = Field(default=None, max_length=500)
+    tags: list[str] | None = None
+    deck_id: int | None = Field(default=None, gt=0)
+    is_verified: bool | None = None
 
     @field_validator("english_word", "korean_meaning")
     @classmethod
-    def not_empty(cls, v: Optional[str]) -> Optional[str]:
+    def not_empty(cls, v: str | None) -> str | None:
         """Validate string fields are not empty."""
         if v is None:
             return v
@@ -99,7 +97,7 @@ class VocabularyCardUpdate(SQLModel):
 
     @field_validator("cefr_level")
     @classmethod
-    def cefr_level_valid(cls, v: Optional[str]) -> Optional[str]:
+    def cefr_level_valid(cls, v: str | None) -> str | None:
         """Validate CEFR level is valid."""
         if v is None:
             return v
@@ -111,21 +109,19 @@ class VocabularyCardUpdate(SQLModel):
 
     @field_validator("difficulty_level")
     @classmethod
-    def difficulty_level_valid(cls, v: Optional[str]) -> Optional[str]:
+    def difficulty_level_valid(cls, v: str | None) -> str | None:
         """Validate difficulty level."""
         if v is None:
             return v
         allowed_levels = {"beginner", "intermediate", "advanced"}
         v = v.lower().strip()
         if v not in allowed_levels:
-            raise ValueError(
-                f"Difficulty level must be one of: {', '.join(allowed_levels)}"
-            )
+            raise ValueError(f"Difficulty level must be one of: {', '.join(allowed_levels)}")
         return v
 
     @field_validator("tags")
     @classmethod
-    def tags_not_empty(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+    def tags_not_empty(cls, v: list[str] | None) -> list[str] | None:
         """Validate tags are not empty strings."""
         if v is None:
             return v

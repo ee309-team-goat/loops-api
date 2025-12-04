@@ -1,9 +1,8 @@
 """Schemas for UserSelectedDeck model."""
 
 from datetime import datetime
-from typing import Optional
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import SQLModel
 
 
 class UserSelectedDeckCreate(SQLModel):
@@ -20,5 +19,4 @@ class UserSelectedDeckRead(SQLModel):
     user_id: int
     deck_id: int
     created_at: datetime
-    updated_at: Optional[datetime] = None
-
+    updated_at: datetime | None = None

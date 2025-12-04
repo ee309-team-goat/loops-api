@@ -2,14 +2,12 @@
 Security utilities for Supabase token verification.
 """
 
-from typing import Optional
-
 from supabase import Client, create_client
 
 from app.config import settings
 
 # Supabase client with publishable key (for auth operations)
-_supabase_client: Optional[Client] = None
+_supabase_client: Client | None = None
 
 
 def get_supabase_client() -> Client:
@@ -23,7 +21,7 @@ def get_supabase_client() -> Client:
     return _supabase_client
 
 
-def verify_supabase_token(token: str) -> Optional[str]:
+def verify_supabase_token(token: str) -> str | None:
     """
     Verify a Supabase token using the Supabase client.
 

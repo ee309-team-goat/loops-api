@@ -47,9 +47,7 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
-@router.post(
-    "/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: RegisterRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -77,7 +75,7 @@ async def register(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from None
 
     if auth_response.user is None or auth_response.session is None:
         raise HTTPException(
@@ -116,12 +114,12 @@ async def login(
                 "password": request.password,
             }
         )
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
     if auth_response.user is None or auth_response.session is None:
         raise HTTPException(
@@ -155,12 +153,12 @@ async def refresh_token(
 
     try:
         auth_response = supabase.auth.refresh_session(request.refresh_token)
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
     if auth_response.user is None or auth_response.session is None:
         raise HTTPException(

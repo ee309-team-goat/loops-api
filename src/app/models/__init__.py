@@ -4,20 +4,6 @@ from app.models.base import TimestampMixin
 # Enums
 from app.models.enums import CardState
 
-# Tables (DB Models) - includes Base classes
-from app.models.tables import (
-    Deck,
-    DeckBase,
-    Favorite,
-    User,
-    UserBase,
-    UserCardProgress,
-    UserCardProgressBase,
-    UserSelectedDeck,
-    VocabularyCard,
-    VocabularyCardBase,
-)
-
 # Schemas (DTOs)
 from app.models.schemas import (
     DailyGoalRead,
@@ -30,15 +16,29 @@ from app.models.schemas import (
     FavoriteRead,
     NewCardsCountRead,
     ReviewRequest,
-    UserRead,
-    UserUpdate,
     UserCardProgressCreate,
     UserCardProgressRead,
+    UserRead,
     UserSelectedDeckCreate,
     UserSelectedDeckRead,
+    UserUpdate,
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
+)
+
+# Tables (DB Models) - includes Base classes
+from app.models.tables import (
+    Deck,
+    DeckBase,
+    Favorite,
+    User,
+    UserBase,
+    UserCardProgress,
+    UserCardProgressBase,
+    UserSelectedDeck,
+    VocabularyCard,
+    VocabularyCardBase,
 )
 
 __all__ = [

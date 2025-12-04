@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import EmailStr, field_validator
 from sqlmodel import Field, SQLModel
@@ -13,31 +12,31 @@ class UserRead(UserBase):
     id: int
     current_streak: int
     longest_streak: int
-    last_study_date: Optional[date] = None
+    last_study_date: date | None = None
     select_all_decks: bool
     daily_goal: int
     timezone: str
     theme: str
     notification_enabled: bool
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
 
 class UserUpdate(SQLModel):
     """Schema for updating a user (profile fields only, auth handled by Supabase)."""
 
-    email: Optional[EmailStr] = Field(default=None, max_length=255)
-    username: Optional[str] = Field(default=None, max_length=100)
-    is_active: Optional[bool] = None
-    select_all_decks: Optional[bool] = None
-    daily_goal: Optional[int] = Field(default=None, gt=0, le=1000)
-    timezone: Optional[str] = Field(default=None, max_length=50)
-    theme: Optional[str] = Field(default=None, max_length=20)
-    notification_enabled: Optional[bool] = None
+    email: EmailStr | None = Field(default=None, max_length=255)
+    username: str | None = Field(default=None, max_length=100)
+    is_active: bool | None = None
+    select_all_decks: bool | None = None
+    daily_goal: int | None = Field(default=None, gt=0, le=1000)
+    timezone: str | None = Field(default=None, max_length=50)
+    theme: str | None = Field(default=None, max_length=20)
+    notification_enabled: bool | None = None
 
     @field_validator("username")
     @classmethod
-    def username_alphanumeric(cls, v: Optional[str]) -> Optional[str]:
+    def username_alphanumeric(cls, v: str | None) -> str | None:
         """Validate username is alphanumeric and not just whitespace."""
         if v is None:
             return v
@@ -50,7 +49,7 @@ class UserUpdate(SQLModel):
 
     @field_validator("theme")
     @classmethod
-    def theme_valid(cls, v: Optional[str]) -> Optional[str]:
+    def theme_valid(cls, v: str | None) -> str | None:
         """Validate theme is one of the allowed values."""
         if v is None:
             return v

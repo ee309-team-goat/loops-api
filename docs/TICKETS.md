@@ -33,10 +33,10 @@
 
 ### BE-H1: 일일 학습 목표 조회
 
-**Endpoint:** `GET /api/v1/users/me/daily-goal`  
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
+**Endpoint:** `GET /api/v1/users/me/daily-goal`
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
 **Labels:** `backend`, `api`, `home`, `user`
 
 **Description:**
@@ -64,10 +64,10 @@
 
 ### BE-H2: 오늘의 학습 진행률 조회
 
-**Endpoint:** `GET /api/v1/users/me/today-progress`  
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
+**Endpoint:** `GET /api/v1/users/me/today-progress`
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
 **Labels:** `backend`, `api`, `home`, `progress`
 
 **Description:**
@@ -100,11 +100,11 @@
 
 ### BE-H3: 새 카드 개수 조회
 
-**Endpoint:** `GET /api/v1/progress/new-cards-count`  
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
-**Dependencies:** BE-D2  
+**Endpoint:** `GET /api/v1/progress/new-cards-count`
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
+**Dependencies:** BE-D2
 **Labels:** `backend`, `api`, `home`, `progress`
 
 **Description:**
@@ -134,11 +134,11 @@
 
 ### BE-D1: 덱 목록 조회 (진행률 포함)
 
-**Endpoint:** `GET /api/v1/decks`  
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
-**Dependencies:** BE-D6  
+**Endpoint:** `GET /api/v1/decks`
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
+**Dependencies:** BE-D6
 **Labels:** `backend`, `api`, `deck`
 
 **Description:**
@@ -181,10 +181,10 @@
 
 ### BE-D2: 선택한 덱 설정
 
-**Endpoint:** `PUT /api/v1/users/me/selected-decks`  
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Endpoint:** `PUT /api/v1/users/me/selected-decks`
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `backend`, `api`, `deck`, `user`
 
 **Description:**
@@ -215,10 +215,10 @@
 
 ### BE-D3: 선택한 덱 조회
 
-**Endpoint:** `GET /api/v1/users/me/selected-decks`  
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Endpoint:** `GET /api/v1/users/me/selected-decks`
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `backend`, `api`, `deck`, `user`
 
 **Description:**
@@ -265,10 +265,10 @@
 
 ### BE-D4: 특정 덱 상세 조회
 
-**Endpoint:** `GET /api/v1/decks/{id}`  
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Endpoint:** `GET /api/v1/decks/{id}`
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `backend`, `api`, `deck`
 
 **Description:**
@@ -288,10 +288,10 @@
 
 ### BE-D5: 덱의 단어 카드 목록 조회
 
-**Endpoint:** `GET /api/v1/decks/{id}/cards`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Endpoint:** `GET /api/v1/decks/{id}/cards`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `backend`, `api`, `deck`, `vocabulary`
 
 **Description:**
@@ -311,9 +311,9 @@
 
 ### BE-D6: 덱 진행률 계산 로직
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `backend`, `service`, `deck`
 
 **Description:**
@@ -353,10 +353,10 @@ async def calculate_deck_progress(
 
 ### BE-S1: 연속 학습 일수 조회
 
-**Endpoint:** `GET /api/v1/users/me/streak`  
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Endpoint:** `GET /api/v1/users/me/streak`
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `backend`, `api`, `statistics`, `user`
 
 **Description:**
@@ -388,10 +388,10 @@ async def calculate_deck_progress(
 
 ### BE-S2: 학습 완료 단어 수 조회
 
-**Endpoint:** `GET /api/v1/stats/total-learned`  
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Endpoint:** `GET /api/v1/stats/total-learned`
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `backend`, `api`, `statistics`
 
 **Description:**
@@ -424,10 +424,10 @@ async def calculate_deck_progress(
 
 ### BE-S3: 학습 기록 조회
 
-**Endpoint:** `GET /api/v1/stats/history`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Endpoint:** `GET /api/v1/stats/history`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `backend`, `api`, `statistics`
 
 **Description:**
@@ -462,10 +462,10 @@ async def calculate_deck_progress(
 
 ### BE-S4: 정답률 통계 조회
 
-**Endpoint:** `GET /api/v1/stats/accuracy`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Endpoint:** `GET /api/v1/stats/accuracy`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `backend`, `api`, `statistics`
 
 **Description:**
@@ -484,10 +484,10 @@ async def calculate_deck_progress(
 
 ### BE-F1: 즐겨찾기 카드 목록 조회
 
-**Endpoint:** `GET /api/v1/favorites`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Endpoint:** `GET /api/v1/favorites`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `backend`, `api`, `favorites`
 
 **Description:**
@@ -508,10 +508,10 @@ async def calculate_deck_progress(
 
 ### BE-F2: 즐겨찾기 추가
 
-**Endpoint:** `POST /api/v1/favorites/{card_id}`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Endpoint:** `POST /api/v1/favorites/{card_id}`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `backend`, `api`, `favorites`
 
 **Description:**
@@ -531,10 +531,10 @@ async def calculate_deck_progress(
 
 ### BE-F3: 즐겨찾기 제거
 
-**Endpoint:** `DELETE /api/v1/favorites/{card_id}`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Endpoint:** `DELETE /api/v1/favorites/{card_id}`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `backend`, `api`, `favorites`
 
 **Description:**
@@ -553,10 +553,10 @@ async def calculate_deck_progress(
 
 ### BE-SET1: 사용자 설정 조회
 
-**Endpoint:** `GET /api/v1/users/me/config`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Endpoint:** `GET /api/v1/users/me/config`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `backend`, `api`, `settings`, `user`
 
 **Description:**
@@ -575,10 +575,10 @@ async def calculate_deck_progress(
 
 ### BE-SET2: 사용자 설정 업데이트
 
-**Endpoint:** `PUT /api/v1/users/me/config`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Endpoint:** `PUT /api/v1/users/me/config`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `backend`, `api`, `settings`, `user`
 
 **Description:**
@@ -599,10 +599,10 @@ async def calculate_deck_progress(
 
 ### BE-A1: 단어 발음 오디오 제공 (TTS)
 
-**Endpoint:** `GET /api/v1/cards/{id}/audio`  
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Endpoint:** `GET /api/v1/cards/{id}/audio`
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `backend`, `api`, `audio`, `vocabulary`, `tts`
 
 **Description:**
@@ -643,10 +643,10 @@ async def generate_audio(text: str, language: str = "en") -> bytes:
 
 ### BE-A2: 동적 예문 생성 API (AI)
 
-**Endpoint:** `GET /api/v1/cards/{id}/examples`  
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Endpoint:** `GET /api/v1/cards/{id}/examples`
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `backend`, `api`, `ai`, `examples`
 
 **Description:**
@@ -716,9 +716,9 @@ async def generate_examples(
 ) -> list[dict]:
     """Generate example sentences using AI"""
     client = AsyncOpenAI(api_key=settings.openai_api_key)
-    
+
     prompt = f"""Generate {count} natural example sentences for the English word "{word}" (meaning: {meaning}).
-    
+
 Requirements:
 - CEFR level: {level}
 - Include diverse contexts (formal, casual, past tense, etc.)
@@ -732,13 +732,13 @@ Format:
   ...
 ]
 """
-    
+
     response = await client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"}
     )
-    
+
     return json.loads(response.choices[0].message.content)
 ```
 
@@ -746,11 +746,11 @@ Format:
 
 ### BE-L2: 학습 세션 시작
 
-**Endpoint:** `POST /api/v1/study/session/start`  
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
-**Dependencies:** BE-L4, BE-D3  
+**Endpoint:** `POST /api/v1/study/session/start`
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
+**Dependencies:** BE-L4, BE-D3
 **Labels:** `backend`, `api`, `learning`, `session`
 
 **Description:**
@@ -791,11 +791,11 @@ Format:
 
 ### BE-L3: 학습 세션 완료
 
-**Endpoint:** `POST /api/v1/study/session/complete`  
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
-**Dependencies:** BE-L6  
+**Endpoint:** `POST /api/v1/study/session/complete`
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
+**Dependencies:** BE-L6
 **Labels:** `backend`, `api`, `learning`, `session`
 
 **Description:**
@@ -843,10 +843,10 @@ Format:
 
 ### BE-L4: 새 카드 선택 알고리즘 구현
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
-**Dependencies:** DATA-3  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
+**Dependencies:** DATA-3
 **Labels:** `backend`, `service`, `learning`, `algorithm`
 
 **Description:**
@@ -903,9 +903,9 @@ async def get_new_cards_for_session(
 
 ### BE-L5: 사용자 레벨 계산 로직
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `backend`, `service`, `learning`, `algorithm`
 
 **Description:**
@@ -940,9 +940,9 @@ query = query.where(
 
 ### BE-L6: 연속 학습 일수 계산 및 업데이트 로직
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
 **Labels:** `backend`, `service`, `user`, `streak`
 
 **Description:**
@@ -1041,9 +1041,9 @@ async def update_user_streak(session: AsyncSession, user_id: int) -> dict:
 
 ### DATA-1: 영어 단어 빈도 데이터 수집
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
 **Labels:** `data`, `research`
 
 **Description:**
@@ -1068,10 +1068,10 @@ async def update_user_streak(session: AsyncSession, user_id: int) -> dict:
 
 ### DATA-2: 빈도 순위 매핑 스크립트 작성
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
-**Dependencies:** DATA-1  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
+**Dependencies:** DATA-1
 **Labels:** `data`, `script`
 
 **Description:**
@@ -1112,10 +1112,10 @@ async def map_frequency_ranks(session: AsyncSession, dry_run: bool = False):
 
 ### DATA-3: 기존 카드에 빈도 순위 업데이트
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
-**Dependencies:** DATA-2  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
+**Dependencies:** DATA-2
 **Labels:** `data`, `migration`
 
 **Description:**
@@ -1134,9 +1134,9 @@ async def map_frequency_ranks(session: AsyncSession, dry_run: bool = False):
 
 ### DATA-4: 샘플 덱 데이터 준비
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `data`, `content`
 
 **Description:**
@@ -1168,9 +1168,9 @@ basic_1000_deck = Deck(
 
 ### DATA-5: 카드에 CEFR 레벨 매핑
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 2  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 2
 **Labels:** `data`, `content`
 
 **Description:**
@@ -1200,9 +1200,9 @@ basic_1000_deck = Deck(
 
 ### SEC-1: Rate Limiting 구현
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `backend`, `security`, `infrastructure`
 
 **Description:**
@@ -1235,9 +1235,9 @@ async def login(...):
 
 ### SEC-2: CORS 설정 검증
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
 **Labels:** `backend`, `security`, `infrastructure`
 
 **Description:**
@@ -1277,9 +1277,9 @@ app.add_middleware(
 
 ### SEC-3: 에러 처리 표준화
 
-**Priority:** 🟡 Medium  
-**Status:** ✅ Completed  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** ✅ Completed
+**Sprint:** Sprint 3
 **Labels:** `backend`, `error-handling`
 
 **Description:**
@@ -1298,9 +1298,9 @@ app.add_middleware(
 
 ### SEC-4: 입력 검증 강화
 
-**Priority:** 🟡 Medium  
-**Status:** ✅ Completed  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** ✅ Completed
+**Sprint:** Sprint 3
 **Labels:** `backend`, `validation`
 
 **Description:**
@@ -1334,9 +1334,9 @@ class UserCreate(UserBase):
 
 ### SEC-5: SQL Injection 방어 검증
 
-**Priority:** 🔴 High  
-**Status:** ✅ Completed  
-**Sprint:** Sprint 1  
+**Priority:** 🔴 High
+**Status:** ✅ Completed
+**Sprint:** Sprint 1
 **Labels:** `backend`, `security`
 
 **Description:**
@@ -1355,9 +1355,9 @@ class UserCreate(UserBase):
 
 ### SEC-6: 구조화된 로깅 시스템
 
-**Priority:** 🟡 Medium  
-**Status:** ✅ Completed  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** ✅ Completed
+**Sprint:** Sprint 3
 **Labels:** `backend`, `infrastructure`, `logging`
 
 **Description:**
@@ -1377,9 +1377,9 @@ class UserCreate(UserBase):
 
 ### SEC-8: Health Check 엔드포인트 개선
 
-**Priority:** 🟡 Medium  
-**Status:** ✅ Completed  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** ✅ Completed
+**Sprint:** Sprint 3
 **Labels:** `backend`, `infrastructure`, `monitoring`
 
 **Description:**
@@ -1413,9 +1413,9 @@ DB 연결 및 버전 정보를 포함하도록 health check 엔드포인트를 �
 
 ### TEST-1: 서비스 레이어 단위 테스트
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `testing`, `backend`, `unit-test`
 
 **Description:**
@@ -1442,9 +1442,9 @@ DB 연결 및 버전 정보를 포함하도록 health check 엔드포인트를 �
 
 ### TEST-2: API 엔드포인트 통합 테스트
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `testing`, `backend`, `integration-test`
 
 **Description:**
@@ -1470,9 +1470,9 @@ API 엔드포인트에 대한 통합 테스트를 작성합니다.
 
 ### TEST-3: FSRS 로직 정확성 테스트
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
 **Labels:** `testing`, `backend`, `fsrs`, `algorithm`
 
 **Description:**
@@ -1493,10 +1493,10 @@ FSRS 통합이 올바른 스케줄링 결과를 생성하는지 검증합니다.
 
 ### TEST-4: 연속 학습 일수 계산 엣지 케이스 테스트
 
-**Priority:** 🔴 High  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 1  
-**Dependencies:** BE-L6  
+**Priority:** 🔴 High
+**Status:** 📋 To Do
+**Sprint:** Sprint 1
+**Dependencies:** BE-L6
 **Labels:** `testing`, `backend`, `streak`, `algorithm`
 
 **Description:**
@@ -1517,9 +1517,9 @@ FSRS 통합이 올바른 스케줄링 결과를 생성하는지 검증합니다.
 
 ### TEST-5: 데이터베이스 마이그레이션 테스트
 
-**Priority:** 🟡 Medium  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 3  
+**Priority:** 🟡 Medium
+**Status:** 📋 To Do
+**Sprint:** Sprint 3
 **Labels:** `testing`, `database`, `migration`
 
 **Description:**
@@ -1539,9 +1539,9 @@ FSRS 통합이 올바른 스케줄링 결과를 생성하는지 검증합니다.
 
 ### TEST-6: 부하 테스트
 
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `testing`, `performance`, `load-test`
 
 **Description:**
@@ -1568,9 +1568,9 @@ FSRS 통합이 올바른 스케줄링 결과를 생성하는지 검증합니다.
 
 ### TEST-7: E2E 테스트
 
-**Priority:** 🟢 Low  
-**Status:** 📋 To Do  
-**Sprint:** Sprint 4  
+**Priority:** 🟢 Low
+**Status:** 📋 To Do
+**Sprint:** Sprint 4
 **Labels:** `testing`, `e2e`, `backend`
 
 **Description:**

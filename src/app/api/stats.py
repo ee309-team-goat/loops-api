@@ -1,6 +1,7 @@
 """
 Stats-related API endpoints.
 """
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -50,7 +51,7 @@ async def get_total_learned(
     by_level_results = result.all()
 
     # Convert to dictionary
-    by_level = {level: count for level, count in by_level_results}
+    by_level = dict(by_level_results)
 
     return TotalLearnedRead(
         total_learned=total_learned,

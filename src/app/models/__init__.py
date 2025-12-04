@@ -18,6 +18,7 @@ from app.models.schemas import (
     ReviewRequest,
     SelectDecksRequest,
     SelectDecksResponse,
+    TodayProgressRead,
     UserCardProgressCreate,
     UserCardProgressRead,
     UserCreate,
@@ -74,6 +75,7 @@ __all__ = [
     "UserCardProgressCreate",
     "UserCardProgressRead",
     "ReviewRequest",
+    "TodayProgressRead",
     "NewCardsCountRead",
     # Deck Schemas
     "DeckCreate",

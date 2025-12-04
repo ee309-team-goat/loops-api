@@ -31,6 +31,17 @@ class ReviewRequest(SQLModel):
     is_correct: bool
 
 
+class TodayProgressRead(SQLModel):
+    """Schema for reading today's learning progress statistics."""
+
+    total_reviews: int
+    correct_count: int
+    wrong_count: int
+    accuracy_rate: float
+    daily_goal: int
+    goal_progress: float
+
+
 class NewCardsCountRead(SQLModel):
     """Schema for reading new and review cards count."""
 

@@ -14,8 +14,10 @@ from app.models import (
     Deck,
     DecksListResponse,
     DeckWithProgressRead,
+    GetSelectedDecksResponse,
     SelectDecksRequest,
     SelectDecksResponse,
+    SelectedDeckInfo,
     UserSelectedDeck,
 )
 from app.services.deck_service import DeckService
@@ -132,4 +134,53 @@ async def update_selected_decks(
     return SelectDecksResponse(
         select_all=request.select_all,
         selected_deck_ids=selected_deck_ids,
+    )
+
+
+@router.get("/selected-decks", response_model=GetSelectedDecksResponse)
+async def get_selected_decks(
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: CurrentActiveUser = None,
+):
+    """
+    Get user's currently selected decks.
+
+    Returns select_all status and deck details with progress information.
+    """
+    select_all = current_user.select_all_decks
+    deck_ids = []
+    decks = []
+
+    # If select_all=false, get selected deck IDs from user_selected_decks table
+    if not select_all:
+        selected_query = select(UserSelectedDeck).where(UserSelectedDeck.user_id == current_user.id)
+        result = await session.exec(selected_query)
+        selected_decks = list(result.all())
+        deck_ids = [sd.deck_id for sd in selected_decks]
+
+        # Get deck details with progress for each selected deck
+        for deck_id in deck_ids:
+            # Get deck
+            deck_query = select(Deck).where(Deck.id == deck_id)
+            result = await session.exec(deck_query)
+            deck = result.one_or_none()
+
+            if deck:
+                # Calculate progress
+                progress = await DeckService.calculate_deck_progress(
+                    session, current_user.id, deck_id
+                )
+
+                deck_info = SelectedDeckInfo(
+                    id=deck.id,
+                    name=deck.name,
+                    total_cards=progress["total_cards"],
+                    progress_percent=progress["progress_percent"],
+                )
+                decks.append(deck_info)
+
+    return GetSelectedDecksResponse(
+        select_all=select_all,
+        deck_ids=deck_ids,
+        decks=decks,
     )

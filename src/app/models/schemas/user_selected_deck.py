@@ -34,3 +34,20 @@ class SelectDecksResponse(SQLModel):
 
     select_all: bool
     selected_deck_ids: list[int]
+
+
+class SelectedDeckInfo(SQLModel):
+    """Schema for selected deck information."""
+
+    id: int
+    name: str
+    total_cards: int
+    progress_percent: float
+
+
+class GetSelectedDecksResponse(SQLModel):
+    """Schema for getting selected decks."""
+
+    select_all: bool
+    deck_ids: list[int]
+    decks: list[SelectedDeckInfo]

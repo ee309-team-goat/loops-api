@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # pre-commit이 전체 히스토리 필요할 수 있음
+          fetch-depth: 0 # pre-commit이 전체 히스토리 필요할 수 있음
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,13 +26,13 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install pre-commit
+      - name: Install dependencies
         run: |
-          uv pip install pre-commit
+          uv sync --group dev
 
       - name: Run pre-commit on all files
         run: |
-          pre-commit run --all-files
+          uv run pre-commit run --all-files
 
   migration-check:
     name: Migration Check

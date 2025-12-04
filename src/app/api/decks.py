@@ -16,7 +16,6 @@ from app.models import (
     DeckWithProgressRead,
     SelectDecksRequest,
     SelectDecksResponse,
-    User,
     UserSelectedDeck,
 )
 from app.services.deck_service import DeckService
@@ -56,9 +55,7 @@ async def get_decks_list(
     # Calculate progress for each deck
     decks_with_progress = []
     for deck in decks:
-        progress = await DeckService.calculate_deck_progress(
-            session, current_user.id, deck.id
-        )
+        progress = await DeckService.calculate_deck_progress(session, current_user.id, deck.id)
         deck_dict = {
             "id": deck.id,
             "name": deck.name,
@@ -92,9 +89,7 @@ async def update_selected_decks(
     session.add(current_user)
 
     # Clear existing selections
-    delete_stmt = delete(UserSelectedDeck).where(
-        UserSelectedDeck.user_id == current_user.id
-    )
+    delete_stmt = delete(UserSelectedDeck).where(UserSelectedDeck.user_id == current_user.id)
     await session.exec(delete_stmt)
 
     selected_deck_ids = []

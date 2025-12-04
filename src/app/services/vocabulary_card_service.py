@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -10,9 +8,7 @@ class VocabularyCardService:
     """Service for vocabulary card CRUD operations."""
 
     @staticmethod
-    async def create_card(
-        session: AsyncSession, card_data: VocabularyCardCreate
-    ) -> VocabularyCard:
+    async def create_card(session: AsyncSession, card_data: VocabularyCardCreate) -> VocabularyCard:
         """Create a new vocabulary card."""
         card = VocabularyCard(**card_data.model_dump())
         session.add(card)
@@ -30,8 +26,8 @@ class VocabularyCardService:
         session: AsyncSession,
         skip: int = 0,
         limit: int = 100,
-        difficulty_level: Optional[str] = None,
-        deck_id: Optional[int] = None,
+        difficulty_level: str | None = None,
+        deck_id: int | None = None,
     ) -> list[VocabularyCard]:
         """Get a list of vocabulary cards with optional filtering."""
         statement = select(VocabularyCard)

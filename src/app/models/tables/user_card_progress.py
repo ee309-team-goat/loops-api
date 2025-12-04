@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from sqlmodel import Column, Enum, Field, JSON, SQLModel, UniqueConstraint
+from sqlmodel import JSON, Column, Enum, Field, SQLModel, UniqueConstraint
 
 from app.models.base import TimestampMixin
 from app.models.enums import CardState
@@ -22,8 +22,8 @@ class UserCardProgressBase(SQLModel):
     correct_count: int = Field(default=0)
 
     # FSRS Extended Parameters
-    stability: Optional[float] = Field(default=0.0)
-    difficulty: Optional[float] = Field(default=5.0)
+    stability: float | None = Field(default=0.0)
+    difficulty: float | None = Field(default=5.0)
     scheduled_days: int = Field(default=0)
     lapses: int = Field(default=0)
     elapsed_days: int = Field(default=0)
@@ -35,13 +35,13 @@ class UserCardProgress(UserCardProgressBase, TimestampMixin, table=True):
     __tablename__ = "user_card_progress"
     __table_args__ = (UniqueConstraint("user_id", "card_id", name="uq_user_card"),)
 
-    id: Optional[int] = Field(default=None, primary_key=True, nullable=False)
+    id: int | None = Field(default=None, primary_key=True, nullable=False)
 
     next_review_date: datetime = Field(index=True)
-    last_review_date: Optional[datetime] = Field(default=None)
+    last_review_date: datetime | None = Field(default=None)
 
     card_state: CardState = Field(
         default=CardState.NEW, sa_column=Column(Enum(CardState), nullable=False, index=True)
     )
 
-    quality_history: Optional[dict[str, Any] | list[Any]] = Field(default=None, sa_column=Column(JSON))
+    quality_history: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))

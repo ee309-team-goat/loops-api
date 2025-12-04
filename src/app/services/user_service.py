@@ -1,20 +1,27 @@
-from sqlmodel import select
+from datetime import UTC, datetime
+
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.security import get_password_hash, verify_password
-from app.models import User, UserCreate, UserUpdate
+from app.models import User, UserCardProgress, UserUpdate
 
 
 class UserService:
     """Service for user CRUD operations."""
 
     @staticmethod
-    async def create_user(session: AsyncSession, user_data: UserCreate) -> User:
-        """Create a new user with hashed password."""
-        user_dict = user_data.model_dump(exclude={"password"})
-        user_dict["hashed_password"] = get_password_hash(user_data.password)
-
-        user = User(**user_dict)
+    async def create_user(
+        session: AsyncSession,
+        supabase_uid: str,
+        email: str,
+        username: str,
+    ) -> User:
+        """Create a new user linked to Supabase Auth."""
+        user = User(
+            supabase_uid=supabase_uid,
+            email=email,
+            username=username,
+        )
         session.add(user)
         await session.commit()
         await session.refresh(user)
@@ -24,6 +31,13 @@ class UserService:
     async def get_user(session: AsyncSession, user_id: int) -> User | None:
         """Get a user by ID."""
         return await session.get(User, user_id)
+
+    @staticmethod
+    async def get_user_by_supabase_uid(session: AsyncSession, supabase_uid: str) -> User | None:
+        """Get a user by Supabase UID."""
+        statement = select(User).where(User.supabase_uid == supabase_uid)
+        result = await session.exec(statement)
+        return result.one_or_none()
 
     @staticmethod
     async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
@@ -50,11 +64,8 @@ class UserService:
         if not user:
             return None
 
-        update_dict = user_data.model_dump(exclude_unset=True, exclude={"password"})
+        update_dict = user_data.model_dump(exclude_unset=True)
         user.sqlmodel_update(update_dict)
-
-        if user_data.password:
-            user.hashed_password = get_password_hash(user_data.password)
 
         session.add(user)
         await session.commit()
@@ -73,15 +84,19 @@ class UserService:
         return True
 
     @staticmethod
-    async def authenticate_user(
-        session: AsyncSession, username: str, password: str
-    ) -> User | None:
-        """Authenticate a user by username and password."""
-        user = await UserService.get_user_by_username(session, username)
+    async def get_daily_goal(session: AsyncSession, user_id: int) -> dict:
+        """Get the user's daily goal and today's completion count."""
+        user = await UserService.get_user(session, user_id)
         if not user:
             return None
 
-        if not verify_password(password, user.hashed_password):
-            return None
+        # Count today's reviews from UserCardProgress
+        today = datetime.now(UTC).date()
+        statement = select(func.count(UserCardProgress.id)).where(
+            UserCardProgress.user_id == user_id,
+            func.date(UserCardProgress.last_review_date) == today,
+        )
+        result = await session.exec(statement)
+        completed_today = result.one()
 
-        return user
+        return {"daily_goal": user.daily_goal, "completed_today": completed_today}

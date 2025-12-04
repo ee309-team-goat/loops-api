@@ -1,6 +1,7 @@
 """
 User-related API endpoints.
 """
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,7 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
-from app.models import TodayProgressRead, User, UserRead, UserUpdate
+from app.models import DailyGoalRead, TodayProgressRead, User, UserRead, UserUpdate
 from app.services.user_card_progress_service import UserCardProgressService
 from app.services.user_service import UserService
 
@@ -33,6 +34,21 @@ async def get_today_progress(
         session, current_user.id, current_user.daily_goal
     )
     return TodayProgressRead(**progress_data)
+
+
+@router.get("/me/daily-goal", response_model=DailyGoalRead)
+async def get_daily_goal(
+    current_user: CurrentActiveUser,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict:
+    """Get the current user's daily goal and today's completion count."""
+    daily_goal_data = await UserService.get_daily_goal(session, current_user.id)
+    if not daily_goal_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return daily_goal_data
 
 
 @router.get("/{user_id}", response_model=UserRead)

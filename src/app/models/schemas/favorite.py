@@ -1,7 +1,6 @@
 """Schemas for Favorite model."""
 
 from datetime import datetime
-from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -19,5 +18,4 @@ class FavoriteRead(SQLModel):
     user_id: int
     card_id: int
     created_at: datetime
-    updated_at: Optional[datetime] = None
-
+    updated_at: datetime | None = None

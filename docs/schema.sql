@@ -602,4 +602,3 @@ ALTER TABLE ONLY public.vocabulary_cards
 --
 
 \unrestrict 6frJoQc1SsYYP6g6OxYrcoVYRzFxBvqbXgDeO5dF65HlCKyK1xctwZYGcmdtUaE
-

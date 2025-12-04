@@ -9,7 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveUser
 from app.database import get_session
-from app.models import ReviewRequest, UserCardProgressRead
+from app.models import NewCardsCountRead, ReviewRequest, UserCardProgressRead
 from app.services.user_card_progress_service import UserCardProgressService
 
 router = APIRouter(prefix="/progress", tags=["progress"])
@@ -62,3 +62,15 @@ async def get_card_progress(
             detail="Progress not found for this card",
         )
     return progress
+
+
+@router.get("/new-cards-count", response_model=NewCardsCountRead)
+async def get_new_cards_count(
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_user: CurrentActiveUser = None,
+):
+    """Get count of new cards and review cards based on user's selected decks."""
+    count_data = await UserCardProgressService.get_new_cards_count(
+        session, current_user.id
+    )
+    return NewCardsCountRead(**count_data)

@@ -30,3 +30,10 @@ class ReviewRequest(SQLModel):
 
     card_id: int = Field(gt=0, description="Card ID must be positive")
     is_correct: bool
+
+
+class NewCardsCountRead(SQLModel):
+    """Schema for reading new and review cards count."""
+
+    new_cards_count: int
+    review_cards_count: int

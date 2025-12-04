@@ -29,7 +29,7 @@ class User(UserBase, TimestampMixin, table=True):
     __tablename__ = "users"
 
     id: Optional[int] = Field(default=None, primary_key=True, nullable=False)
-    hashed_password: str = Field(max_length=255)
+    supabase_uid: str = Field(unique=True, index=True, max_length=255)
 
     # Streak tracking
     current_streak: int = Field(default=0)

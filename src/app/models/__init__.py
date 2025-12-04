@@ -30,8 +30,6 @@ from app.models.schemas import (
     FavoriteRead,
     NewCardsCountRead,
     ReviewRequest,
-    UserCreate,
-    UserLogin,
     UserRead,
     UserUpdate,
     UserCardProgressCreate,
@@ -61,10 +59,8 @@ __all__ = [
     "UserCardProgressBase",
     "DeckBase",
     # User Schemas
-    "UserCreate",
     "UserRead",
     "UserUpdate",
-    "UserLogin",
     "DailyGoalRead",
     # VocabularyCard Schemas
     "VocabularyCardCreate",

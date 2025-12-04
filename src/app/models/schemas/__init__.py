@@ -6,7 +6,7 @@ from app.models.schemas.deck import (
     DeckWithProgressRead,
 )
 from app.models.schemas.favorite import FavoriteCreate, FavoriteRead
-from app.models.schemas.user import DailyGoalRead, UserCreate, UserLogin, UserRead, UserUpdate
+from app.models.schemas.user import DailyGoalRead, UserRead, UserUpdate
 from app.models.schemas.user_card_progress import (
     NewCardsCountRead,
     ReviewRequest,
@@ -25,10 +25,8 @@ from app.models.schemas.vocabulary_card import (
 
 __all__ = [
     # User
-    "UserCreate",
     "UserRead",
     "UserUpdate",
-    "UserLogin",
     "DailyGoalRead",
     # VocabularyCard
     "VocabularyCardCreate",

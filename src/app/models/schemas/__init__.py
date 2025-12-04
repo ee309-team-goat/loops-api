@@ -16,9 +16,9 @@ from app.models.schemas.user_card_progress import (
 )
 from app.models.schemas.user_selected_deck import (
     GetSelectedDecksResponse,
-    SelectedDeckInfo,
     SelectDecksRequest,
     SelectDecksResponse,
+    SelectedDeckInfo,
     UserSelectedDeckCreate,
     UserSelectedDeckRead,
 )

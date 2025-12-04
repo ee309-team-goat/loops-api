@@ -1,7 +1,8 @@
 """
 User-related API endpoints.
 """
-from datetime import date, datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -132,17 +133,16 @@ async def get_user_streak(
     Returns current streak, longest streak, and study statistics for this month.
     """
     # Calculate days_studied_this_month
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Count distinct dates when user reviewed cards this month
-    days_query = (
-        select(func.count(func.distinct(func.date(UserCardProgress.last_review_date))))
-        .where(
-            UserCardProgress.user_id == current_user.id,
-            UserCardProgress.last_review_date >= first_day_of_month,
-            UserCardProgress.last_review_date.isnot(None),
-        )
+    days_query = select(
+        func.count(func.distinct(func.date(UserCardProgress.last_review_date)))
+    ).where(
+        UserCardProgress.user_id == current_user.id,
+        UserCardProgress.last_review_date >= first_day_of_month,
+        UserCardProgress.last_review_date.isnot(None),
     )
     result = await session.exec(days_query)
     days_studied_this_month = result.one()

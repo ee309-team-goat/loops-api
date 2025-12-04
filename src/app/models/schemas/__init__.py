@@ -10,6 +10,7 @@ from app.models.schemas.user import DailyGoalRead, UserRead, UserUpdate
 from app.models.schemas.user_card_progress import (
     NewCardsCountRead,
     ReviewRequest,
+    TodayProgressRead,
     UserCardProgressCreate,
     UserCardProgressRead,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "UserCardProgressCreate",
     "UserCardProgressRead",
     "ReviewRequest",
+    "TodayProgressRead",
     "NewCardsCountRead",
     # Deck
     "DeckCreate",

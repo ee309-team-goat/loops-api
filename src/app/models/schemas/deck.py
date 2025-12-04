@@ -75,3 +75,25 @@ class DeckUpdate(SQLModel):
                 f"Difficulty level must be one of: {', '.join(allowed_levels)}"
             )
         return v
+
+
+class DeckWithProgressRead(SQLModel):
+    """Schema for reading a deck with progress information."""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    total_cards: int
+    learned_cards: int
+    learning_cards: int
+    new_cards: int
+    progress_percent: float
+
+
+class DecksListResponse(SQLModel):
+    """Schema for deck list response with pagination."""
+
+    decks: list[DeckWithProgressRead]
+    total: int
+    skip: int
+    limit: int

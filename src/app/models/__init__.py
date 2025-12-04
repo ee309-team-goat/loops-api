@@ -23,7 +23,9 @@ from app.models.schemas import (
     DailyGoalRead,
     DeckCreate,
     DeckRead,
+    DecksListResponse,
     DeckUpdate,
+    DeckWithProgressRead,
     FavoriteCreate,
     FavoriteRead,
     NewCardsCountRead,
@@ -77,6 +79,8 @@ __all__ = [
     "DeckCreate",
     "DeckRead",
     "DeckUpdate",
+    "DeckWithProgressRead",
+    "DecksListResponse",
     # Favorite Schemas
     "FavoriteCreate",
     "FavoriteRead",

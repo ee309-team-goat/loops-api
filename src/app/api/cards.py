@@ -1,7 +1,8 @@
 """
 Vocabulary card API endpoints.
 """
-from typing import Annotated, Optional
+
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -29,8 +30,8 @@ async def create_vocabulary_card(
 async def get_vocabulary_cards(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=100),
-    difficulty_level: Optional[str] = Query(default=None),
-    deck_id: Optional[int] = Query(default=None),
+    difficulty_level: str | None = Query(default=None),
+    deck_id: int | None = Query(default=None),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: CurrentActiveUser = None,
 ):

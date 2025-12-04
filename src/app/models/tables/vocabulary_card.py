@@ -1,6 +1,6 @@
-from typing import Any, Optional
+from typing import Any
 
-from sqlmodel import Column, Field, JSON, SQLModel
+from sqlmodel import JSON, Column, Field, SQLModel
 
 from app.models.base import TimestampMixin
 
@@ -10,27 +10,35 @@ class VocabularyCardBase(SQLModel):
 
     english_word: str = Field(max_length=255, index=True)
     korean_meaning: str = Field(max_length=255)
-    part_of_speech: Optional[str] = Field(default=None, max_length=50)  # noun, verb, adjective, etc.
+    part_of_speech: str | None = Field(default=None, max_length=50)  # noun, verb, adjective, etc.
 
     # Pronunciation
-    pronunciation_ipa: Optional[str] = Field(default=None, max_length=255)  # /ˈkɒntrækt/
+    pronunciation_ipa: str | None = Field(default=None, max_length=255)  # /ˈkɒntrækt/
 
     # Definition
-    definition_en: Optional[str] = Field(default=None)  # English definition
+    definition_en: str | None = Field(default=None)  # English definition
 
     # Categorization
-    difficulty_level: Optional[str] = Field(default=None, max_length=50, index=True)  # beginner, intermediate, advanced
-    cefr_level: Optional[str] = Field(default=None, max_length=10)  # A1-C2
-    category: Optional[str] = Field(default=None, max_length=50)  # DB-6: e.g., "business", "travel", "academic"
+    difficulty_level: str | None = Field(
+        default=None, max_length=50, index=True
+    )  # beginner, intermediate, advanced
+    cefr_level: str | None = Field(default=None, max_length=10)  # A1-C2
+    category: str | None = Field(
+        default=None, max_length=50
+    )  # DB-6: e.g., "business", "travel", "academic"
 
     # Word frequency and selection (DB-5)
-    frequency_rank: Optional[int] = Field(default=None, index=True)  # Lower rank = more common word (1=most common)
+    frequency_rank: int | None = Field(
+        default=None, index=True
+    )  # Lower rank = more common word (1=most common)
 
     # Audio (DB-9)
-    audio_url: Optional[str] = Field(default=None, max_length=500)  # Path or URL to pronunciation audio
+    audio_url: str | None = Field(
+        default=None, max_length=500
+    )  # Path or URL to pronunciation audio
 
     # Deck Organization
-    deck_id: Optional[int] = Field(default=None, foreign_key="decks.id", index=True)
+    deck_id: int | None = Field(default=None, foreign_key="decks.id", index=True)
 
     # Metadata
     is_verified: bool = Field(default=False)  # Verified card status
@@ -41,11 +49,13 @@ class VocabularyCard(VocabularyCardBase, TimestampMixin, table=True):
 
     __tablename__ = "vocabulary_cards"
 
-    id: Optional[int] = Field(default=None, primary_key=True, nullable=False)
+    id: int | None = Field(default=None, primary_key=True, nullable=False)
 
     # JSONB fields for complex data
     # Format: [{"en": "...", "ko": "...", "context": "business"}, ...]
-    example_sentences: Optional[dict[str, Any] | list[Any]] = Field(default=None, sa_column=Column(JSON))
+    example_sentences: dict[str, Any] | list[Any] | None = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Format: ["business", "IT", "TOEIC"]
-    tags: Optional[dict[str, Any] | list[Any]] = Field(default=None, sa_column=Column(JSON))
+    tags: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))

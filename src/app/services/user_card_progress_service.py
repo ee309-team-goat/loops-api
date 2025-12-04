@@ -1,10 +1,19 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from fsrs import Scheduler, Card, Rating, State as FSRSState
-from sqlmodel import select
+from fsrs import Card, Rating, Scheduler
+from fsrs import State as FSRSState
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import CardState, UserCardProgress, UserCardProgressCreate
+from app.models import (
+    CardState,
+    Deck,
+    User,
+    UserCardProgress,
+    UserCardProgressCreate,
+    UserSelectedDeck,
+    VocabularyCard,
+)
 
 
 class UserCardProgressService:
@@ -24,7 +33,7 @@ class UserCardProgressService:
 
         card = Card()
         card.state = state_map.get(progress.card_state, FSRSState.Learning)
-        card.due = progress.next_review_date or datetime.now(timezone.utc)
+        card.due = progress.next_review_date or datetime.now(UTC)
         card.last_review = progress.last_review_date
 
         # Only set stability/difficulty if card has been reviewed before
@@ -116,9 +125,7 @@ class UserCardProgressService:
         return progress
 
     @staticmethod
-    async def get_progress(
-        session: AsyncSession, progress_id: int
-    ) -> UserCardProgress | None:
+    async def get_progress(session: AsyncSession, progress_id: int) -> UserCardProgress | None:
         """Get a user card progress by ID."""
         return await session.get(UserCardProgress, progress_id)
 
@@ -152,7 +159,7 @@ class UserCardProgressService:
         session: AsyncSession, user_id: int, limit: int = 20
     ) -> list[UserCardProgress]:
         """Get cards that are due for review."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         statement = (
             select(UserCardProgress)
             .where(
@@ -177,11 +184,9 @@ class UserCardProgressService:
         - Wrong → Again (1)
         """
         fsrs_rating = Rating.Good if is_correct else Rating.Again
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
-        progress = await UserCardProgressService.get_user_card_progress(
-            session, user_id, card_id
-        )
+        progress = await UserCardProgressService.get_user_card_progress(session, user_id, card_id)
 
         if not progress:
             progress = UserCardProgress(
@@ -210,3 +215,61 @@ class UserCardProgressService:
         await session.refresh(progress)
 
         return progress
+
+    @staticmethod
+    async def get_new_cards_count(session: AsyncSession, user_id: int) -> dict:
+        """
+        Get count of new cards (not yet seen) and review cards (due for review).
+
+        Respects user's deck selection settings:
+        - If select_all_decks=true: count from all public decks
+        - If select_all_decks=false: count from user_selected_decks only
+
+        Returns:
+            dict with new_cards_count and review_cards_count
+        """
+        # Get user to check deck selection preference
+        user = await session.get(User, user_id)
+        if not user:
+            return {"new_cards_count": 0, "review_cards_count": 0}
+
+        # Get cards user has already seen
+        seen_subquery = select(UserCardProgress.card_id).where(UserCardProgress.user_id == user_id)
+
+        # Build base query for new cards
+        new_cards_query = select(func.count(VocabularyCard.id)).where(
+            VocabularyCard.id.not_in(seen_subquery)
+        )
+
+        # Apply deck filtering based on user preference
+        if user.select_all_decks:
+            # Count from all public decks
+            new_cards_query = new_cards_query.join(
+                Deck, VocabularyCard.deck_id == Deck.id, isouter=True
+            ).where((Deck.is_public == True) | (VocabularyCard.deck_id == None))
+        else:
+            # Count from selected decks only
+            selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                UserSelectedDeck.user_id == user_id
+            )
+            new_cards_query = new_cards_query.where(
+                VocabularyCard.deck_id.in_(selected_deck_ids_subquery)
+            )
+
+        # Count new cards
+        result = await session.exec(new_cards_query)
+        new_cards_count = result.one()
+
+        # Count review cards (due for review)
+        now = datetime.now(UTC)
+        review_cards_query = select(func.count(UserCardProgress.id)).where(
+            UserCardProgress.user_id == user_id,
+            UserCardProgress.next_review_date <= now,
+        )
+        result = await session.exec(review_cards_query)
+        review_cards_count = result.one()
+
+        return {
+            "new_cards_count": new_cards_count,
+            "review_cards_count": review_cards_count,
+        }

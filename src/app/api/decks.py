@@ -30,7 +30,7 @@ async def get_decks_list(
     limit: int = Query(default=10, ge=1, le=100, description="Number of records to return"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
     current_user: CurrentActiveUser = None,
-):
+) -> DecksListResponse:
     """
     Get list of all accessible decks with progress information.
 

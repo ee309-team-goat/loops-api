@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
@@ -20,16 +19,14 @@ class DeckCreate(DeckBase):
 
     @field_validator("difficulty_level")
     @classmethod
-    def difficulty_level_valid(cls, v: Optional[str]) -> Optional[str]:
+    def difficulty_level_valid(cls, v: str | None) -> str | None:
         """Validate difficulty level."""
         if v is None:
             return v
         allowed_levels = {"beginner", "intermediate", "advanced"}
         v = v.lower().strip()
         if v not in allowed_levels:
-            raise ValueError(
-                f"Difficulty level must be one of: {', '.join(allowed_levels)}"
-            )
+            raise ValueError(f"Difficulty level must be one of: {', '.join(allowed_levels)}")
         return v
 
 
@@ -37,24 +34,24 @@ class DeckRead(DeckBase):
     """Schema for reading a deck."""
 
     id: int
-    creator_id: Optional[int] = None
+    creator_id: int | None = None
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
 
 class DeckUpdate(SQLModel):
     """Schema for updating a deck."""
 
-    name: Optional[str] = Field(default=None, max_length=255)
-    description: Optional[str] = None
-    category: Optional[str] = Field(default=None, max_length=100)
-    difficulty_level: Optional[str] = Field(default=None, max_length=50)
-    is_public: Optional[bool] = None
-    is_official: Optional[bool] = None
+    name: str | None = Field(default=None, max_length=255)
+    description: str | None = None
+    category: str | None = Field(default=None, max_length=100)
+    difficulty_level: str | None = Field(default=None, max_length=50)
+    is_public: bool | None = None
+    is_official: bool | None = None
 
     @field_validator("name")
     @classmethod
-    def name_not_empty(cls, v: Optional[str]) -> Optional[str]:
+    def name_not_empty(cls, v: str | None) -> str | None:
         """Validate name is not empty."""
         if v is None:
             return v
@@ -64,16 +61,14 @@ class DeckUpdate(SQLModel):
 
     @field_validator("difficulty_level")
     @classmethod
-    def difficulty_level_valid(cls, v: Optional[str]) -> Optional[str]:
+    def difficulty_level_valid(cls, v: str | None) -> str | None:
         """Validate difficulty level."""
         if v is None:
             return v
         allowed_levels = {"beginner", "intermediate", "advanced"}
         v = v.lower().strip()
         if v not in allowed_levels:
-            raise ValueError(
-                f"Difficulty level must be one of: {', '.join(allowed_levels)}"
-            )
+            raise ValueError(f"Difficulty level must be one of: {', '.join(allowed_levels)}")
         return v
 
 
@@ -82,7 +77,7 @@ class DeckWithProgressRead(SQLModel):
 
     id: int
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     total_cards: int
     learned_cards: int
     learning_cards: int

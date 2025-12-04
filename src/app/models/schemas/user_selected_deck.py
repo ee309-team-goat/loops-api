@@ -1,9 +1,8 @@
 """Schemas for UserSelectedDeck model."""
 
 from datetime import datetime
-from typing import Optional
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import SQLModel
 
 
 class UserSelectedDeckCreate(SQLModel):
@@ -20,14 +19,14 @@ class UserSelectedDeckRead(SQLModel):
     user_id: int
     deck_id: int
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
 
 class SelectDecksRequest(SQLModel):
     """Schema for selecting decks."""
 
     select_all: bool
-    deck_ids: Optional[list[int]] = None
+    deck_ids: list[int] | None = None
 
 
 class SelectDecksResponse(SQLModel):
@@ -35,4 +34,3 @@ class SelectDecksResponse(SQLModel):
 
     select_all: bool
     selected_deck_ids: list[int]
-

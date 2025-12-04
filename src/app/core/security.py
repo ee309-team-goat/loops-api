@@ -1,90 +1,41 @@
 """
-Security utilities for password hashing and JWT token handling.
+Security utilities for Supabase token verification.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
-
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from supabase import Client, create_client
 
 from app.config import settings
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Supabase client with publishable key (for auth operations)
+_supabase_client: Client | None = None
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verify a plain password against a hashed password.
-
-    Args:
-        plain_password: The plain text password
-        hashed_password: The hashed password from database
-
-    Returns:
-        True if password matches, False otherwise
-    """
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """
-    Hash a password using bcrypt.
-
-    Args:
-        password: The plain text password to hash
-
-    Returns:
-        The hashed password
-    """
-    return pwd_context.hash(password)
-
-
-def create_access_token(
-    data: dict[str, Any], expires_delta: Optional[timedelta] = None
-) -> str:
-    """
-    Create a JWT access token.
-
-    Args:
-        data: The data to encode in the token (typically {"sub": user_id})
-        expires_delta: Optional custom expiration time
-
-    Returns:
-        Encoded JWT token string
-    """
-    to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.access_token_expire_minutes
+def get_supabase_client() -> Client:
+    """Get Supabase client with publishable key for auth operations."""
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = create_client(
+            settings.supabase_url,
+            settings.supabase_publishable_key,
         )
-
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.secret_key, algorithm=settings.algorithm
-    )
-
-    return encoded_jwt
+    return _supabase_client
 
 
-def decode_access_token(token: str) -> Optional[dict[str, Any]]:
+def verify_supabase_token(token: str) -> str | None:
     """
-    Decode and verify a JWT access token.
+    Verify a Supabase token using the Supabase client.
 
     Args:
-        token: The JWT token to decode
+        token: The JWT token from Authorization header
 
     Returns:
-        Decoded token payload if valid, None if invalid
+        Supabase user ID if valid, None if invalid
     """
     try:
-        payload = jwt.decode(
-            token, settings.secret_key, algorithms=[settings.algorithm]
-        )
-        return payload
-    except JWTError:
+        supabase = get_supabase_client()
+        response = supabase.auth.get_user(token)
+        if response and response.user:
+            return response.user.id
+        return None
+    except Exception:
         return None

@@ -8,4 +8,3 @@ class CardState(str, enum.Enum):
     LEARNING = "LEARNING"
     REVIEW = "REVIEW"
     RELEARNING = "RELEARNING"
-

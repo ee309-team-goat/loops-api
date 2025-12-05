@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -100,3 +100,73 @@ class UserService:
         completed_today = result.one()
 
         return {"daily_goal": user.daily_goal, "completed_today": completed_today}
+
+    @staticmethod
+    async def update_user_streak(session: AsyncSession, user_id: int) -> dict:
+        """
+        Update user streak when study session completes.
+
+        Handles:
+        - Same-day multiple sessions (don't double-count)
+        - Continue streak if yesterday was studied (+1)
+        - Reset streak to 1 if gap > 1 day
+        - Update longest_streak if new record
+        - Update last_study_date to today
+
+        Returns:
+            dict: {
+                "current_streak": int,
+                "longest_streak": int,
+                "is_new_record": bool,
+                "streak_status": "continued" | "started" | "broken"
+            }
+        """
+        user = await session.get(User, user_id)
+        if not user:
+            return None
+
+        today = date.today()
+
+        # 1. Check if already studied today (same day multiple sessions)
+        if user.last_study_date == today:
+            return {
+                "current_streak": user.current_streak,
+                "longest_streak": user.longest_streak,
+                "is_new_record": False,
+                "streak_status": "continued",
+            }
+
+        # 2. Calculate streak
+        if user.last_study_date is None:
+            # First time studying
+            user.current_streak = 1
+            streak_status = "started"
+        elif user.last_study_date == today - timedelta(days=1):
+            # Studied yesterday - continue streak
+            user.current_streak += 1
+            streak_status = "continued"
+        else:
+            # Gap > 1 day - streak broken, start fresh
+            user.current_streak = 1
+            streak_status = "broken"
+
+        # 3. Update longest streak if new record
+        is_new_record = False
+        if user.current_streak > user.longest_streak:
+            user.longest_streak = user.current_streak
+            is_new_record = True
+
+        # 4. Update last study date
+        user.last_study_date = today
+
+        # 5. Save to database
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        return {
+            "current_streak": user.current_streak,
+            "longest_streak": user.longest_streak,
+            "is_new_record": is_new_record,
+            "streak_status": streak_status,
+        }

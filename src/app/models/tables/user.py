@@ -34,3 +34,6 @@ class User(UserBase, TimestampMixin, table=True):
     current_streak: int = Field(default=0)
     longest_streak: int = Field(default=0)
     last_study_date: date | None = Field(default=None, index=True)
+
+    # Study statistics
+    total_study_time_minutes: int = Field(default=0)

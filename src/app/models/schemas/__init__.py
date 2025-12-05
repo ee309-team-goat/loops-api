@@ -8,6 +8,16 @@ from app.models.schemas.deck import (
 )
 from app.models.schemas.favorite import FavoriteCreate, FavoriteRead
 from app.models.schemas.stats import TotalLearnedRead
+from app.models.schemas.study import (
+    DailyGoalStatus,
+    SessionCard,
+    SessionCompleteRequest,
+    SessionCompleteResponse,
+    SessionStartRequest,
+    SessionStartResponse,
+    SessionSummary,
+    StreakInfo,
+)
 from app.models.schemas.user import (
     DailyGoalRead,
     StreakRead,
@@ -74,4 +84,13 @@ __all__ = [
     "GetSelectedDecksResponse",
     # Stats
     "TotalLearnedRead",
+    # Study Session
+    "SessionCompleteRequest",
+    "SessionCompleteResponse",
+    "SessionStartRequest",
+    "SessionStartResponse",
+    "SessionCard",
+    "SessionSummary",
+    "StreakInfo",
+    "DailyGoalStatus",
 ]

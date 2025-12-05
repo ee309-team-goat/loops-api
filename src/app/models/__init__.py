@@ -7,6 +7,7 @@ from app.models.enums import CardState
 # Schemas (DTOs)
 from app.models.schemas import (
     DailyGoalRead,
+    DailyGoalStatus,
     DeckCreate,
     DeckDetailRead,
     DeckRead,
@@ -21,6 +22,13 @@ from app.models.schemas import (
     SelectDecksRequest,
     SelectDecksResponse,
     SelectedDeckInfo,
+    SessionCard,
+    SessionCompleteRequest,
+    SessionCompleteResponse,
+    SessionStartRequest,
+    SessionStartResponse,
+    SessionSummary,
+    StreakInfo,
     StreakRead,
     TodayProgressRead,
     UserCardProgressCreate,
@@ -101,4 +109,13 @@ __all__ = [
     "SelectDecksResponse",
     "SelectedDeckInfo",
     "GetSelectedDecksResponse",
+    # Study Session Schemas
+    "SessionCompleteRequest",
+    "SessionCompleteResponse",
+    "SessionStartRequest",
+    "SessionStartResponse",
+    "SessionCard",
+    "SessionSummary",
+    "StreakInfo",
+    "DailyGoalStatus",
 ]

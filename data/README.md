@@ -7,10 +7,10 @@ This directory contains word frequency data collected from reliable sources for 
 ```
 data/
 └── frequency/
-    ├── COCA_5000.csv          # Top 5000 words from COCA corpus
-    ├── Oxford_3000.txt        # Oxford 3000 core vocabulary list
-    ├── Oxford_3000_CEFR.pdf   # Oxford 3000 organized by CEFR level
-    └── Oxford_5000_CEFR.pdf   # Oxford 5000 organized by CEFR level
+    ├── COCA_5000.csv                     # Top 5000 words from COCA corpus
+    ├── google_ngram_frequency_alpha.txt  # 246k words from Google Books Ngram
+    ├── oxford-3000.csv                   # Oxford 3000 with CEFR levels
+    └── oxford-5000.csv                   # Oxford 5000 with CEFR levels
 ```
 
 ## Data Sources
@@ -55,9 +55,49 @@ Available online at https://www.english-corpora.org/coca/
 
 ---
 
-### 2. Oxford 3000 Word List
+### 2. Google Books Ngram Word Frequency
 
-**File:** `frequency/Oxford_3000.txt`
+**File:** `frequency/google_ngram_frequency_alpha.txt`
+
+**Source:** Google Books Ngram Corpus (processed by hackerb9/gwordlist)
+
+**Description:**
+- Contains 246,591 alphabetically-verified English words sorted by frequency
+- Extracted from Google Books corpus (1+ trillion words)
+- Cleaned and verified using GCIDE (Webster), WordNet, and OED dictionaries
+- Removes OCR errors, foreign text, and symbols
+
+**Data Fields:**
+- `RANKING`: Frequency rank (1-246,591)
+- `WORD`: Word in lowercase
+- `COUNT`: Total occurrence count in corpus
+- `PERCENT`: Percentage of total corpus
+- `CUMULATIVE`: Cumulative percentage
+
+**Citation:**
+```
+Google Books Ngram Corpus, processed and distributed by hackerb9/gwordlist.
+Available at https://github.com/hackerb9/gwordlist
+```
+
+**Repository:** https://github.com/hackerb9/gwordlist
+
+**Official Google Source:** https://storage.googleapis.com/books/ngrams/books/datasetsv3.html
+
+**License:**
+- Data freely available from Google Books Ngram project
+- Processed data distributed under open license for academic use
+
+**Notes:**
+- Based on books published up to 2019
+- Multiple dictionary verification ensures word validity
+- Largest free English word frequency dataset available
+
+---
+
+### 3. Oxford 3000 Word List with CEFR Levels
+
+**File:** `frequency/oxford-3000.csv`
 
 **Source:** Oxford University Press - Oxford Learner's Dictionaries
 
@@ -69,6 +109,17 @@ Available online at https://www.english-corpora.org/coca/
   - Most frequently used in English
   - Essential for practical communication
   - Important across different text types
+
+**Data Fields:**
+- `word`: The English word
+- `class`: Part of speech (noun, verb, adjective, etc.)
+- `level`: CEFR proficiency level (a1, a2, b1, b2)
+
+**CEFR Levels:**
+- **A1**: Beginner
+- **A2**: Elementary
+- **B1**: Intermediate
+- **B2**: Upper-Intermediate
 
 **Selection Criteria:**
 - Frequency in English corpora
@@ -82,7 +133,7 @@ Oxford University Press. The Oxford 3000™.
 Available at https://www.oxfordlearnersdictionaries.com/about/wordlists/oxford3000-5000
 ```
 
-**Repository:** https://github.com/sapbmw/The-Oxford-3000
+**Repository:** https://github.com/Berehulia/Oxford-3000-5000
 
 **Official Website:** https://www.oxfordlearnersdictionaries.com/about/wordlists/oxford3000-5000
 
@@ -93,41 +144,9 @@ Available at https://www.oxfordlearnersdictionaries.com/about/wordlists/oxford30
 
 ---
 
-### 3. Oxford 3000 by CEFR Level
+### 4. Oxford 5000 Word List with CEFR Levels
 
-**File:** `frequency/Oxford_3000_CEFR.pdf`
-
-**Source:** Oxford University Press - Oxford Learner's Dictionaries
-
-**Description:**
-- Oxford 3000 word list organized by CEFR proficiency levels
-- Provides clear progression path for learners from A1 to B2
-- Includes part of speech and example usage
-- Allows targeted learning based on current proficiency level
-
-**CEFR Levels Covered:**
-- **A1**: Beginner
-- **A2**: Elementary
-- **B1**: Intermediate
-- **B2**: Upper-Intermediate
-
-**Citation:**
-```
-Oxford University Press. The Oxford 3000™ by CEFR level.
-Available at https://www.oxfordlearnersdictionaries.com/external/pdf/wordlists/oxford-3000-5000/The_Oxford_3000_by_CEFR_level.pdf
-```
-
-**Repository:** https://github.com/tgmgroup/Word-List-from-Oxford-Longman-5000
-
-**License:**
-- © Oxford University Press
-- Free for educational and non-commercial use
-
----
-
-### 4. Oxford 5000 by CEFR Level
-
-**File:** `frequency/Oxford_5000_CEFR.pdf`
+**File:** `frequency/oxford-5000.csv`
 
 **Source:** Oxford University Press - Oxford Learner's Dictionaries
 
@@ -137,23 +156,39 @@ Available at https://www.oxfordlearnersdictionaries.com/external/pdf/wordlists/o
 - Covers CEFR levels A1-C1
 - Designed for advanced learners progressing from B2 to C1
 
+**Data Fields:**
+- `word`: The English word
+- `class`: Part of speech (noun, verb, adjective, etc.)
+- `level`: CEFR proficiency level (a1, a2, b1, b2, c1)
+
 **CEFR Levels Covered:**
 - **A1-B2**: Same as Oxford 3000
 - **B2-C1**: Additional 2,000 advanced vocabulary words
 
 **Citation:**
 ```
-Oxford University Press. The Oxford 5000™ by CEFR level.
-Available at https://www.oxfordlearnersdictionaries.com/external/pdf/wordlists/oxford-3000-5000/The_Oxford_5000_by_CEFR_level.pdf
+Oxford University Press. The Oxford 5000™.
+Available at https://www.oxfordlearnersdictionaries.com/about/wordlists/oxford3000-5000
 ```
 
-**Repository:** https://github.com/tgmgroup/Word-List-from-Oxford-Longman-5000
+**Repository:** https://github.com/Berehulia/Oxford-3000-5000
+
+**Official Website:** https://www.oxfordlearnersdictionaries.com/about/wordlists/oxford3000-5000
 
 **License:**
 - © Oxford University Press
 - Free for educational and non-commercial use
 
 ---
+
+## Data Statistics
+
+| Dataset | Words | Format | CEFR Levels | Frequency Data |
+|---------|-------|--------|-------------|----------------|
+| COCA 5000 | 5,000 | CSV | ❌ | ✅ Genre-specific |
+| Google Ngram | 246,591 | TXT | ❌ | ✅ Global counts |
+| Oxford 3000 | ~3,000 | CSV | ✅ A1-B2 | ❌ |
+| Oxford 5000 | ~5,000 | CSV | ✅ A1-C1 | ❌ |
 
 ## Usage Notes
 
@@ -163,9 +198,11 @@ While these datasets contain English word frequency data, they are valuable for:
 
 1. **Cross-reference and Comparison**: Understanding frequency patterns in English can inform Korean vocabulary selection strategies
 
-2. **CEFR Mapping**: The Oxford lists provide a proven framework for organizing vocabulary by difficulty level (A1-C1), which can be adapted for Korean learning materials
+2. **CEFR Mapping Framework**: The Oxford lists provide a proven framework for organizing vocabulary by difficulty level (A1-C1), which can be adapted for Korean learning materials (TOPIK levels)
 
 3. **Methodology Reference**: The selection criteria and data structure can guide similar data collection efforts for Korean vocabulary
+
+4. **Frequency Analysis**: Study how frequency-based learning paths are structured in established language learning resources
 
 ### Recommended Next Steps for Korean Data
 
@@ -198,6 +235,11 @@ To verify data integrity, you can regenerate checksums and compare with future d
 - **Word Frequency Data**: https://www.wordfrequency.info/
 - **Full Access**: Subscription required for 60k+ word lists
 
+### Google Books Ngram
+- **Official Data**: https://storage.googleapis.com/books/ngrams/books/datasetsv3.html
+- **Processed Word List**: https://github.com/hackerb9/gwordlist
+- **Interactive Viewer**: https://books.google.com/ngrams
+
 ### Oxford Learner's Dictionaries
 - **Word Lists Homepage**: https://www.oxfordlearnersdictionaries.com/about/wordlists/oxford3000-5000
 - **Interactive Browser**: Search and filter words online
@@ -205,9 +247,9 @@ To verify data integrity, you can regenerate checksums and compare with future d
 
 ### GitHub Repositories
 - **COCA Top 5000**: https://github.com/brucewlee/COCA-WordFrequency
-- **Oxford 3000**: https://github.com/sapbmw/The-Oxford-3000
-- **Oxford 5000 (CEFR)**: https://github.com/tgmgroup/Word-List-from-Oxford-Longman-5000
-- **Oxford 5000 (Extended)**: https://github.com/winterdl/oxford-5000-vocabulary-audio-definition
+- **Google Ngram Processed**: https://github.com/hackerb9/gwordlist
+- **Oxford 3000/5000 CSV**: https://github.com/Berehulia/Oxford-3000-5000
+- **Oxford Extended Resources**: https://github.com/winterdl/oxford-5000-vocabulary-audio-definition
 
 ---
 
@@ -231,6 +273,12 @@ When using this data in publications, applications, or research, please cite:
   title = {The Corpus of Contemporary American English (COCA)},
   year = {2008--},
   url = {https://www.english-corpora.org/coca/}
+}
+
+@misc{googlengram,
+  author = {{Google Inc.}},
+  title = {Google Books Ngram Corpus},
+  url = {https://storage.googleapis.com/books/ngrams/books/datasetsv3.html}
 }
 
 @misc{oxford3000,
@@ -257,9 +305,10 @@ For updates or questions about this data collection, please refer to the project
 ## Changelog
 
 ### 2025-12-05
-- Initial data collection
+- Initial data collection completed
 - Downloaded COCA Top 5000 word frequency list (CSV format)
-- Downloaded Oxford 3000 core vocabulary list (TXT format)
-- Downloaded Oxford 3000 organized by CEFR levels (PDF format)
-- Downloaded Oxford 5000 organized by CEFR levels (PDF format)
+- Downloaded Google Books Ngram 246k word frequency list (TXT format)
+- Downloaded Oxford 3000 with CEFR levels (CSV format)
+- Downloaded Oxford 5000 with CEFR levels (CSV format)
 - Created comprehensive documentation with sources, citations, and licenses
+- All data files verified and ready for use in development

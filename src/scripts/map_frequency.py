@@ -227,8 +227,10 @@ async def map_frequency_ranks(session, mapper: FrequencyMapper, dry_run: bool = 
     print("=" * 60)
     print(f"Source: {mapper.source_name}")
     print(f"Total cards: {stats['total_cards']}")
-    print(f"Matched: {stats['matched']} ({stats['matched']/stats['total_cards']*100:.1f}%)")
-    print(f"Unmatched: {stats['unmatched']} ({stats['unmatched']/stats['total_cards']*100:.1f}%)")
+    print(f"Matched: {stats['matched']} ({stats['matched'] / stats['total_cards'] * 100:.1f}%)")
+    print(
+        f"Unmatched: {stats['unmatched']} ({stats['unmatched'] / stats['total_cards'] * 100:.1f}%)"
+    )
     print(f"Updated: {stats['updated']}")
     print(f"Already set: {stats['already_set']}")
 

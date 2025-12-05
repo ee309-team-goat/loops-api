@@ -17,6 +17,9 @@ from app.models import (
     TodayProgressRead,
     User,
     UserCardProgress,
+    UserConfigRead,
+    UserConfigUpdate,
+    UserLevelRead,
     UserRead,
     UserUpdate,
 )
@@ -59,6 +62,69 @@ async def get_daily_goal(
             detail="User not found",
         )
     return daily_goal_data
+
+
+@router.get("/me/config", response_model=UserConfigRead)
+async def get_user_config(
+    current_user: CurrentActiveUser,
+) -> UserConfigRead:
+    """
+    Get user's configuration/settings.
+
+    Returns daily_goal, select_all_decks, timezone, theme, notification_enabled.
+    """
+    return UserConfigRead(
+        daily_goal=current_user.daily_goal,
+        select_all_decks=current_user.select_all_decks,
+        timezone=current_user.timezone,
+        theme=current_user.theme,
+        notification_enabled=current_user.notification_enabled,
+    )
+
+
+@router.put("/me/config", response_model=UserConfigRead)
+async def update_user_config(
+    config_data: UserConfigUpdate,
+    current_user: CurrentActiveUser,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> UserConfigRead:
+    """
+    Update user's configuration/settings.
+
+    Supports partial updates - only provided fields will be updated.
+    """
+    # Update only provided fields
+    update_data = config_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(current_user, field, value)
+
+    session.add(current_user)
+    await session.commit()
+    await session.refresh(current_user)
+
+    return UserConfigRead(
+        daily_goal=current_user.daily_goal,
+        select_all_decks=current_user.select_all_decks,
+        timezone=current_user.timezone,
+        theme=current_user.theme,
+        notification_enabled=current_user.notification_enabled,
+    )
+
+
+@router.get("/me/level", response_model=UserLevelRead)
+async def get_user_level(
+    current_user: CurrentActiveUser,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> UserLevelRead:
+    """
+    Get user's calculated proficiency level.
+
+    Based on recent 50 reviews, accuracy rate, and mastered card difficulty.
+    Returns level (1.0-10.0) and CEFR equivalent (A1-C2).
+    """
+    level_data = await UserService.calculate_user_level(session, current_user.id)
+    return UserLevelRead(**level_data)
 
 
 @router.get("/{user_id}", response_model=UserRead)

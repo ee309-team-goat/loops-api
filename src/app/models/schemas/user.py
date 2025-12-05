@@ -91,3 +91,44 @@ class StreakRead(SQLModel):
     days_studied_this_month: int
     streak_status: str  # "active" or "broken"
     message: str
+
+
+class UserConfigRead(SQLModel):
+    """Schema for reading user configuration/settings."""
+
+    daily_goal: int
+    select_all_decks: bool
+    timezone: str
+    theme: str
+    notification_enabled: bool
+
+
+class UserConfigUpdate(SQLModel):
+    """Schema for updating user configuration/settings."""
+
+    daily_goal: int | None = Field(default=None, gt=0, le=1000)
+    select_all_decks: bool | None = None
+    timezone: str | None = Field(default=None, max_length=50)
+    theme: str | None = Field(default=None, max_length=20)
+    notification_enabled: bool | None = None
+
+    @field_validator("theme")
+    @classmethod
+    def theme_valid(cls, v: str | None) -> str | None:
+        """Validate theme is one of the allowed values."""
+        if v is None:
+            return v
+        allowed_themes = {"light", "dark", "auto"}
+        if v not in allowed_themes:
+            raise ValueError(f"Theme must be one of: {', '.join(allowed_themes)}")
+        return v
+
+
+class UserLevelRead(SQLModel):
+    """Schema for reading user's calculated level."""
+
+    level: float  # 1.0 - 10.0
+    cefr_equivalent: str  # A1-C2
+    total_reviews: int
+    accuracy_rate: float
+    mastered_cards: int

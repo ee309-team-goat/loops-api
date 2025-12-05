@@ -3,7 +3,8 @@ from datetime import UTC, date, datetime, timedelta
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import User, UserCardProgress, UserUpdate
+from app.models import User, UserCardProgress, UserUpdate, VocabularyCard
+from app.models.enums import CardState
 
 
 class UserService:
@@ -169,4 +170,103 @@ class UserService:
             "longest_streak": user.longest_streak,
             "is_new_record": is_new_record,
             "streak_status": streak_status,
+        }
+
+    @staticmethod
+    async def calculate_user_level(session: AsyncSession, user_id: int) -> dict:
+        """
+        Calculate user's current level based on recent review performance.
+
+        Algorithm:
+        1. Get recent 50 reviews (or all if fewer)
+        2. Calculate average difficulty of mastered cards (REVIEW state)
+        3. Factor in accuracy rate
+        4. Map to CEFR level
+
+        Returns:
+            dict: {
+                "level": float (1.0 - 10.0),
+                "cefr_equivalent": str (A1-C2),
+                "total_reviews": int,
+                "accuracy_rate": float,
+                "mastered_cards": int
+            }
+        """
+        # Get recent progress records with card difficulty
+        recent_query = (
+            select(
+                UserCardProgress.difficulty,
+                UserCardProgress.card_state,
+                UserCardProgress.total_reviews,
+                UserCardProgress.correct_count,
+                VocabularyCard.cefr_level,
+            )
+            .select_from(UserCardProgress)
+            .join(VocabularyCard, VocabularyCard.id == UserCardProgress.card_id)
+            .where(
+                UserCardProgress.user_id == user_id,
+                UserCardProgress.total_reviews > 0,
+            )
+            .order_by(UserCardProgress.last_review_date.desc())
+            .limit(50)
+        )
+
+        result = await session.exec(recent_query)
+        records = result.all()
+
+        if not records:
+            return {
+                "level": 1.0,
+                "cefr_equivalent": "A1",
+                "total_reviews": 0,
+                "accuracy_rate": 0.0,
+                "mastered_cards": 0,
+            }
+
+        # Calculate stats
+        total_reviews = sum(r[2] for r in records)
+        total_correct = sum(r[3] for r in records)
+        accuracy_rate = (total_correct / total_reviews * 100) if total_reviews > 0 else 0.0
+
+        # Get mastered cards (REVIEW state) and their difficulties
+        mastered = [r for r in records if r[1] == CardState.REVIEW]
+        mastered_count = len(mastered)
+
+        # Calculate average difficulty of mastered cards
+        if mastered:
+            avg_difficulty = sum(r[0] or 5.0 for r in mastered) / len(mastered)
+        else:
+            # Use all cards if none mastered
+            avg_difficulty = sum(r[0] or 5.0 for r in records) / len(records)
+
+        # Apply accuracy weight (higher accuracy = higher effective level)
+        accuracy_weight = accuracy_rate / 100.0 if accuracy_rate > 0 else 0.5
+        weighted_level = avg_difficulty * (0.7 + 0.3 * accuracy_weight)
+
+        # Clamp to 1.0 - 10.0 range
+        level = max(1.0, min(10.0, weighted_level))
+
+        # Map to CEFR level
+        cefr_mapping = [
+            (2.0, "A1"),
+            (3.5, "A2"),
+            (5.0, "B1"),
+            (6.5, "B2"),
+            (8.0, "C1"),
+            (10.0, "C2"),
+        ]
+        cefr_equivalent = "A1"
+        for threshold, cefr in cefr_mapping:
+            if level <= threshold:
+                cefr_equivalent = cefr
+                break
+        else:
+            cefr_equivalent = "C2"
+
+        return {
+            "level": round(level, 1),
+            "cefr_equivalent": cefr_equivalent,
+            "total_reviews": total_reviews,
+            "accuracy_rate": round(accuracy_rate, 1),
+            "mastered_cards": mastered_count,
         }

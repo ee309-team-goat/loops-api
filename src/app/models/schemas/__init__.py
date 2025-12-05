@@ -7,7 +7,13 @@ from app.models.schemas.deck import (
     DeckWithProgressRead,
 )
 from app.models.schemas.favorite import FavoriteCreate, FavoriteRead
-from app.models.schemas.stats import TotalLearnedRead
+from app.models.schemas.stats import (
+    AccuracyByPeriod,
+    StatsAccuracyRead,
+    StatsHistoryItem,
+    StatsHistoryRead,
+    TotalLearnedRead,
+)
 from app.models.schemas.study import (
     DailyGoalStatus,
     SessionCard,
@@ -21,7 +27,10 @@ from app.models.schemas.study import (
 from app.models.schemas.user import (
     DailyGoalRead,
     StreakRead,
+    UserConfigRead,
+    UserConfigUpdate,
     UserCreate,
+    UserLevelRead,
     UserLogin,
     UserRead,
     UserUpdate,
@@ -55,6 +64,9 @@ __all__ = [
     "UserLogin",
     "DailyGoalRead",
     "StreakRead",
+    "UserConfigRead",
+    "UserConfigUpdate",
+    "UserLevelRead",
     # VocabularyCard
     "VocabularyCardCreate",
     "VocabularyCardRead",
@@ -84,6 +96,10 @@ __all__ = [
     "GetSelectedDecksResponse",
     # Stats
     "TotalLearnedRead",
+    "StatsHistoryRead",
+    "StatsHistoryItem",
+    "StatsAccuracyRead",
+    "AccuracyByPeriod",
     # Study Session
     "SessionCompleteRequest",
     "SessionCompleteResponse",

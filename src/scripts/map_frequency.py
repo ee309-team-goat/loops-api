@@ -39,7 +39,7 @@ class FrequencyMapper:
 
         print(f"Loading COCA data from {file_path}...")
 
-        with open(file_path, "r", encoding="utf-8-sig") as f:
+        with open(file_path, encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 word = row["lemma"].lower().strip()
@@ -56,7 +56,7 @@ class FrequencyMapper:
 
         print(f"Loading Google Ngram data from {file_path}...")
 
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             next(f)  # Skip header
             for line in f:
                 parts = line.strip().split()
@@ -71,7 +71,6 @@ class FrequencyMapper:
 
         print(f"Loaded {len(frequency_map)} words from Google Ngram")
         return frequency_map
-
 
     def load_all_sources(self) -> dict[str, int]:
         """
@@ -229,9 +228,7 @@ async def map_frequency_ranks(session, mapper: FrequencyMapper, dry_run: bool = 
     print(f"Source: {mapper.source_name}")
     print(f"Total cards: {stats['total_cards']}")
     print(f"Matched: {stats['matched']} ({stats['matched']/stats['total_cards']*100:.1f}%)")
-    print(
-        f"Unmatched: {stats['unmatched']} ({stats['unmatched']/stats['total_cards']*100:.1f}%)"
-    )
+    print(f"Unmatched: {stats['unmatched']} ({stats['unmatched']/stats['total_cards']*100:.1f}%)")
     print(f"Updated: {stats['updated']}")
     print(f"Already set: {stats['already_set']}")
 
@@ -284,7 +281,7 @@ async def main():
     from app.database import async_session_maker
 
     async with async_session_maker() as session:
-        stats = await map_frequency_ranks(session, mapper, dry_run=args.dry_run)
+        await map_frequency_ranks(session, mapper, dry_run=args.dry_run)
 
     if args.dry_run:
         print("\n⚠ DRY RUN MODE - Run without --dry-run to apply changes")

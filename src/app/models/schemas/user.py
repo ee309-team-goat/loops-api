@@ -6,6 +6,14 @@ from sqlmodel import Field, SQLModel
 from app.models.tables.user import UserBase
 
 
+class UserCreate(SQLModel):
+    """Schema for creating a user (used internally with Supabase Auth)."""
+
+    supabase_uid: str = Field(max_length=255)
+    email: str = Field(max_length=255)
+    username: str = Field(max_length=100)
+
+
 class UserRead(UserBase):
     """Schema for reading a user."""
 
@@ -18,6 +26,7 @@ class UserRead(UserBase):
     timezone: str
     theme: str
     notification_enabled: bool
+    total_study_time_minutes: int = 0
     created_at: datetime
     updated_at: datetime | None = None
 

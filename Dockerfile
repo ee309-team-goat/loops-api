@@ -30,18 +30,27 @@ FROM python:3.12-slim-bookworm
 # Set working directory
 WORKDIR /app
 
+# Create non-root user FIRST (before COPY --chown)
+RUN useradd -m -u 1000 app
+
 # Copy the application from builder
 COPY --from=builder --chown=app:app /app /app
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Create non-root user
-RUN useradd -m -u 1000 app && chown -R app:app /app
+# Set PYTHONPATH to include src directory
+ENV PYTHONPATH="/app/src"
+
+# Switch to non-root user
 USER app
 
-# Expose port
+# Expose port (Cloud Run uses PORT env var, default 8000)
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "src/main.py"]
+# Cloud Run sets PORT env var, default to 8000
+ENV PORT=8000
+
+# Run the application with uvicorn
+# Use shell form to allow $PORT expansion
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT

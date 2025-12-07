@@ -1,47 +1,59 @@
-from datetime import date
+import datetime
 
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
 
 class TotalLearnedRead(SQLModel):
-    """Schema for reading total learned statistics."""
+    """총 학습량 통계 응답 스키마."""
 
-    total_learned: int
-    by_level: dict[str, int]
-    total_study_time_minutes: int
+    total_learned: int = Field(description="학습 완료한 총 카드 수 (REVIEW 상태 카드)")
+    by_level: dict[str, int] = Field(
+        description='CEFR 레벨별 학습 완료 카드 수. 예: {"A1": 50, "A2": 30, "B1": 10}'
+    )
+    total_study_time_minutes: int = Field(description="누적 총 학습 시간 (분)")
 
 
 class StatsHistoryItem(SQLModel):
-    """Schema for a single day's study history."""
+    """일별 학습 기록 항목 스키마."""
 
-    date: date
-    cards_studied: int
-    correct_count: int
-    accuracy_rate: float
+    date: datetime.date = Field(description="학습 날짜")
+    cards_studied: int = Field(description="해당 날짜에 학습한 카드 수")
+    correct_count: int = Field(description="해당 날짜의 정답 수")
+    accuracy_rate: float = Field(description="해당 날짜의 정확도 (%)")
 
 
 class StatsHistoryRead(SQLModel):
-    """Schema for reading study history (for charts)."""
+    """학습 기록 응답 스키마 (차트용 데이터)."""
 
-    period: str  # "7d", "30d", "90d", "1y"
-    data: list[StatsHistoryItem]
+    period: str = Field(description="조회 기간. 7d(7일), 30d(30일), 90d(90일), 1y(1년)")
+    data: list[StatsHistoryItem] = Field(description="일별 학습 기록 목록")
 
 
 class AccuracyByPeriod(SQLModel):
-    """Schema for accuracy statistics by time period."""
+    """기간별 정확도 스키마."""
 
-    all_time: float
-    last_7_days: float | None = None
-    last_30_days: float | None = None
-    last_90_days: float | None = None
+    all_time: float = Field(description="전체 기간 정확도 (%)")
+    last_7_days: float | None = Field(
+        default=None, description="최근 7일 정확도 (%). 데이터 없으면 null"
+    )
+    last_30_days: float | None = Field(
+        default=None, description="최근 30일 정확도 (%). 데이터 없으면 null"
+    )
+    last_90_days: float | None = Field(
+        default=None, description="최근 90일 정확도 (%). 데이터 없으면 null"
+    )
 
 
 class StatsAccuracyRead(SQLModel):
-    """Schema for reading accuracy statistics."""
+    """정확도 통계 응답 스키마."""
 
-    overall_accuracy: float
-    total_reviews: int
-    total_correct: int
-    by_period: AccuracyByPeriod
-    by_cefr_level: dict[str, float]  # e.g., {"A1": 85.0, "A2": 78.5}
-    trend: str  # "improving", "stable", "declining"
+    overall_accuracy: float = Field(description="전체 정확도 (%)")
+    total_reviews: int = Field(description="총 복습 횟수")
+    total_correct: int = Field(description="총 정답 수")
+    by_period: AccuracyByPeriod = Field(description="기간별 정확도 정보")
+    by_cefr_level: dict[str, float] = Field(
+        description='CEFR 레벨별 정확도 (%). 예: {"A1": 85.0, "A2": 78.5, "B1": 72.3}'
+    )
+    trend: str = Field(
+        description="정확도 추세. 'improving'(상승), 'stable'(안정), 'declining'(하락). 최근 7일과 이전 7일 비교"
+    )

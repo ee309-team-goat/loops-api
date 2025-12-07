@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api import OPENAPI_TAGS
 from app.api import router as api_router
 from app.config import settings
 from app.core.exceptions import LoopsAPIException
@@ -23,7 +24,7 @@ APP_START_TIME = time()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup and shutdown events."""
+    """애플리케이션 시작 및 종료 시 실행되는 라이프사이클 관리자."""
     # Startup: Configure logging
     setup_logging()
     logger.info("Application starting", version=settings.app_version)
@@ -37,9 +38,28 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.app_name,
+    description="""
+## Loops API - 영어 단어 학습 애플리케이션 백엔드
+
+FSRS(Free Spaced Repetition Scheduler) 알고리즘 기반의 효율적인 영어 단어 암기 학습을 지원하는 API입니다.
+
+### 주요 기능
+
+- **인증**: Supabase Auth를 통한 안전한 사용자 인증
+- **단어 카드**: 영어 단어, 발음, 예문 등을 포함한 학습 카드 관리
+- **FSRS 복습**: 과학적 간격 반복 알고리즘으로 최적의 복습 시점 계산
+- **덱 관리**: 주제별 단어장 구성 및 선택적 학습
+- **학습 통계**: 정확도, 스트릭, CEFR 레벨별 진행 상황 추적
+
+### 인증 방식
+
+Bearer Token 인증을 사용합니다. `/auth/login` 또는 `/auth/register`에서 발급받은 `access_token`을
+`Authorization: Bearer {token}` 헤더에 포함하여 요청하세요.
+""",
     version=settings.app_version,
     debug=settings.debug,
     lifespan=lifespan,
+    openapi_tags=OPENAPI_TAGS,
 )
 
 
@@ -182,9 +202,21 @@ async def generic_exception_handler(request: Request, exc: Exception):
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 
-@app.get("/")
+@app.get(
+    "/",
+    summary="API 루트",
+    description="API 정보 및 문서 링크를 반환합니다.",
+    responses={
+        200: {"description": "API 기본 정보 반환 성공"},
+    },
+)
 async def root():
-    """Root endpoint."""
+    """
+    API 루트 엔드포인트.
+
+    Loops API의 기본 정보와 API 문서 링크를 반환합니다.
+    인증 없이 접근 가능합니다.
+    """
     return {
         "message": "Welcome to Loops API",
         "version": settings.app_version,
@@ -192,13 +224,29 @@ async def root():
     }
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="헬스 체크",
+    description="API 서버 및 데이터베이스 연결 상태를 확인합니다.",
+    responses={
+        200: {"description": "서비스 정상 작동 중"},
+        503: {"description": "서비스 이상 - 데이터베이스 연결 실패 등"},
+    },
+)
 async def health(response: Response):
     """
-    Health check endpoint.
+    헬스 체크 엔드포인트.
 
-    Tests database connectivity and returns service status.
-    Returns 503 Service Unavailable if any critical component is unhealthy.
+    서버 상태 및 데이터베이스 연결을 확인하고 서비스 상태를 반환합니다.
+
+    **반환 정보:**
+    - `status`: 서비스 상태 (healthy/unhealthy)
+    - `version`: API 버전
+    - `uptime_seconds`: 서버 가동 시간 (초)
+    - `timestamp`: 현재 시간 (ISO 8601)
+    - `database`: 데이터베이스 연결 상태 (connected/disconnected)
+
+    **주의:** 데이터베이스 연결 실패 시 HTTP 503을 반환합니다.
     """
     uptime_seconds = int(time() - APP_START_TIME)
     timestamp = datetime.now(UTC).isoformat()

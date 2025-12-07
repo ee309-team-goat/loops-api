@@ -1,5 +1,7 @@
 """
-Stats-related API endpoints.
+통계 관련 API 엔드포인트.
+
+총 학습량, 학습 기록, 정확도 통계 등 학습 분석 데이터를 제공합니다.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -21,15 +23,42 @@ from app.models.schemas.stats import (
     TotalLearnedRead,
 )
 
-router = APIRouter(prefix="/stats", tags=["stats"])
+TAG = "stats"
+TAG_METADATA = {
+    "name": TAG,
+    "description": "통계 관련 API. 총 학습량, 학습 기록, 정확도 통계 등 학습 분석 데이터를 제공합니다.",
+}
+
+router = APIRouter(prefix="/stats", tags=[TAG])
 
 
-@router.get("/total-learned", response_model=TotalLearnedRead)
+@router.get(
+    "/total-learned",
+    response_model=TotalLearnedRead,
+    summary="총 학습량 통계",
+    description="전체 학습 완료 카드 수와 CEFR 레벨별 분류를 반환합니다.",
+    responses={
+        200: {"description": "총 학습량 통계 반환 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
 async def get_total_learned(
     current_user: CurrentActiveUser,
     session: Annotated[AsyncSession, Depends(get_session)] = None,
 ):
-    """Get total learned cards statistics with breakdown by CEFR level."""
+    """
+    총 학습량 통계를 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **반환 정보:**
+    - `total_learned`: 학습 완료한 총 카드 수 (REVIEW 상태)
+    - `by_level`: CEFR 레벨별 학습 완료 카드 수 (A1, A2, B1, B2, C1, C2)
+    - `total_study_time_minutes`: 총 학습 시간 (분)
+
+    **학습 완료 기준:**
+    - 카드 상태가 REVIEW인 카드 (FSRS 알고리즘에서 장기 기억으로 분류)
+    """
 
     # Count total REVIEW state cards
     total_learned_query = select(func.count(UserCardProgress.id)).where(
@@ -67,16 +96,45 @@ async def get_total_learned(
     )
 
 
-@router.get("/history", response_model=StatsHistoryRead)
+@router.get(
+    "/history",
+    response_model=StatsHistoryRead,
+    summary="학습 기록 조회",
+    description="기간별 일일 학습 기록을 반환합니다. 차트 데이터로 사용할 수 있습니다.",
+    responses={
+        200: {"description": "학습 기록 반환 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
 async def get_stats_history(
     current_user: CurrentActiveUser,
     session: Annotated[AsyncSession, Depends(get_session)],
-    period: Literal["7d", "30d", "90d", "1y"] = Query(default="30d", description="Time period"),
+    period: Literal["7d", "30d", "90d", "1y"] = Query(
+        default="30d",
+        description="조회 기간. 7d(7일), 30d(30일), 90d(90일), 1y(1년) 중 선택",
+    ),
 ):
     """
-    Get study history for charts.
+    기간별 학습 기록을 조회합니다.
 
-    Returns daily statistics including cards studied, correct count, and accuracy rate.
+    **인증 필요:** Bearer 토큰
+
+    **쿼리 파라미터:**
+    - `period`: 조회 기간
+      - `7d`: 최근 7일
+      - `30d`: 최근 30일 (기본값)
+      - `90d`: 최근 90일
+      - `1y`: 최근 1년
+
+    **반환 정보 (일별):**
+    - `date`: 날짜
+    - `cards_studied`: 학습한 카드 수
+    - `correct_count`: 정답 수
+    - `accuracy_rate`: 정확도 (%)
+
+    **용도:**
+    - 학습 추이 그래프
+    - 일별 학습량 비교
     """
     # Calculate date range based on period
     now = datetime.now(UTC)
@@ -124,15 +182,42 @@ async def get_stats_history(
     return StatsHistoryRead(period=period, data=history_data)
 
 
-@router.get("/accuracy", response_model=StatsAccuracyRead)
+@router.get(
+    "/accuracy",
+    response_model=StatsAccuracyRead,
+    summary="정확도 통계",
+    description="전체 정확도, 기간별 정확도, CEFR 레벨별 정확도를 반환합니다.",
+    responses={
+        200: {"description": "정확도 통계 반환 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
 async def get_stats_accuracy(
     current_user: CurrentActiveUser,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
-    Get accuracy statistics.
+    정확도 통계를 조회합니다.
 
-    Returns overall accuracy, accuracy by time period, and accuracy by CEFR level.
+    **인증 필요:** Bearer 토큰
+
+    **반환 정보:**
+    - `overall_accuracy`: 전체 정확도 (%)
+    - `total_reviews`: 총 복습 횟수
+    - `total_correct`: 총 정답 수
+    - `by_period`: 기간별 정확도
+      - `all_time`: 전체 기간
+      - `last_7_days`: 최근 7일
+      - `last_30_days`: 최근 30일
+      - `last_90_days`: 최근 90일
+    - `by_cefr_level`: CEFR 레벨별 정확도 (A1~C2)
+    - `trend`: 추세 ("improving", "stable", "declining")
+
+    **추세 계산 기준:**
+    - 최근 7일 정확도와 그 이전 7일 정확도 비교
+    - 5% 이상 상승: improving
+    - 5% 이상 하락: declining
+    - 그 외: stable
     """
     now = datetime.now(UTC)
 

@@ -4,15 +4,33 @@ API routes aggregator - includes all domain routers.
 
 from fastapi import APIRouter
 
+from app.api.auth import TAG_METADATA as auth_tag
 from app.api.auth import router as auth_router
+from app.api.cards import TAG_METADATA as cards_tag
 from app.api.cards import router as cards_router
+from app.api.decks import TAG_METADATA as decks_tag
 from app.api.decks import router as decks_router
+from app.api.progress import TAG_METADATA as progress_tag
 from app.api.progress import router as progress_router
+from app.api.stats import TAG_METADATA as stats_tag
 from app.api.stats import router as stats_router
+from app.api.study import TAG_METADATA as study_tag
 from app.api.study import router as study_router
+from app.api.users import TAG_METADATA as users_tag
 from app.api.users import router as users_router
 
 router = APIRouter()
+
+# Collect all tag metadata for OpenAPI
+OPENAPI_TAGS = [
+    auth_tag,
+    users_tag,
+    cards_tag,
+    progress_tag,
+    decks_tag,
+    stats_tag,
+    study_tag,
+]
 
 # Include domain routers
 router.include_router(auth_router)

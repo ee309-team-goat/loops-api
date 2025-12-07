@@ -7,12 +7,12 @@ from app.models.tables.deck import DeckBase
 
 
 class DeckCreate(DeckBase):
-    """Schema for creating a deck."""
+    """덱 생성 스키마."""
 
     @field_validator("name")
     @classmethod
     def name_not_empty(cls, v: str) -> str:
-        """Validate name is not empty."""
+        """덱 이름이 비어있지 않은지 검증합니다."""
         if not v or not v.strip():
             raise ValueError("Deck name cannot be empty or whitespace")
         return v.strip()
@@ -20,7 +20,7 @@ class DeckCreate(DeckBase):
     @field_validator("difficulty_level")
     @classmethod
     def difficulty_level_valid(cls, v: str | None) -> str | None:
-        """Validate difficulty level."""
+        """난이도가 허용된 값인지 검증합니다."""
         if v is None:
             return v
         allowed_levels = {"beginner", "intermediate", "advanced"}
@@ -31,28 +31,32 @@ class DeckCreate(DeckBase):
 
 
 class DeckRead(DeckBase):
-    """Schema for reading a deck."""
+    """덱 조회 응답 스키마."""
 
-    id: int
-    creator_id: int | None = None
-    created_at: datetime
-    updated_at: datetime | None = None
+    id: int = Field(description="덱 고유 ID")
+    creator_id: int | None = Field(default=None, description="덱 생성자 ID (없으면 시스템 생성)")
+    created_at: datetime = Field(description="덱 생성 시간 (UTC)")
+    updated_at: datetime | None = Field(default=None, description="덱 최종 수정 시간 (UTC)")
 
 
 class DeckUpdate(SQLModel):
-    """Schema for updating a deck."""
+    """덱 수정 스키마. 부분 업데이트 지원."""
 
-    name: str | None = Field(default=None, max_length=255)
-    description: str | None = None
-    category: str | None = Field(default=None, max_length=100)
-    difficulty_level: str | None = Field(default=None, max_length=50)
-    is_public: bool | None = None
-    is_official: bool | None = None
+    name: str | None = Field(default=None, max_length=255, description="덱 이름")
+    description: str | None = Field(default=None, description="덱 설명")
+    category: str | None = Field(default=None, max_length=100, description="카테고리")
+    difficulty_level: str | None = Field(
+        default=None,
+        max_length=50,
+        description="난이도 (beginner, intermediate, advanced)",
+    )
+    is_public: bool | None = Field(default=None, description="공개 여부")
+    is_official: bool | None = Field(default=None, description="공식 덱 여부")
 
     @field_validator("name")
     @classmethod
     def name_not_empty(cls, v: str | None) -> str | None:
-        """Validate name is not empty."""
+        """덱 이름이 비어있지 않은지 검증합니다."""
         if v is None:
             return v
         if not v.strip():
@@ -62,7 +66,7 @@ class DeckUpdate(SQLModel):
     @field_validator("difficulty_level")
     @classmethod
     def difficulty_level_valid(cls, v: str | None) -> str | None:
-        """Validate difficulty level."""
+        """난이도가 허용된 값인지 검증합니다."""
         if v is None:
             return v
         allowed_levels = {"beginner", "intermediate", "advanced"}
@@ -73,44 +77,46 @@ class DeckUpdate(SQLModel):
 
 
 class DeckWithProgressRead(SQLModel):
-    """Schema for reading a deck with progress information."""
+    """덱 목록 조회 응답 스키마 (학습 진행 정보 포함)."""
 
-    id: int
-    name: str
-    description: str | None = None
-    total_cards: int
-    learned_cards: int
-    learning_cards: int
-    new_cards: int
-    progress_percent: float
+    id: int = Field(description="덱 고유 ID")
+    name: str = Field(description="덱 이름")
+    description: str | None = Field(default=None, description="덱 설명")
+    total_cards: int = Field(description="덱 내 총 카드 수")
+    learned_cards: int = Field(description="학습 완료 카드 수 (REVIEW 상태)")
+    learning_cards: int = Field(description="학습 중인 카드 수 (LEARNING/RELEARNING 상태)")
+    new_cards: int = Field(description="미학습 카드 수 (NEW 상태)")
+    progress_percent: float = Field(description="학습 진행률 (%) - (학습 완료 / 총 카드) * 100")
 
 
 class DecksListResponse(SQLModel):
-    """Schema for deck list response with pagination."""
+    """덱 목록 응답 스키마 (페이지네이션 포함)."""
 
-    decks: list[DeckWithProgressRead]
-    total: int
-    skip: int
-    limit: int
+    decks: list[DeckWithProgressRead] = Field(description="덱 목록")
+    total: int = Field(description="전체 덱 수 (필터링 적용 후)")
+    skip: int = Field(description="건너뛴 레코드 수")
+    limit: int = Field(description="반환된 최대 레코드 수")
 
 
 class DeckDetailRead(SQLModel):
-    """Schema for reading a deck with full details and progress."""
+    """덱 상세 조회 응답 스키마 (전체 정보 + 학습 진행 포함)."""
 
     # From DeckRead
-    id: int
-    name: str
-    description: str | None = None
-    category: str | None = None
-    difficulty_level: str | None = None
-    is_public: bool
-    is_official: bool
-    creator_id: int | None = None
-    created_at: datetime
-    updated_at: datetime | None = None
+    id: int = Field(description="덱 고유 ID")
+    name: str = Field(description="덱 이름")
+    description: str | None = Field(default=None, description="덱 설명")
+    category: str | None = Field(default=None, description="카테고리")
+    difficulty_level: str | None = Field(
+        default=None, description="난이도 (beginner, intermediate, advanced)"
+    )
+    is_public: bool = Field(description="공개 여부")
+    is_official: bool = Field(description="공식 덱 여부 (운영자가 만든 덱)")
+    creator_id: int | None = Field(default=None, description="덱 생성자 ID")
+    created_at: datetime = Field(description="덱 생성 시간 (UTC)")
+    updated_at: datetime | None = Field(default=None, description="덱 최종 수정 시간 (UTC)")
     # From progress calculation
-    total_cards: int
-    learned_cards: int
-    learning_cards: int
-    new_cards: int
-    progress_percent: float
+    total_cards: int = Field(description="덱 내 총 카드 수")
+    learned_cards: int = Field(description="학습 완료 카드 수 (REVIEW 상태)")
+    learning_cards: int = Field(description="학습 중인 카드 수 (LEARNING/RELEARNING 상태)")
+    new_cards: int = Field(description="미학습 카드 수 (NEW 상태)")
+    progress_percent: float = Field(description="학습 진행률 (%)")

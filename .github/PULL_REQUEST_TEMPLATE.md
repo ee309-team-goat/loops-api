@@ -7,6 +7,7 @@
 ## 🔗 관련 이슈
 
 Closes #
+
 <!-- 또는 Related to #, Fixes #, Resolves # -->
 
 ## 🎯 변경 타입
@@ -29,7 +30,7 @@ Closes #
 ```bash
 # 테스트 명령어 예시
 just dev
-curl -X POST http://localhost:8000/api/v1/...
+curl -X POST http://localhost:8080/api/v1/...
 ```
 
 ## 📸 스크린샷 (선택사항)

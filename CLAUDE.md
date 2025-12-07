@@ -931,21 +931,21 @@ async def create_entity(session: AsyncSession, data: EntityCreate) -> Entity:
 
 ```bash
 # Register
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"testuser","email":"test@example.com","password":"password123"}'
 
 # Login
-TOKEN=$(curl -X POST http://localhost:8000/api/v1/auth/login \
+TOKEN=$(curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=testuser&password=password123" | jq -r .access_token)
 
 # Use authenticated endpoint
-curl -X GET http://localhost:8000/api/v1/auth/me \
+curl -X GET http://localhost:8080/api/v1/auth/me \
   -H "Authorization: Bearer $TOKEN"
 
 # Submit card review
-curl -X POST http://localhost:8000/api/v1/progress/review \
+curl -X POST http://localhost:8080/api/v1/progress/review \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"card_id":1,"rating":3}'
@@ -957,13 +957,13 @@ curl -X POST http://localhost:8000/api/v1/progress/review \
 import requests
 
 # Register and login
-response = requests.post("http://localhost:8000/api/v1/auth/register", json={
+response = requests.post("http://localhost:8080/api/v1/auth/register", json={
     "username": "testuser",
     "email": "test@example.com",
     "password": "password123"
 })
 
-response = requests.post("http://localhost:8000/api/v1/auth/login", data={
+response = requests.post("http://localhost:8080/api/v1/auth/login", data={
     "username": "testuser",
     "password": "password123"
 })
@@ -971,12 +971,12 @@ token = response.json()["access_token"]
 
 # Use authenticated endpoint
 headers = {"Authorization": f"Bearer {token}"}
-response = requests.get("http://localhost:8000/api/v1/auth/me", headers=headers)
+response = requests.get("http://localhost:8080/api/v1/auth/me", headers=headers)
 user = response.json()
 
 # Submit card review
 response = requests.post(
-    "http://localhost:8000/api/v1/progress/review",
+    "http://localhost:8080/api/v1/progress/review",
     headers=headers,
     json={"card_id": 1, "rating": 3}
 )
@@ -1026,7 +1026,7 @@ All errors return a consistent JSON structure:
 {
   "error": "error_type",
   "message": "Human-readable error message",
-  "details": {}  // Optional additional context
+  "details": {} // Optional additional context
 }
 ```
 

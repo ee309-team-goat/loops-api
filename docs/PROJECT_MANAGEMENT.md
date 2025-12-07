@@ -218,7 +218,7 @@ Closes #123
 ## 🧪 테스트 방법
 
 \`\`\`bash
-curl -X POST http://localhost:8000/api/v1/progress/review \
+curl -X POST http://localhost:8080/api/v1/progress/review \
  -H "Authorization: Bearer $TOKEN" \
  -d '{"card_id": 1, "rating": 3}'
 \`\`\`

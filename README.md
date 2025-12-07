@@ -114,8 +114,8 @@ just dev
 
 서버 실행 후:
 
-- API 문서: http://localhost:8000/docs
-- 헬스 체크: http://localhost:8000/health
+- API 문서: http://localhost:8080/docs
+- 헬스 체크: http://localhost:8080/health
 
 ---
 

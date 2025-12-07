@@ -51,7 +51,7 @@ just setup
 # 개발 서버 시작
 just dev
 # 내용: uv run python src/main.py
-# 포트: http://localhost:8000
+# 포트: http://localhost:8080
 ```
 
 ### 환경 정보 확인
@@ -68,7 +68,7 @@ just info
 
 # API 헬스 체크
 just health
-# 요청: curl http://localhost:8000/health
+# 요청: curl http://localhost:8080/health
 ```
 
 ### 유틸리티

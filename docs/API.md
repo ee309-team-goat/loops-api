@@ -19,15 +19,15 @@ Loops API의 모든 엔드포인트와 사용법을 설명합니다.
 ### Base URL
 
 ```
-http://localhost:8000/api/v1
+http://localhost:8080/api/v1
 ```
 
 ### 인터랙티브 문서
 
 서버 실행 후 다음 URL에서 확인 가능:
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI**: http://localhost:8080/docs
+- **ReDoc**: http://localhost:8080/redoc
 
 ### 기본 엔드포인트
 
@@ -611,21 +611,21 @@ Authorization: Bearer <token>
 
 ```bash
 # 회원가입
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"testuser","email":"test@test.com","password":"password123"}'
 
 # 로그인 & 토큰 저장
-TOKEN=$(curl -X POST http://localhost:8000/api/v1/auth/login \
+TOKEN=$(curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=testuser&password=password123" | jq -r .access_token)
 
 # 현재 사용자 정보
-curl -X GET http://localhost:8000/api/v1/auth/me \
+curl -X GET http://localhost:8080/api/v1/auth/me \
   -H "Authorization: Bearer $TOKEN"
 
 # 카드 생성
-curl -X POST http://localhost:8000/api/v1/cards \
+curl -X POST http://localhost:8080/api/v1/cards \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -637,7 +637,7 @@ curl -X POST http://localhost:8000/api/v1/cards \
   }'
 
 # 복습 제출
-curl -X POST http://localhost:8000/api/v1/progress/review \
+curl -X POST http://localhost:8080/api/v1/progress/review \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"card_id": 1, "rating": 3}'
@@ -648,7 +648,7 @@ curl -X POST http://localhost:8000/api/v1/progress/review \
 ```python
 import requests
 
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = "http://localhost:8080/api/v1"
 
 # 회원가입
 response = requests.post(f"{BASE_URL}/auth/register", json={

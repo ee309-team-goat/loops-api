@@ -235,7 +235,7 @@ Database Migration
 
 ## 테스트 방법
 
-Swagger UI 사용: http://localhost:8000/docs
+Swagger UI 사용: http://localhost:8080/docs
 
 ## 의존성
 

@@ -408,12 +408,12 @@ async def delete_entity(
 just dev
 
 # Swagger UI에서 테스트
-open http://localhost:8000/docs
+open http://localhost:8080/docs
 
 # 또는 curl
 TOKEN="your-jwt-token"
 
-curl -X POST http://localhost:8000/api/v1/entities \
+curl -X POST http://localhost:8080/api/v1/entities \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"Test","user_id":1}'
@@ -525,7 +525,7 @@ class EntityUpdate(SQLModel):
 ```bash
 # Swagger UI
 just dev
-open http://localhost:8000/docs
+open http://localhost:8080/docs
 
 # API 헬스 체크
 just health
@@ -538,17 +538,17 @@ just db-test
 
 ```bash
 # 회원가입
-curl -X POST http://localhost:8000/api/v1/auth/register \
+curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"test","email":"test@test.com","password":"pass123"}'
 
 # 로그인 & 토큰 저장
-TOKEN=$(curl -X POST http://localhost:8000/api/v1/auth/login \
+TOKEN=$(curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=test&password=pass123" | jq -r .access_token)
 
 # 인증이 필요한 요청
-curl -X GET http://localhost:8000/api/v1/auth/me \
+curl -X GET http://localhost:8080/api/v1/auth/me \
   -H "Authorization: Bearer $TOKEN"
 ```
 

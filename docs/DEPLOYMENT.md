@@ -117,7 +117,7 @@ docker-compose up -d
 docker-compose exec api uv run alembic upgrade head
 
 # 5. 헬스 체크
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 ### docker-compose.yaml (프로덕션 최적화)
@@ -131,14 +131,14 @@ services:
     container_name: loops-api
     restart: always
     ports:
-      - "8000:8000"
+      - "8080:8080"
     env_file:
       - .env
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -334,7 +334,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
 
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -248,7 +248,7 @@ Token has expired
 
 ```bash
 # 1. 로그인하여 새 토큰 발급
-curl -X POST http://localhost:8000/api/v1/auth/login \
+curl -X POST http://localhost:8080/api/v1/auth/login \
   -d "username=testuser&password=password123"
 
 # 2. 토큰 만료 시간 조정 (필요시)
@@ -498,8 +498,8 @@ OSError: [Errno 48] Address already in use
 **해결 방법:**
 
 ```bash
-# 1. 8000번 포트 사용 프로세스 확인
-lsof -i :8000
+# 1. 8080번 포트 사용 프로세스 확인
+lsof -i :8080
 
 # 2. 프로세스 종료
 kill -9 <PID>

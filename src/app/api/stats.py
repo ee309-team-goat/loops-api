@@ -393,9 +393,7 @@ async def get_today_stats(
             session_accuracy = (
                 study_session.correct_count / cards_in_session if cards_in_session > 0 else 0
             )
-            review_correct_count += int(
-                study_session.review_cards_count * session_accuracy
-            )
+            review_correct_count += int(study_session.review_cards_count * session_accuracy)
 
     # Calculate review accuracy
     review_accuracy = None

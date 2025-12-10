@@ -1,4 +1,7 @@
-from sqlmodel import Field, SQLModel
+from uuid import UUID
+
+from sqlalchemy import ForeignKey, Uuid
+from sqlmodel import Column, Field, SQLModel
 
 from app.models.base import TimestampMixin
 
@@ -24,4 +27,7 @@ class Deck(DeckBase, TimestampMixin, table=True):
     __tablename__ = "decks"
 
     id: int | None = Field(default=None, primary_key=True, nullable=False)
-    creator_id: int | None = Field(default=None, foreign_key="users.id", index=True)
+    creator_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(Uuid, ForeignKey("profiles.id"), nullable=True, index=True),
+    )

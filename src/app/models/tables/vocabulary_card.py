@@ -18,6 +18,11 @@ class VocabularyCardBase(SQLModel):
     # Definition
     definition_en: str | None = Field(default=None)  # English definition
 
+    # Entry type
+    word_type: str | None = Field(
+        default="word", max_length=50, index=True
+    )  # word, phrase, idiom, collocation
+
     # Categorization
     difficulty_level: str | None = Field(
         default=None, max_length=50, index=True
@@ -59,3 +64,7 @@ class VocabularyCard(VocabularyCardBase, TimestampMixin, table=True):
 
     # Format: ["business", "IT", "TOEIC"]
     tags: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))
+
+    # Pre-generated cloze sentences for quiz mode
+    # Format: [{"sentence": "The company signed a _____ with...", "answer": "contract", "hint": "계약"}, ...]
+    cloze_sentences: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))

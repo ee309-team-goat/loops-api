@@ -1,10 +1,13 @@
 # 프로젝트 관리 가이드
 
+> 최종 업데이트: 2025-12-10
+
 Loops API 프로젝트를 효율적으로 관리하기 위한 실전 가이드입니다.
 
 ## 📋 목차
 
 - [빠른 시작](#-빠른-시작)
+- [GitHub Projects 설정](#-github-projects-설정)
 - [이슈 관리](#-이슈-관리)
 - [Pull Request 워크플로우](#-pull-request-워크플로우)
 - [프로젝트 보드 운영](#-프로젝트-보드-운영)
@@ -53,6 +56,47 @@ YOUR_PROJECT_NUMBER = 1
 4. PR 생성 → 자동으로 라벨 추가, 마이그레이션 체크
 5. 리뷰 → 승인되면 머지
 6. 머지 → 이슈 자동 닫힘, "Done"으로 이동
+```
+
+---
+
+## 🎯 GitHub Projects 설정
+
+### 프로젝트 보드 생성
+
+```
+1. GitHub 레포지토리 > "Projects" 탭
+2. "New project" > "Board" 템플릿 선택
+3. 이름: "Loops API - Backend Development"
+```
+
+### 추천 컬럼 구조
+
+| 컬럼           | 설명                          |
+| -------------- | ----------------------------- |
+| 📋 Backlog     | 아직 시작하지 않은 작업       |
+| 🎯 Ready       | 작업 준비 완료, 우선순위 높음 |
+| 🔨 In Progress | 현재 진행 중                  |
+| 👀 In Review   | PR 리뷰 대기 중               |
+| ✅ Done        | 완료된 작업                   |
+| 🚫 Blocked     | 블로킹된 작업                 |
+
+### 커스텀 필드 (추천)
+
+| 필드명   | 타입          | 옵션                                                 |
+| -------- | ------------- | ---------------------------------------------------- |
+| Priority | Single select | 🔴 Critical, 🟠 High, 🟡 Medium, 🟢 Low              |
+| Type     | Single select | ✨ Feature, 🐛 Bug, 🔧 Refactor, 📝 Docs, 🧪 Test    |
+| Area     | Single select | 🗄️ Database, 🌐 API, ⚙️ Service, 🤖 AI, 📊 Analytics |
+| Sprint   | Single select | Sprint 1, Sprint 2, Sprint 3...                      |
+
+### 자동화 활성화
+
+```
+Settings > Workflows에서 활성화:
+✅ Auto-add to project - 새 이슈/PR 자동 추가
+✅ Item closed - 닫힌 이슈 "Done"으로 이동
+✅ Pull request merged - 머지된 PR "Done"으로 이동
 ```
 
 ---
@@ -218,7 +262,7 @@ Closes #123
 ## 🧪 테스트 방법
 
 \`\`\`bash
-curl -X POST http://localhost:8000/api/v1/progress/review \
+curl -X POST http://localhost:8080/api/v1/progress/review \
  -H "Authorization: Bearer $TOKEN" \
  -d '{"card_id": 1, "rating": 3}'
 \`\`\`
@@ -826,37 +870,17 @@ PR 본문에 다음 키워드 사용:
 
 ---
 
-## 📚 추가 리소스
+## 관련 문서
 
-- **[GITHUB_PROJECTS_SETUP.md](./GITHUB_PROJECTS_SETUP.md)** - GitHub Projects 초기 설정
-- **[GITHUB_ISSUES_TEMPLATE.md](./GITHUB_ISSUES_TEMPLATE.md)** - 이슈 템플릿 목록
-- **[DEVELOPMENT.md](./DEVELOPMENT.md)** - 개발 가이드
-- **[API.md](./API.md)** - API 문서
+- **[user-stories/](./user-stories/)** - 기능 유저스토리 (8개 도메인)
+- **[../CLAUDE.md](../CLAUDE.md)** - 개발 가이드
+- **[DATABASE.md](./DATABASE.md)** - 데이터베이스 스키마
 
 ---
 
 ## 📞 도움이 필요할 때
 
-```
-1. 문서 먼저 확인
-   - docs/ 폴더의 관련 문서 읽기
-   - README.md의 FAQ 확인
-
-2. GitHub Discussions 활용
-   - 질문 올리기
-   - 다른 사람의 질문 검색
-
-3. 이슈 생성
-   - 공식 기록이 필요한 경우
-   - 버그나 기능 요청
-
-4. 팀에 문의
-   - Slack/Discord에서 빠른 질문
-   - Weekly Sync에서 논의
-```
-
----
-
-**이 문서는 프로젝트가 진행되면서 계속 업데이트됩니다.**
-
-마지막 업데이트: 2025-01-20
+1. **문서 먼저 확인** - docs/ 폴더의 관련 문서 읽기
+2. **GitHub Discussions 활용** - 질문 올리기, 검색
+3. **이슈 생성** - 버그나 기능 요청
+4. **팀 문의** - Slack/Discord 또는 Weekly Sync

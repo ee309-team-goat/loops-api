@@ -91,7 +91,7 @@ db-test:
 # Check API health
 health:
     @echo "🏥 Checking API health..."
-    @curl -f -s http://localhost:8000/health | python -m json.tool || echo "❌ API not running at http://localhost:8000"
+    @curl -f -s http://localhost:8080/health | python -m json.tool || echo "❌ API not running at http://localhost:8080"
 
 # Start Docker containers with build
 docker-up:

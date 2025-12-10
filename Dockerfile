@@ -10,18 +10,17 @@ ENV UV_COMPILE_BYTECODE=1
 # Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
 
+# Copy dependency files first for better caching
+COPY pyproject.toml uv.lock ./
+
 # Install dependencies
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-install-project --no-dev
 
-# Copy the project
-COPY . /app
+# Copy the rest of the project
+COPY . .
 
-# Sync the project
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+# Sync the project (install the project itself)
+RUN uv sync --frozen --no-dev
 
 
 # Runtime stage
@@ -30,18 +29,26 @@ FROM python:3.12-slim-bookworm
 # Set working directory
 WORKDIR /app
 
+# Create non-root user FIRST (before COPY --chown)
+RUN useradd -m -u 1000 app
+
 # Copy the application from builder
 COPY --from=builder --chown=app:app /app /app
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Create non-root user
-RUN useradd -m -u 1000 app && chown -R app:app /app
+# Set PYTHONPATH to include src directory
+ENV PYTHONPATH="/app/src"
+
+# Switch to non-root user
 USER app
 
-# Expose port
-EXPOSE 8000
+# Expose port (Cloud Run uses PORT env var, default 8080)
+EXPOSE 8080
 
-# Run the application
-CMD ["python", "src/main.py"]
+# Cloud Run sets PORT env var, default to 8080
+ENV PORT=8080
+
+# Run the application with uvicorn
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT

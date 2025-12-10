@@ -1,14 +1,20 @@
 name: Project Automation
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, ready_for_review, closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  repository-projects: write
 
 jobs:
   pr-auto-label:
     name: Auto-label PR based on files changed
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'opened'
+    if: github.event_name == 'pull_request_target' && github.event.action == 'opened'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -60,7 +66,7 @@ jobs:
   check-migrations:
     name: Check if migration is needed
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request_target'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -111,7 +117,7 @@ jobs:
   update-issue-on-pr-merge:
     name: Update linked issues when PR is merged
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    if: github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.pull_request.merged == true
     steps:
       - name: Add completion comment to linked issues
         uses: actions/github-script@v7
@@ -153,7 +159,7 @@ jobs:
     name: Move PR to In Review
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'pull_request' &&
+      github.event_name == 'pull_request_target' &&
       (github.event.action == 'opened' || github.event.action == 'ready_for_review')
     steps:
       - name: Move PR to In Review column
@@ -161,7 +167,15 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const projectNumber = process.env.PROJECT_NUMBER || '1'; // 프로젝트 번호
+            const projectNumber = process.env.PROJECT_NUMBER;
+
+            // Skip if PROJECT_NUMBER is not configured
+            if (!projectNumber) {
+              console.log('⏭️ Skipping: PROJECT_NUMBER secret is not configured.');
+              console.log('To enable this feature, set PROJECT_NUMBER secret to your GitHub Project number.');
+              return;
+            }
+
             const inReviewFieldValue = 'In Review'; // 컬럼 이름 (Status 필드 값)
 
             const pr = context.payload.pull_request;
@@ -169,31 +183,10 @@ jobs:
             const repo = context.repo.repo;
             const issueId = pr.node_id; // PR의 GraphQL node ID
 
-            // 1. 프로젝트 정보 조회
+            // 1. 프로젝트 정보 조회 (organization only - ee309-team-goat is an org)
             const projectQuery = `
               query($owner: String!, $number: Int!) {
                 organization(login: $owner) {
-                  projectV2(number: $number) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                        ... on ProjectV2SingleSelectField {
-                          id
-                          name
-                          options {
-                            id
-                            name
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-                user(login: $owner) {
                   projectV2(number: $number) {
                     id
                     fields(first: 20) {
@@ -224,17 +217,15 @@ jobs:
                 number: parseInt(projectNumber)
               });
             } catch (error) {
-              console.log('Error fetching project (trying user instead):', error.message);
-              // User project로 재시도
-              projectData = await github.graphql(projectQuery, {
-                owner: owner,
-                number: parseInt(projectNumber)
-              });
+              console.log('⚠️ Error fetching project:', error.message);
+              console.log('Make sure PROJECT_NUMBER is correct and the project exists.');
+              return;
             }
 
-            const project = projectData.organization?.projectV2 || projectData.user?.projectV2;
+            const project = projectData.organization?.projectV2;
             if (!project) {
-              console.log('Project not found. Please check PROJECT_NUMBER environment variable.');
+              console.log(`⚠️ Project #${projectNumber} not found in organization "${owner}".`);
+              console.log('Check: Settings → Secrets → Actions → PROJECT_NUMBER');
               return;
             }
 
@@ -315,4 +306,4 @@ jobs:
               console.log(`Failed to update project item: ${error.message}`);
             }
         env:
-          PROJECT_NUMBER: ${{ secrets.PROJECT_NUMBER || '1' }}
+          PROJECT_NUMBER: ${{ secrets.PROJECT_NUMBER }}

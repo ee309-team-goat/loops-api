@@ -57,3 +57,23 @@ class StatsAccuracyRead(SQLModel):
     trend: str = Field(
         description="정확도 추세. 'improving'(상승), 'stable'(안정), 'declining'(하락). 최근 7일과 이전 7일 비교"
     )
+
+
+class TodayVocabularyStats(SQLModel):
+    """오늘의 어휘 학습 통계 스키마."""
+
+    new_cards_count: int = Field(description="오늘 학습한 신규 카드 수")
+    review_cards_count: int = Field(description="오늘 학습한 복습 카드 수")
+    review_accuracy: float | None = Field(
+        default=None, description="오늘 복습 카드의 정답률 (%). 복습 카드가 없으면 null"
+    )
+    progress: float = Field(description="일일 목표 대비 진행률 (0-100%)")
+    daily_goal: int = Field(description="일일 학습 목표 카드 수")
+
+
+class TodayStatsRead(SQLModel):
+    """오늘의 학습 정보 응답 스키마."""
+
+    total_study_time_seconds: int = Field(description="오늘 학습한 총 시간 (초 단위)")
+    total_cards_studied: int = Field(description="오늘 학습한 총 문제 수")
+    vocabulary: TodayVocabularyStats = Field(description="어휘 학습 상세 통계")

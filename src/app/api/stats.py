@@ -20,8 +20,11 @@ from app.models.schemas.stats import (
     StatsAccuracyRead,
     StatsHistoryItem,
     StatsHistoryRead,
+    TodayStatsRead,
+    TodayVocabularyStats,
     TotalLearnedRead,
 )
+from app.models.tables.study_session import StudySession
 
 TAG = "stats"
 TAG_METADATA = {
@@ -313,4 +316,108 @@ async def get_stats_accuracy(
         by_period=by_period,
         by_cefr_level=by_cefr_level,
         trend=trend,
+    )
+
+
+@router.get(
+    "/today",
+    response_model=TodayStatsRead,
+    summary="오늘의 학습 정보",
+    description="오늘 하루 동안의 학습 통계를 반환합니다. 총 학습 시간, 학습 문제 수, 신규/복습 카드 수, 정답률, 일일 목표 진행률 등을 포함합니다.",
+    responses={
+        200: {"description": "오늘의 학습 정보 반환 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
+async def get_today_stats(
+    current_profile: CurrentActiveProfile,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """
+    오늘의 학습 정보를 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **반환 정보:**
+    - `total_study_time_seconds`: 오늘 학습한 총 시간 (초 단위)
+    - `total_cards_studied`: 오늘 학습한 총 문제 수
+    - `vocabulary`: 어휘 학습 상세 통계
+      - `new_cards_count`: 오늘 학습한 신규 카드 수
+      - `review_cards_count`: 오늘 학습한 복습 카드 수
+      - `review_accuracy`: 오늘 복습 카드의 정답률 (%, 복습 카드가 없으면 null)
+      - `progress`: 일일 목표 대비 진행률 (0-100%)
+      - `daily_goal`: 일일 학습 목표 카드 수
+
+    **오늘 기준:**
+    - UTC 기준 오늘 날짜 (00:00:00 ~ 23:59:59)
+    """
+    now = datetime.now(UTC)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # Query today's completed study sessions
+    sessions_query = select(StudySession).where(
+        StudySession.user_id == current_profile.id,
+        StudySession.started_at >= today_start,
+        StudySession.started_at <= today_end,
+        StudySession.completed_at.isnot(None),  # Only completed sessions
+    )
+    result = await session.exec(sessions_query)
+    sessions = result.all()
+
+    # Calculate totals
+    total_study_time_seconds = 0
+    total_cards_studied = 0
+    new_cards_count = 0
+    review_cards_count = 0
+    review_correct_count = 0
+
+    for study_session in sessions:
+        # Calculate study time
+        if study_session.completed_at and study_session.started_at:
+            duration = (study_session.completed_at - study_session.started_at).total_seconds()
+            total_study_time_seconds += int(duration)
+
+        # Sum cards
+        cards_in_session = study_session.correct_count + study_session.wrong_count
+        total_cards_studied += cards_in_session
+        new_cards_count += study_session.new_cards_count
+        review_cards_count += study_session.review_cards_count
+
+        # For review accuracy, we need to know which cards were reviews and their correctness
+        # Assuming review cards are tracked in review_cards_count
+        # and correct_count applies proportionally
+        if study_session.review_cards_count > 0:
+            # Proportion of correct answers from review cards
+            # This is an approximation since we don't track separately
+            session_accuracy = (
+                study_session.correct_count / cards_in_session if cards_in_session > 0 else 0
+            )
+            review_correct_count += int(
+                study_session.review_cards_count * session_accuracy
+            )
+
+    # Calculate review accuracy
+    review_accuracy = None
+    if review_cards_count > 0:
+        review_accuracy = round((review_correct_count / review_cards_count) * 100, 1)
+
+    # Get daily goal from profile
+    daily_goal = current_profile.daily_goal or 30  # Default to 30 if not set
+
+    # Calculate progress
+    progress = min((total_cards_studied / daily_goal) * 100, 100.0) if daily_goal > 0 else 0.0
+
+    vocabulary_stats = TodayVocabularyStats(
+        new_cards_count=new_cards_count,
+        review_cards_count=review_cards_count,
+        review_accuracy=review_accuracy,
+        progress=round(progress, 1),
+        daily_goal=daily_goal,
+    )
+
+    return TodayStatsRead(
+        total_study_time_seconds=total_study_time_seconds,
+        total_cards_studied=total_cards_studied,
+        vocabulary=vocabulary_stats,
     )

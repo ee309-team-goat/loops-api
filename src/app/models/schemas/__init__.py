@@ -21,6 +21,8 @@ from app.models.schemas.stats import (
     StatsAccuracyRead,
     StatsHistoryItem,
     StatsHistoryRead,
+    TodayStatsRead,
+    TodayVocabularyStats,
     TotalLearnedRead,
 )
 from app.models.schemas.study import (
@@ -104,6 +106,8 @@ __all__ = [
     "StatsHistoryItem",
     "StatsAccuracyRead",
     "AccuracyByPeriod",
+    "TodayStatsRead",
+    "TodayVocabularyStats",
     # Study Session
     "SessionStartRequest",
     "SessionStartResponse",

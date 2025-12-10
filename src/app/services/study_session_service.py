@@ -3,7 +3,7 @@ Study session service for managing study sessions and card selection.
 """
 
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -11,17 +11,17 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models import (
     DailyGoalStatus,
     Deck,
+    Profile,
     SessionCard,
     SessionCompleteResponse,
     SessionStartResponse,
     SessionSummary,
     StreakInfo,
-    User,
     UserCardProgress,
     UserSelectedDeck,
     VocabularyCard,
 )
-from app.services.user_service import UserService
+from app.services.profile_service import ProfileService
 
 
 class StudySessionService:
@@ -30,7 +30,7 @@ class StudySessionService:
     @staticmethod
     async def get_new_cards_for_session(
         session: AsyncSession,
-        user_id: int,
+        user_id: UUID,
         limit: int = 10,
     ) -> list[VocabularyCard]:
         """
@@ -42,9 +42,9 @@ class StudySessionService:
 
         Cards are ordered by frequency_rank ASC (most common words first).
         """
-        # Get user to check deck selection preference
-        user = await session.get(User, user_id)
-        if not user:
+        # Get profile to check deck selection preference
+        profile = await session.get(Profile, user_id)
+        if not profile:
             return []
 
         # Subquery for cards user has already seen
@@ -56,10 +56,10 @@ class StudySessionService:
         query = select(VocabularyCard).where(VocabularyCard.id.not_in(seen_cards_subquery))
 
         # Apply deck filtering based on user preference
-        if user.select_all_decks:
+        if profile.select_all_decks:
             # Get from all public decks (or cards without a deck)
             query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
-                (Deck.is_public == True) | (VocabularyCard.deck_id == None)
+                (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
             )
         else:
             # Get from selected decks only
@@ -78,7 +78,7 @@ class StudySessionService:
     @staticmethod
     async def get_due_review_cards(
         session: AsyncSession,
-        user_id: int,
+        user_id: UUID,
         limit: int = 20,
     ) -> list[tuple[UserCardProgress, VocabularyCard]]:
         """
@@ -105,7 +105,7 @@ class StudySessionService:
     @staticmethod
     async def start_session(
         session: AsyncSession,
-        user_id: int,
+        user_id: UUID,
         new_cards_limit: int = 10,
         review_cards_limit: int = 20,
     ) -> SessionStartResponse:
@@ -185,7 +185,7 @@ class StudySessionService:
     @staticmethod
     async def complete_session(
         session: AsyncSession,
-        user: User,
+        profile: Profile,
         cards_studied: int,
         cards_correct: int,
         duration_seconds: int,
@@ -200,7 +200,7 @@ class StudySessionService:
         """
         # 1. Calculate session summary
         wrong_count = cards_studied - cards_correct
-        accuracy = (cards_correct / cards_studied * 100) if cards_studied > 0 else 0.0
+        accuracy = (cards_studied / cards_studied * 100) if cards_studied > 0 else 0.0
 
         session_summary = SessionSummary(
             total_cards=cards_studied,
@@ -210,8 +210,8 @@ class StudySessionService:
             duration_seconds=duration_seconds,
         )
 
-        # 2. Update user streak
-        streak_result = await UserService.update_user_streak(session, user.id)
+        # 2. Update profile streak
+        streak_result = await ProfileService.update_profile_streak(session, profile.id)
         message = StudySessionService._generate_streak_message(streak_result)
 
         streak_info = StreakInfo(
@@ -224,11 +224,11 @@ class StudySessionService:
 
         # 3. Update total study time
         duration_minutes = duration_seconds // 60
-        user.total_study_time_minutes += duration_minutes
-        session.add(user)
+        profile.total_study_time_minutes += duration_minutes
+        session.add(profile)
 
         # 4. Get daily goal status
-        daily_goal_data = await UserService.get_daily_goal(session, user.id)
+        daily_goal_data = await ProfileService.get_daily_goal(session, profile.id)
         goal = daily_goal_data["daily_goal"]
         completed = daily_goal_data["completed_today"]
         progress = (completed / goal * 100) if goal > 0 else 0.0

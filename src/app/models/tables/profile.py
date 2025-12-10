@@ -1,16 +1,16 @@
-from datetime import date
+"""Profile model for user app-specific data linked to Supabase Auth."""
 
-from sqlmodel import Field, SQLModel
+from datetime import date
+from uuid import UUID
+
+from sqlalchemy import Uuid
+from sqlmodel import Column, Field, SQLModel
 
 from app.models.base import TimestampMixin
 
 
-class UserBase(SQLModel):
-    """Base User model with shared fields."""
-
-    email: str = Field(unique=True, index=True, max_length=255)
-    username: str = Field(unique=True, index=True, max_length=100)
-    is_active: bool = Field(default=True, index=True)
+class ProfileBase(SQLModel):
+    """Base Profile model with shared fields."""
 
     # Learning preferences (DB-1, DB-2)
     select_all_decks: bool = Field(default=True)  # If true, study from all decks
@@ -22,13 +22,16 @@ class UserBase(SQLModel):
     notification_enabled: bool = Field(default=True)
 
 
-class User(UserBase, TimestampMixin, table=True):
-    """User database model."""
+class Profile(ProfileBase, TimestampMixin, table=True):
+    """Profile database model linked to Supabase Auth user."""
 
-    __tablename__ = "users"
+    __tablename__ = "profiles"
 
-    id: int | None = Field(default=None, primary_key=True, nullable=False)
-    supabase_uid: str = Field(unique=True, index=True, max_length=255)
+    # UUID from Supabase auth.users.id - direct reference, no separate supabase_uid needed
+    id: UUID = Field(
+        sa_column=Column(Uuid, primary_key=True, nullable=False),
+        description="User ID from Supabase Auth (auth.users.id)",
+    )
 
     # Streak tracking
     current_streak: int = Field(default=0)

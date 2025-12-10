@@ -1,5 +1,5 @@
 """
-사용자 관련 API 엔드포인트.
+프로필 관련 API 엔드포인트.
 
 프로필 조회/수정, 학습 설정, 스트릭 정보, 레벨 정보 등 사용자 데이터를 관리합니다.
 """
@@ -7,39 +7,39 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.dependencies import CurrentActiveUser
+from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
 from app.models import (
     DailyGoalRead,
+    Profile,
+    ProfileConfigRead,
+    ProfileConfigUpdate,
+    ProfileLevelRead,
+    ProfileRead,
+    ProfileUpdate,
     StreakRead,
     TodayProgressRead,
-    User,
     UserCardProgress,
-    UserConfigRead,
-    UserConfigUpdate,
-    UserLevelRead,
-    UserRead,
-    UserUpdate,
 )
+from app.services.profile_service import ProfileService
 from app.services.user_card_progress_service import UserCardProgressService
-from app.services.user_service import UserService
 
-TAG = "users"
+TAG = "profiles"
 TAG_METADATA = {
     "name": TAG,
-    "description": "사용자 관련 API. 프로필 조회/수정, 학습 설정, 스트릭 정보, 레벨 정보 등 사용자 데이터를 관리합니다.",
+    "description": "프로필 관련 API. 프로필 조회/수정, 학습 설정, 스트릭 정보, 레벨 정보 등 사용자 데이터를 관리합니다.",
 }
 
-router = APIRouter(prefix="/users", tags=[TAG])
+router = APIRouter(prefix="/profiles", tags=[TAG])
 
 
 @router.get(
     "/me",
-    response_model=UserRead,
+    response_model=ProfileRead,
     summary="내 프로필 조회",
     description="현재 인증된 사용자의 프로필 정보를 반환합니다.",
     responses={
@@ -47,21 +47,21 @@ router = APIRouter(prefix="/users", tags=[TAG])
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
     },
 )
-async def get_current_user_profile(
-    current_user: CurrentActiveUser,
-) -> User:
+async def get_current_profile(
+    current_profile: CurrentActiveProfile,
+) -> Profile:
     """
     현재 인증된 사용자의 프로필을 조회합니다.
 
     **인증 필요:** Bearer 토큰
 
     **반환 정보:**
-    - 기본 정보: ID, 이메일, 사용자명
+    - 기본 정보: ID (UUID)
     - 학습 설정: 일일 목표, 덱 선택 설정, 테마
     - 스트릭: 현재/최장 연속 학습일
     - 통계: 총 학습 시간
     """
-    return current_user
+    return current_profile
 
 
 @router.get(
@@ -75,8 +75,8 @@ async def get_current_user_profile(
     },
 )
 async def get_today_progress(
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
 ):
     """
     오늘의 학습 진행 상황을 조회합니다.
@@ -84,13 +84,15 @@ async def get_today_progress(
     **인증 필요:** Bearer 토큰
 
     **반환 정보:**
-    - `cards_studied_today`: 오늘 학습한 카드 수
+    - `total_reviews`: 오늘 총 복습 횟수
+    - `correct_count`: 오늘 정답 수
+    - `wrong_count`: 오늘 오답 수
+    - `accuracy_rate`: 오늘 정확도 (%)
     - `daily_goal`: 일일 목표 카드 수
-    - `progress_percent`: 목표 달성률 (%)
-    - `is_goal_completed`: 목표 달성 여부
+    - `goal_progress`: 목표 달성률 (%)
     """
     progress_data = await UserCardProgressService.get_today_progress(
-        session, current_user.id, current_user.daily_goal
+        session, current_profile.id, current_profile.daily_goal
     )
     return TodayProgressRead(**progress_data)
 
@@ -103,11 +105,11 @@ async def get_today_progress(
     responses={
         200: {"description": "일일 목표 정보 반환 성공"},
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
-        404: {"description": "사용자를 찾을 수 없음"},
+        404: {"description": "프로필을 찾을 수 없음"},
     },
 )
 async def get_daily_goal(
-    current_user: CurrentActiveUser,
+    current_profile: CurrentActiveProfile,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     """
@@ -119,18 +121,18 @@ async def get_daily_goal(
     - `daily_goal`: 설정된 일일 목표 카드 수
     - `completed_today`: 오늘 학습 완료한 카드 수
     """
-    daily_goal_data = await UserService.get_daily_goal(session, current_user.id)
+    daily_goal_data = await ProfileService.get_daily_goal(session, current_profile.id)
     if not daily_goal_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail="Profile not found",
         )
     return daily_goal_data
 
 
 @router.get(
     "/me/config",
-    response_model=UserConfigRead,
+    response_model=ProfileConfigRead,
     summary="사용자 설정 조회",
     description="사용자의 학습 설정 및 앱 설정을 반환합니다.",
     responses={
@@ -138,9 +140,9 @@ async def get_daily_goal(
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
     },
 )
-async def get_user_config(
-    current_user: CurrentActiveUser,
-) -> UserConfigRead:
+async def get_profile_config(
+    current_profile: CurrentActiveProfile,
+) -> ProfileConfigRead:
     """
     사용자 설정을 조회합니다.
 
@@ -153,18 +155,18 @@ async def get_user_config(
     - `theme`: 앱 테마 (light/dark/auto)
     - `notification_enabled`: 알림 활성화 여부
     """
-    return UserConfigRead(
-        daily_goal=current_user.daily_goal,
-        select_all_decks=current_user.select_all_decks,
-        timezone=current_user.timezone,
-        theme=current_user.theme,
-        notification_enabled=current_user.notification_enabled,
+    return ProfileConfigRead(
+        daily_goal=current_profile.daily_goal,
+        select_all_decks=current_profile.select_all_decks,
+        timezone=current_profile.timezone,
+        theme=current_profile.theme,
+        notification_enabled=current_profile.notification_enabled,
     )
 
 
 @router.put(
     "/me/config",
-    response_model=UserConfigRead,
+    response_model=ProfileConfigRead,
     summary="사용자 설정 수정",
     description="사용자의 학습 설정 및 앱 설정을 수정합니다. 부분 업데이트를 지원합니다.",
     responses={
@@ -173,11 +175,11 @@ async def get_user_config(
         422: {"description": "유효성 검사 실패 - 잘못된 값 (예: theme이 허용되지 않는 값)"},
     },
 )
-async def update_user_config(
-    config_data: UserConfigUpdate,
-    current_user: CurrentActiveUser,
+async def update_profile_config(
+    config_data: ProfileConfigUpdate,
+    current_profile: CurrentActiveProfile,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> UserConfigRead:
+) -> ProfileConfigRead:
     """
     사용자 설정을 수정합니다.
 
@@ -196,24 +198,24 @@ async def update_user_config(
     update_data = config_data.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
-        setattr(current_user, field, value)
+        setattr(current_profile, field, value)
 
-    session.add(current_user)
+    session.add(current_profile)
     await session.commit()
-    await session.refresh(current_user)
+    await session.refresh(current_profile)
 
-    return UserConfigRead(
-        daily_goal=current_user.daily_goal,
-        select_all_decks=current_user.select_all_decks,
-        timezone=current_user.timezone,
-        theme=current_user.theme,
-        notification_enabled=current_user.notification_enabled,
+    return ProfileConfigRead(
+        daily_goal=current_profile.daily_goal,
+        select_all_decks=current_profile.select_all_decks,
+        timezone=current_profile.timezone,
+        theme=current_profile.theme,
+        notification_enabled=current_profile.notification_enabled,
     )
 
 
 @router.get(
     "/me/level",
-    response_model=UserLevelRead,
+    response_model=ProfileLevelRead,
     summary="사용자 레벨 조회",
     description="사용자의 학습 숙련도 레벨과 CEFR 등급을 계산하여 반환합니다.",
     responses={
@@ -221,10 +223,10 @@ async def update_user_config(
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
     },
 )
-async def get_user_level(
-    current_user: CurrentActiveUser,
+async def get_profile_level(
+    current_profile: CurrentActiveProfile,
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> UserLevelRead:
+) -> ProfileLevelRead:
     """
     사용자의 학습 숙련도 레벨을 조회합니다.
 
@@ -242,136 +244,77 @@ async def get_user_level(
     - `accuracy_rate`: 전체 정확도 (%)
     - `mastered_cards`: 마스터한 카드 수
     """
-    level_data = await UserService.calculate_user_level(session, current_user.id)
-    return UserLevelRead(**level_data)
-
-
-@router.get(
-    "/{user_id}",
-    response_model=UserRead,
-    summary="특정 사용자 조회",
-    description="사용자 ID로 특정 사용자의 프로필을 조회합니다.",
-    responses={
-        200: {"description": "사용자 정보 반환 성공"},
-        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
-        404: {"description": "사용자를 찾을 수 없음"},
-    },
-)
-async def get_user(
-    user_id: int = Path(description="조회할 사용자의 고유 ID"),
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
-):
-    """
-    특정 사용자의 프로필을 조회합니다.
-
-    **인증 필요:** Bearer 토큰
-
-    **파라미터:**
-    - `user_id`: 조회할 사용자의 ID
-
-    **반환 정보:**
-    - 기본 정보: ID, 이메일, 사용자명
-    - 학습 설정 및 통계
-    """
-    user = await UserService.get_user(session, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    return user
+    level_data = await ProfileService.calculate_profile_level(session, current_profile.id)
+    return ProfileLevelRead(**level_data)
 
 
 @router.patch(
-    "/{user_id}",
-    response_model=UserRead,
-    summary="사용자 정보 수정",
-    description="사용자 정보를 수정합니다. 본인의 정보만 수정 가능합니다.",
+    "/me",
+    response_model=ProfileRead,
+    summary="프로필 정보 수정",
+    description="프로필 정보를 수정합니다.",
     responses={
-        200: {"description": "사용자 정보 수정 성공"},
+        200: {"description": "프로필 정보 수정 성공"},
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
-        403: {"description": "권한 없음 - 다른 사용자의 정보는 수정할 수 없음"},
-        404: {"description": "사용자를 찾을 수 없음"},
         422: {"description": "유효성 검사 실패 - 잘못된 데이터 형식"},
     },
 )
-async def update_user(
-    user_data: UserUpdate,
-    user_id: int = Path(description="수정할 사용자의 고유 ID"),
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+async def update_profile(
+    profile_data: ProfileUpdate,
+    current_profile: CurrentActiveProfile,
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
-    사용자 정보를 수정합니다.
+    프로필 정보를 수정합니다.
 
     **인증 필요:** Bearer 토큰
 
-    **권한:** 본인의 정보만 수정 가능
-
     **수정 가능한 필드:**
-    - `email`: 이메일 주소
-    - `username`: 사용자명 (3자 이상)
-    - `is_active`: 활성화 상태
     - `daily_goal`: 일일 목표 (1~1000)
+    - `select_all_decks`: 전체 덱 선택 여부
     - `timezone`: 타임존
     - `theme`: 테마 (light/dark/auto)
     - `notification_enabled`: 알림 설정
     """
-    if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this user",
-        )
-
-    user = await UserService.update_user(session, user_id, user_data)
-    if not user:
+    profile = await ProfileService.update_profile(session, current_profile.id, profile_data)
+    if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail="Profile not found",
         )
-    return user
+    return profile
 
 
 @router.delete(
-    "/{user_id}",
+    "/me",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="사용자 삭제",
-    description="사용자 계정을 삭제합니다. 본인의 계정만 삭제 가능합니다.",
+    summary="프로필 삭제",
+    description="프로필을 삭제합니다.",
     responses={
-        204: {"description": "사용자 삭제 성공 (응답 본문 없음)"},
+        204: {"description": "프로필 삭제 성공 (응답 본문 없음)"},
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
-        403: {"description": "권한 없음 - 다른 사용자의 계정은 삭제할 수 없음"},
-        404: {"description": "사용자를 찾을 수 없음"},
+        404: {"description": "프로필을 찾을 수 없음"},
     },
 )
-async def delete_user(
-    user_id: int = Path(description="삭제할 사용자의 고유 ID"),
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+async def delete_profile(
+    current_profile: CurrentActiveProfile,
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
-    사용자 계정을 삭제합니다.
+    프로필을 삭제합니다.
 
     **인증 필요:** Bearer 토큰
-
-    **권한:** 본인의 계정만 삭제 가능
 
     **주의사항:**
     - 이 작업은 되돌릴 수 없습니다
     - 사용자의 모든 학습 데이터가 함께 삭제됩니다
+    - Supabase Auth 계정은 별도로 삭제해야 합니다
     """
-    if current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to delete this user",
-        )
-
-    success = await UserService.delete_user(session, user_id)
+    success = await ProfileService.delete_profile(session, current_profile.id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail="Profile not found",
         )
     return None
 
@@ -386,9 +329,9 @@ async def delete_user(
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
     },
 )
-async def get_user_streak(
-    current_user: CurrentActiveUser,
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
+async def get_profile_streak(
+    current_profile: CurrentActiveProfile,
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
     스트릭 정보를 조회합니다.
@@ -411,7 +354,7 @@ async def get_user_streak(
     days_query = select(
         func.count(func.distinct(func.date(UserCardProgress.last_review_date)))
     ).where(
-        UserCardProgress.user_id == current_user.id,
+        UserCardProgress.user_id == current_profile.id,
         UserCardProgress.last_review_date >= first_day_of_month,
         UserCardProgress.last_review_date.isnot(None),
     )
@@ -422,21 +365,21 @@ async def get_user_streak(
     today = now.date()
     yesterday = today - timedelta(days=1)
 
-    if current_user.last_study_date in [today, yesterday]:
+    if current_profile.last_study_date in [today, yesterday]:
         streak_status = "active"
-        message = f"🔥 {current_user.current_streak}일 연속 학습 중!"
+        message = f"🔥 {current_profile.current_streak}일 연속 학습 중!"
     else:
         streak_status = "broken"
-        if current_user.last_study_date:
-            days_ago = (today - current_user.last_study_date).days
+        if current_profile.last_study_date:
+            days_ago = (today - current_profile.last_study_date).days
             message = f"💪 {days_ago}일 전 마지막 학습. 다시 시작해보세요!"
         else:
             message = "💪 첫 학습을 시작해보세요!"
 
     return StreakRead(
-        current_streak=current_user.current_streak,
-        longest_streak=current_user.longest_streak,
-        last_study_date=current_user.last_study_date,
+        current_streak=current_profile.current_streak,
+        longest_streak=current_profile.longest_streak,
+        last_study_date=current_profile.last_study_date,
         days_studied_this_month=days_studied_this_month,
         streak_status=streak_status,
         message=message,

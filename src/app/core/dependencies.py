@@ -3,6 +3,7 @@ FastAPI dependencies for authentication and authorization.
 """
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -10,29 +11,29 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.security import verify_supabase_token
 from app.database import get_session
-from app.models import User
-from app.services.user_service import UserService
+from app.models import Profile
+from app.services.profile_service import ProfileService
 
 # HTTPBearer scheme for token extraction from Authorization header
 security = HTTPBearer()
 
 
-async def get_current_user(
+async def get_current_profile(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> User:
+) -> Profile:
     """
-    Get the current authenticated user from Supabase JWT token.
+    Get the current authenticated user's profile from Supabase JWT token.
 
     Args:
         credentials: Bearer token from Authorization header
         session: Database session
 
     Returns:
-        User object of authenticated user
+        Profile object of authenticated user
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: If token is invalid or profile not found
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,37 +46,29 @@ async def get_current_user(
     if supabase_uid is None:
         raise credentials_exception
 
-    # Get user from database by supabase_uid
-    user = await UserService.get_user_by_supabase_uid(session, supabase_uid)
-    if user is None:
+    # Get profile from database by Supabase UID (which is the profile ID)
+    profile = await ProfileService.get_profile(session, UUID(supabase_uid))
+    if profile is None:
         raise credentials_exception
 
-    return user
+    return profile
 
 
-async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
+async def get_current_active_profile(
+    current_profile: Annotated[Profile, Depends(get_current_profile)],
+) -> Profile:
     """
-    Get the current active user.
+    Get the current active profile.
 
     Args:
-        current_user: User from get_current_user dependency
+        current_profile: Profile from get_current_profile dependency
 
     Returns:
-        User object if active
-
-    Raises:
-        HTTPException: If user is inactive
+        Profile object (profiles don't have is_active field, so just return as-is)
     """
-    if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user",
-        )
-    return current_user
+    return current_profile
 
 
 # Type aliases for cleaner dependency injection
-CurrentUser = Annotated[User, Depends(get_current_user)]
-CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
+CurrentProfile = Annotated[Profile, Depends(get_current_profile)]
+CurrentActiveProfile = Annotated[Profile, Depends(get_current_active_profile)]

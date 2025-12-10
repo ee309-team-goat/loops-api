@@ -2,6 +2,8 @@
 Deck service for calculating deck progress statistics.
 """
 
+from uuid import UUID
+
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -21,7 +23,7 @@ class DeckService:
     @staticmethod
     async def get_decks_list(
         session: AsyncSession,
-        user_id: int,
+        user_id: UUID,
         skip: int = 0,
         limit: int = 10,
     ) -> DecksListResponse:
@@ -33,7 +35,7 @@ class DeckService:
         # Query for accessible decks (public or created by user)
         decks_query = (
             select(Deck)
-            .where((Deck.is_public == True) | (Deck.creator_id == user_id))
+            .where((Deck.is_public == True) | (Deck.creator_id == user_id))  # noqa: E712
             .offset(skip)
             .limit(limit)
         )
@@ -42,7 +44,7 @@ class DeckService:
 
         # Count total accessible decks
         count_query = select(func.count(Deck.id)).where(
-            (Deck.is_public == True) | (Deck.creator_id == user_id)
+            (Deck.is_public == True) | (Deck.creator_id == user_id)  # noqa: E712
         )
         result = await session.exec(count_query)
         total_count = result.one()
@@ -69,7 +71,7 @@ class DeckService:
     @staticmethod
     async def calculate_deck_progress(
         session: AsyncSession,
-        user_id: int,
+        user_id: UUID,
         deck_id: int,
     ) -> dict:
         """

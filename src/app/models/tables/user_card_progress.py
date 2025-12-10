@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
+from sqlalchemy import Uuid
 from sqlmodel import JSON, Column, Enum, Field, SQLModel, UniqueConstraint
 
 from app.models.base import TimestampMixin
@@ -10,7 +12,10 @@ from app.models.enums import CardState
 class UserCardProgressBase(SQLModel):
     """Base UserCardProgress model with shared fields."""
 
-    user_id: int = Field(foreign_key="users.id", index=True)
+    user_id: UUID = Field(
+        sa_column=Column(Uuid, nullable=False, index=True),
+        foreign_key="profiles.id",
+    )
     card_id: int = Field(foreign_key="vocabulary_cards.id", index=True)
 
     # FSRS Algorithm Parameters
@@ -41,7 +46,8 @@ class UserCardProgress(UserCardProgressBase, TimestampMixin, table=True):
     last_review_date: datetime | None = Field(default=None)
 
     card_state: CardState = Field(
-        default=CardState.NEW, sa_column=Column(Enum(CardState), nullable=False, index=True)
+        default=CardState.NEW,
+        sa_column=Column(Enum(CardState), nullable=False, index=True),
     )
 
     quality_history: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))

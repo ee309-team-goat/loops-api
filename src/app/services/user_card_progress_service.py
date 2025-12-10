@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fsrs import Card, Rating, Scheduler
 from fsrs import State as FSRSState
@@ -8,7 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models import (
     CardState,
     Deck,
-    User,
+    Profile,
     UserCardProgress,
     UserCardProgressCreate,
     UserSelectedDeck,
@@ -131,7 +132,7 @@ class UserCardProgressService:
 
     @staticmethod
     async def get_user_card_progress(
-        session: AsyncSession, user_id: int, card_id: int
+        session: AsyncSession, user_id: UUID, card_id: int
     ) -> UserCardProgress | None:
         """Get progress for a specific user and card."""
         statement = select(UserCardProgress).where(
@@ -142,7 +143,7 @@ class UserCardProgressService:
 
     @staticmethod
     async def get_user_progress(
-        session: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
+        session: AsyncSession, user_id: UUID, skip: int = 0, limit: int = 100
     ) -> list[UserCardProgress]:
         """Get all progress entries for a user."""
         statement = (
@@ -156,7 +157,7 @@ class UserCardProgressService:
 
     @staticmethod
     async def get_due_cards(
-        session: AsyncSession, user_id: int, limit: int = 20
+        session: AsyncSession, user_id: UUID, limit: int = 20
     ) -> list[UserCardProgress]:
         """Get cards that are due for review."""
         now = datetime.now(UTC)
@@ -174,7 +175,7 @@ class UserCardProgressService:
 
     @staticmethod
     async def process_review(
-        session: AsyncSession, user_id: int, card_id: int, is_correct: bool
+        session: AsyncSession, user_id: UUID, card_id: int, is_correct: bool
     ) -> UserCardProgress:
         """
         Process a card review using FSRS algorithm.
@@ -217,7 +218,7 @@ class UserCardProgressService:
         return progress
 
     @staticmethod
-    async def get_today_progress(session: AsyncSession, user_id: int, daily_goal: int) -> dict:
+    async def get_today_progress(session: AsyncSession, user_id: UUID, daily_goal: int) -> dict:
         """
         Get today's learning progress statistics.
 
@@ -272,7 +273,7 @@ class UserCardProgressService:
         }
 
     @staticmethod
-    async def get_new_cards_count(session: AsyncSession, user_id: int) -> dict:
+    async def get_new_cards_count(session: AsyncSession, user_id: UUID) -> dict:
         """
         Get count of new cards (not yet seen) and review cards (due for review).
 
@@ -283,9 +284,9 @@ class UserCardProgressService:
         Returns:
             dict with new_cards_count and review_cards_count
         """
-        # Get user to check deck selection preference
-        user = await session.get(User, user_id)
-        if not user:
+        # Get profile to check deck selection preference
+        profile = await session.get(Profile, user_id)
+        if not profile:
             return {"new_cards_count": 0, "review_cards_count": 0}
 
         # Get cards user has already seen
@@ -297,11 +298,11 @@ class UserCardProgressService:
         )
 
         # Apply deck filtering based on user preference
-        if user.select_all_decks:
+        if profile.select_all_decks:
             # Count from all public decks
             new_cards_query = new_cards_query.join(
                 Deck, VocabularyCard.deck_id == Deck.id, isouter=True
-            ).where((Deck.is_public == True) | (VocabularyCard.deck_id == None))
+            ).where((Deck.is_public == True) | (VocabularyCard.deck_id == None))  # noqa: E712
         else:
             # Count from selected decks only
             selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(

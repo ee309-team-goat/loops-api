@@ -7,6 +7,15 @@ from app.models.schemas.deck import (
     DeckWithProgressRead,
 )
 from app.models.schemas.favorite import FavoriteCreate, FavoriteRead
+from app.models.schemas.profile import (
+    DailyGoalRead,
+    ProfileConfigRead,
+    ProfileConfigUpdate,
+    ProfileLevelRead,
+    ProfileRead,
+    ProfileUpdate,
+    StreakRead,
+)
 from app.models.schemas.stats import (
     AccuracyByPeriod,
     StatsAccuracyRead,
@@ -23,17 +32,6 @@ from app.models.schemas.study import (
     SessionStartResponse,
     SessionSummary,
     StreakInfo,
-)
-from app.models.schemas.user import (
-    DailyGoalRead,
-    StreakRead,
-    UserConfigRead,
-    UserConfigUpdate,
-    UserCreate,
-    UserLevelRead,
-    UserLogin,
-    UserRead,
-    UserUpdate,
 )
 from app.models.schemas.user_card_progress import (
     NewCardsCountRead,
@@ -57,16 +55,14 @@ from app.models.schemas.vocabulary_card import (
 )
 
 __all__ = [
-    # User
-    "UserRead",
-    "UserUpdate",
-    "UserCreate",
-    "UserLogin",
+    # Profile
+    "ProfileRead",
+    "ProfileUpdate",
     "DailyGoalRead",
     "StreakRead",
-    "UserConfigRead",
-    "UserConfigUpdate",
-    "UserLevelRead",
+    "ProfileConfigRead",
+    "ProfileConfigUpdate",
+    "ProfileLevelRead",
     # VocabularyCard
     "VocabularyCardCreate",
     "VocabularyCardRead",

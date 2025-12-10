@@ -1,11 +1,11 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
 
 def utc_now() -> datetime:
-    """Return current UTC time as timezone-aware datetime."""
-    return datetime.now(UTC)
+    """Return current UTC time as naive datetime (for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)."""
+    return datetime.utcnow()
 
 
 class TimestampMixin(SQLModel):

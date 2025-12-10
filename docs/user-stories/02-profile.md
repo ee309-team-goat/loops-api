@@ -471,6 +471,217 @@ Authorization: Bearer {access_token}
 
 ---
 
+## US-PROFILE-07: 복습 단어 비율 설정 (신규)
+
+### 스토리
+
+**사용자로서**, 학습 시 복습 단어 비율을 일반/커스텀 모드로 설정할 수 있다.
+**그래서** 내 학습 스타일에 맞게 새 단어와 복습 단어 비율을 조절할 수 있다.
+
+### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `PATCH /api/v1/profiles/me` (확장) |
+| **인증 필요** | 예 |
+| **변경 사항** | `review_ratio_mode`, `custom_review_ratio`, `min_new_ratio` 필드 추가 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#47](https://github.com/ee309-team-goat/loops-api/issues/47) |
+
+### 모드별 동작
+
+| 모드 | 설명 | 적용 로직 |
+|------|------|----------|
+| `normal` | 일반 모드 (기본) | 새 단어 최소 `min_new_ratio`(25%) 보장 |
+| `custom` | 커스텀 모드 | 복습 비율 `custom_review_ratio` 그대로 적용 |
+
+### 스키마 확장
+
+| 필드 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `review_ratio_mode` | string | `"normal"` | 복습 비율 모드 (normal/custom) |
+| `custom_review_ratio` | float | `0.75` | 커스텀 모드 복습 비율 (0.0~1.0) |
+| `min_new_ratio` | float | `0.25` | 일반 모드 최소 새 단어 비율 |
+
+### 요청/응답 예시
+
+**요청:**
+
+```
+PATCH /api/v1/profiles/me
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  "review_ratio_mode": "custom",
+  "custom_review_ratio": 0.6
+}
+```
+
+**성공 응답 (200 OK):**
+
+```json
+{
+  "id": "...",
+  "review_ratio_mode": "custom",
+  "custom_review_ratio": 0.6,
+  "min_new_ratio": 0.25
+}
+```
+
+### 예시 계산
+
+**일반 모드 (목표: 20개, min_new_ratio: 0.25):**
+- 복습 카드 15개 가능, 새 카드 50개 가능
+- 결과: 새 단어 5개(25%), 복습 15개(75%)
+
+**커스텀 모드 (목표: 20개, custom_review_ratio: 0.6):**
+- 결과: 새 단어 8개(40%), 복습 12개(60%)
+
+---
+
+## US-PROFILE-08: 복습 범위 설정 (신규)
+
+### 스토리
+
+**사용자로서**, 복습 범위를 "선택한 단어장만" 또는 "학습한 모든 단어" 중에서 선택할 수 있다.
+**그래서** 특정 단어장에 집중하거나 전체 어휘를 복습할 수 있다.
+
+### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `PATCH /api/v1/profiles/me` (확장) |
+| **인증 필요** | 예 |
+| **변경 사항** | `review_scope` 필드 추가 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#49](https://github.com/ee309-team-goat/loops-api/issues/49) |
+
+### 복습 범위 옵션
+
+| 값 | 설명 | 동작 |
+|----|------|------|
+| `selected_decks_only` | 선택한 단어장만 (기본, 권장) | 선택된 덱의 카드만 복습 |
+| `all_learned` | 학습한 모든 단어 | 덱 상관없이 학습한 모든 카드 복습 |
+
+### 스키마 확장
+
+| 필드 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `review_scope` | string | `"selected_decks_only"` | 복습 범위 설정 |
+
+### 요청/응답 예시
+
+**요청:**
+
+```
+PATCH /api/v1/profiles/me
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  "review_scope": "all_learned"
+}
+```
+
+**성공 응답 (200 OK):**
+
+```json
+{
+  "id": "...",
+  "review_scope": "all_learned"
+}
+```
+
+### UI 활용 예시
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ 복습 범위 설정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+(●) 선택한 단어장만 [권장]
+    선택한 단어장의 어휘만 복습합니다.
+
+( ) 학습한 모든 단어
+    지금까지 학습한 모든 어휘를 복습합니다.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## US-PROFILE-09: 하이라이트 색상 설정 (신규)
+
+### 스토리
+
+**사용자로서**, 문장 내 핵심 단어 하이라이트 색상을 변경할 수 있다.
+**그래서** 내 선호에 맞는 색상으로 학습할 수 있다.
+
+### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `PATCH /api/v1/profiles/me` (확장) |
+| **인증 필요** | 예 |
+| **변경 사항** | `highlight_color` 필드 추가 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#55](https://github.com/ee309-team-goat/loops-api/issues/55) |
+
+### 권장 색상 프리셋
+
+| 이름 | HEX | 용도 |
+|------|-----|------|
+| Green | `#4CAF50` | 기본값, 자연스러운 강조 |
+| Blue | `#2196F3` | 시원한 느낌 |
+| Orange | `#FF9800` | 따뜻한 강조 |
+| Purple | `#9C27B0` | 고급스러운 느낌 |
+| Red | `#F44336` | 강한 강조 |
+
+### 스키마 확장
+
+| 필드 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `highlight_color` | string | `"#4CAF50"` | Clue 하이라이트 색상 (HEX 코드) |
+
+### 요청/응답 예시
+
+**요청:**
+
+```
+PATCH /api/v1/profiles/me
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  "highlight_color": "#2196F3"
+}
+```
+
+**성공 응답 (200 OK):**
+
+```json
+{
+  "id": "...",
+  "highlight_color": "#2196F3"
+}
+```
+
+### UI 활용 예시
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ 하이라이트 색상
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+현재: 🟢 Green (#4CAF50)
+
+[🟢] [🔵] [🟠] [🟣] [🔴]
+
+미리보기:
+"The company signed a <contract> with..."
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
 ## 관련 컴포넌트
 
 ### 서비스

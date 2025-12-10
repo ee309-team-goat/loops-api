@@ -409,6 +409,230 @@ Authorization: Bearer {access_token}
 
 ---
 
+## US-DECK-05: 카테고리별 덱 목록 조회 (신규)
+
+### 스토리
+
+**사용자로서**, 카테고리(시험/교과서/상황별 등)별로 덱을 그룹핑하여 조회할 수 있다.
+**그래서** 커스텀 코스에서 원하는 단어장을 카테고리별로 선택할 수 있다.
+
+### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `GET /api/v1/decks/categories` |
+| **엔드포인트** | `GET /api/v1/decks/categories/{category_id}` |
+| **인증 필요** | 예 |
+| **출력** | 카테고리 목록, 카테고리별 덱 수, 선택 상태 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#48](https://github.com/ee309-team-goat/loops-api/issues/48) |
+
+### 선택 상태 (selection_state)
+
+| 값 | 설명 | UI 표시 |
+|----|------|---------|
+| `all` | 전체 선택 | 체크 (✓) |
+| `partial` | 일부 선택 | Indeterminate (−) |
+| `none` | 미선택 | 체크 해제 |
+
+### 카테고리 목록 반환 데이터
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `categories[].id` | string | 카테고리 ID |
+| `categories[].name` | string | 카테고리명 (예: 시험) |
+| `categories[].description` | string | 카테고리 설명 |
+| `categories[].icon` | string | 아이콘 이모지 |
+| `categories[].total_decks` | integer | 카테고리 내 총 덱 수 |
+| `categories[].selected_decks` | integer | 선택된 덱 수 |
+| `categories[].selection_state` | string | all/partial/none |
+
+### 요청/응답 예시
+
+**카테고리 목록 요청:**
+
+```
+GET /api/v1/decks/categories
+Authorization: Bearer {access_token}
+```
+
+**성공 응답 (200 OK):**
+
+```json
+{
+  "categories": [
+    {
+      "id": "exam",
+      "name": "시험",
+      "description": "TOEFL, TOEIC, IELTS 등 시험 대비 단어장",
+      "icon": "📝",
+      "total_decks": 10,
+      "selected_decks": 3,
+      "selection_state": "partial"
+    },
+    {
+      "id": "textbook",
+      "name": "교과서",
+      "description": "학교 교과서 기반 단어장",
+      "icon": "📚",
+      "total_decks": 5,
+      "selected_decks": 5,
+      "selection_state": "all"
+    }
+  ]
+}
+```
+
+**카테고리 상세 요청:**
+
+```
+GET /api/v1/decks/categories/exam
+Authorization: Bearer {access_token}
+```
+
+**성공 응답 (200 OK):**
+
+```json
+{
+  "category": {
+    "id": "exam",
+    "name": "시험",
+    "description": "시험 대비 단어장"
+  },
+  "decks": [
+    {
+      "id": 1,
+      "name": "TOEFL",
+      "description": "TOEFL 필수 단어",
+      "total_cards": 500,
+      "is_selected": true
+    },
+    {
+      "id": 2,
+      "name": "TOEIC",
+      "description": "TOEIC 빈출 단어",
+      "total_cards": 800,
+      "is_selected": false
+    }
+  ],
+  "total_decks": 10,
+  "selected_decks": 3
+}
+```
+
+### UI 활용 예시 - 카테고리별 단어장 선택
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 단어장 선택
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[✓] 📝 시험           일부 선택됨 3/10  >
+[−] 📚 교과서         전체 선택됨 5/5   >
+[ ] 💬 상황별                      0/8   >
+[ ] 🎬 드라마/영화                 0/12  >
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## US-DECK-06: 선택된 덱 요약 정보 조회 (신규)
+
+### 스토리
+
+**사용자로서**, 선택한 덱들의 요약 정보와 코스명을 확인할 수 있다.
+**그래서** 커스텀 코스 설정 화면에서 "시험, 교과서" 또는 "TOEFL 외 3개" 형태로 선택 결과를 볼 수 있다.
+
+### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `GET /api/v1/decks/selected-decks` (확장) |
+| **인증 필요** | 예 |
+| **변경 사항** | `summary` 객체 추가 (코스명, 카테고리 상태 등) |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#50](https://github.com/ee309-team-goat/loops-api/issues/50) |
+
+### 코스명 생성 규칙
+
+| 선택 상태 | 코스명 표시 |
+|----------|------------|
+| 단어장 1개 선택 | 해당 단어장명 (예: `능률 VOCA 어원편`) |
+| 단어장 2개 이상 | `첫 번째 단어장명 외 N개` (예: `TOEFL 외 2개`) |
+| 카테고리 전체 선택 1개 | 카테고리명 (예: `시험`) |
+| 카테고리 전체 선택 2~3개 | 카테고리명 나열 (예: `시험, 교과서`) |
+
+### 반환 데이터 확장
+
+| 필드 | 타입 | 설명 | 비고 |
+|------|------|------|------|
+| `summary` | object | 요약 정보 | **신규** |
+| `summary.course_name` | string | 생성된 코스명 | **신규** |
+| `summary.total_selected_decks` | integer | 선택된 총 덱 수 | **신규** |
+| `summary.total_selected_cards` | integer | 선택된 덱의 총 카드 수 | **신규** |
+| `summary.display_items[]` | array | UI 표시용 요약 항목 | **신규** |
+| `summary.category_states[]` | array | 카테고리별 선택 상태 | **신규** |
+
+### 요청/응답 예시
+
+**요청:**
+
+```
+GET /api/v1/decks/selected-decks
+Authorization: Bearer {access_token}
+```
+
+**성공 응답 (200 OK) - 확장:**
+
+```json
+{
+  "select_all": false,
+  "deck_ids": [1, 2, 3, 4, 5],
+  "decks": [...],
+  "summary": {
+    "course_name": "시험, 교과서",
+    "total_selected_decks": 5,
+    "total_selected_cards": 2500,
+    "display_items": [
+      {"type": "category", "name": "시험", "count": 3},
+      {"type": "category", "name": "교과서", "count": 2}
+    ],
+    "category_states": [
+      {
+        "category_id": "exam",
+        "category_name": "시험",
+        "total_decks": 10,
+        "selected_decks": 10,
+        "selection_state": "all"
+      },
+      {
+        "category_id": "textbook",
+        "category_name": "교과서",
+        "total_decks": 5,
+        "selected_decks": 2,
+        "selection_state": "partial"
+      }
+    ]
+  }
+}
+```
+
+### UI 활용 예시 - 코스명 표시
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📘 학습 코스
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+코스명: 시험, 교과서
+선택된 단어장: 5개
+총 단어 수: 2,500개
+
+• 시험 (3개 단어장)
+• 교과서 (2개 단어장)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
 ## 관련 컴포넌트
 
 ### 서비스

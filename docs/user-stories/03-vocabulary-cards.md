@@ -479,6 +479,145 @@ response = requests.delete(f"{BASE_URL}/cards/{card['id']}", headers=headers)
 
 ---
 
+## US-CARD-05: 연관 단어(연상 네트워크) 조회 (신규)
+
+### 스토리
+
+**사용자로서**, 단어의 연관 단어(어원/유의어/반의어/주제)를 확인할 수 있다.
+**그래서** 단어를 연결된 지식 구조로 학습하고 연상 네트워크 맵에서 탐색할 수 있다.
+
+### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `GET /api/v1/cards/{card_id}/related` |
+| **인증 필요** | 예 |
+| **출력** | 연관 단어 3~5개, 연관 이유 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#51](https://github.com/ee309-team-goat/loops-api/issues/51) |
+
+### 연관 유형 (relation_type)
+
+| 타입 | 한글 라벨 | 설명 |
+|------|----------|------|
+| `etymology` | 어원 | 같은 어근/접두사/접미사 |
+| `synonym` | 유의어 | 비슷한 의미 |
+| `antonym` | 반의어 | 반대 의미 |
+| `topic` | 주제 연관 | 같은 분야/상황 |
+| `collocation` | 연어 | 자주 함께 쓰이는 단어 |
+
+### 반환 데이터 상세
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `card` | object | 원본 카드 정보 |
+| `related_words[]` | array | 연관 단어 목록 (3~5개) |
+| `related_words[].card_id` | integer | 연관 카드 ID |
+| `related_words[].english_word` | string | 영어 단어 |
+| `related_words[].korean_meaning` | string | 한국어 뜻 |
+| `related_words[].relation_type` | string | 연관 유형 |
+| `related_words[].relation_label` | string | 한글 라벨 |
+| `related_words[].reason` | string | 연관 이유 설명 |
+| `total_related` | integer | 총 연관 단어 수 |
+
+### 요청/응답 예시
+
+**요청:**
+
+```
+GET /api/v1/cards/123/related
+Authorization: Bearer {access_token}
+```
+
+**성공 응답 (200 OK):**
+
+```json
+{
+  "card": {
+    "id": 123,
+    "english_word": "innovation",
+    "korean_meaning": "혁신"
+  },
+  "related_words": [
+    {
+      "card_id": 456,
+      "english_word": "renovate",
+      "korean_meaning": "혁신하다",
+      "relation_type": "etymology",
+      "relation_label": "어원",
+      "reason": "같은 어원 'nov-' (새로운)"
+    },
+    {
+      "card_id": 789,
+      "english_word": "invent",
+      "korean_meaning": "발명하다",
+      "relation_type": "synonym",
+      "relation_label": "유사 개념",
+      "reason": "새로운 것을 만듦"
+    },
+    {
+      "card_id": 101,
+      "english_word": "novel",
+      "korean_meaning": "새로운",
+      "relation_type": "etymology",
+      "relation_label": "어원",
+      "reason": "같은 어원 'nov-' (새로운)"
+    },
+    {
+      "card_id": 202,
+      "english_word": "creative",
+      "korean_meaning": "창의적인",
+      "relation_type": "topic",
+      "relation_label": "주제 연관",
+      "reason": "창의성, 혁신 주제"
+    }
+  ],
+  "total_related": 4
+}
+```
+
+### UI 활용 예시 - 연상 네트워크
+
+```
+           ┌─────────────┐
+           │  innovation │
+           │   (혁신)    │
+           └──────┬──────┘
+         ┌────────┼────────┐
+         ▼        ▼        ▼
+    ┌─────────┐ ┌─────────┐ ┌─────────┐
+    │renovate │ │ invent  │ │  novel  │
+    │(혁신하다)│ │(발명하다)│ │(새로운) │
+    └─────────┘ └─────────┘ └─────────┘
+      [어원]     [유사개념]    [어원]
+```
+
+### 데이터 모델 옵션
+
+**Option A: VocabularyCard에 JSONB 필드**
+
+```python
+class VocabularyCard:
+    related_words: list[dict] | None = Field(
+        default=None,
+        sa_column=Column(JSON)
+    )
+    # Format: [{"word": "...", "relation_type": "...", "reason": "..."}]
+```
+
+**Option B: 별도 WordRelation 테이블**
+
+```python
+class WordRelation(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    source_card_id: int = Field(foreign_key="vocabulary_cards.id")
+    target_card_id: int = Field(foreign_key="vocabulary_cards.id")
+    relation_type: str
+    reason: str
+```
+
+---
+
 ## 관련 문서
 
 - [덱 유저 스토리](./04-decks.md)

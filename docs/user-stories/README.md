@@ -46,3 +46,30 @@
 - `GET /stats/total-learned` - 총 학습량
 - `GET /stats/history` - 학습 기록
 - `GET /profiles/me/streak` - 스트릭
+
+---
+
+## 신규 기능 (Upcoming)
+
+> 각 도메인별 파일에 신규 유저 스토리가 추가되었습니다.
+
+### P0 (즉시 필요)
+
+- `GET /stats/today` - 오늘의 학습 정보 → [07-statistics.md](./07-statistics.md)
+- `GET /decks/categories` - 카테고리별 덱 목록 → [04-decks.md](./04-decks.md)
+- `GET /cards/{id}/related` - 연관 단어 조회 → [03-vocabulary-cards.md](./03-vocabulary-cards.md)
+- `POST /study/pronunciation/evaluate` - 발음 진단 → [08-study-session.md](./08-study-session.md)
+
+### P1 (빠른 시일 내)
+
+- `GET /stats/history?period=all` - 전체 기간 통계 → [07-statistics.md](./07-statistics.md)
+- `POST /study/session/preview` - 세션 설정 프리뷰 → [08-study-session.md](./08-study-session.md)
+- `GET /study/wrong-answers` - 오답 노트 → [08-study-session.md](./08-study-session.md)
+- `GET /study/session/{id}/status` - 세션 상태 조회 → [08-study-session.md](./08-study-session.md)
+- `POST /study/session/{id}/abandon` - 세션 중단 → [08-study-session.md](./08-study-session.md)
+- 복습 비율/범위 설정 → [02-profile.md](./02-profile.md)
+- 선택된 덱 요약 정보 → [04-decks.md](./04-decks.md)
+
+### P2 (보통)
+
+- 하이라이트 색상 설정 → [02-profile.md](./02-profile.md)

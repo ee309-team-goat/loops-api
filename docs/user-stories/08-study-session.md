@@ -214,6 +214,346 @@
 
 ---
 
+## 신규 기능
+
+### US-STUDY-01: 학습 세션 설정 프리뷰 (신규)
+
+#### 스토리
+
+**사용자로서**, 학습 설정(단어 개수, 복습 비율)에 따른 카드 구성을 미리 확인할 수 있다.
+**그래서** 학습 시작 전 "새 단어 8개, 복습 12개"와 같은 정보를 볼 수 있다.
+
+#### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `POST /api/v1/study/session/preview` (신규) |
+| **엔드포인트** | `GET /api/v1/study/overview` (확장: `daily_goal` 추가) |
+| **인증 필요** | 예 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#46](https://github.com/ee309-team-goat/loops-api/issues/46) |
+
+#### 요청/응답 예시 - 프리뷰
+
+**요청:**
+
+```
+POST /api/v1/study/session/preview
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  "total_cards": 20,
+  "review_ratio": 0.6
+}
+```
+
+**응답 (200 OK):**
+
+```json
+{
+  "available": {
+    "new_cards": 50,
+    "review_cards": 25,
+    "relearning_cards": 5
+  },
+  "allocation": {
+    "new_cards": 8,
+    "review_cards": 12,
+    "total": 20
+  },
+  "message": null
+}
+```
+
+#### Overview 확장
+
+**응답 (200 OK) - 확장:**
+
+```json
+{
+  "new_cards_count": 50,
+  "review_cards_count": 25,
+  "total_available": 75,
+  "due_cards": [...],
+  "daily_goal": {
+    "goal": 30,
+    "completed": 15,
+    "progress": 50.0,
+    "is_completed": false
+  }
+}
+```
+
+---
+
+### US-STUDY-02: Typing 모드 힌트 기능 (신규)
+
+#### 스토리
+
+**사용자로서**, 빈칸 채우기 문제에서 힌트를 사용하여 정답 글자를 하나씩 볼 수 있다.
+**그래서** 어려운 단어도 힌트를 통해 학습할 수 있다.
+
+#### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `POST /api/v1/study/session/answer` (확장) |
+| **인증 필요** | 예 |
+| **변경 사항** | `hint_count`, `revealed_answer` 필드 추가 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#52](https://github.com/ee309-team-goat/loops-api/issues/52) |
+
+#### 힌트 사용 시 점수 계산
+
+| 상태 | FSRS Rating | 점수 |
+|------|-------------|------|
+| 정답 (힌트 없음) | 3 (Good) | 100점 |
+| 정답 (힌트 사용) | 2 (Hard) | 100 - (힌트 수 × 20)점 |
+| 정답 공개 사용 | 1 (Again) | 0점 |
+| 오답 | 1 (Again) | 0점 |
+
+#### 요청 스키마 확장
+
+```json
+{
+  "session_id": "uuid",
+  "card_id": 1234,
+  "answer": "contract",
+  "response_time_ms": 5000,
+  "hint_count": 2,
+  "revealed_answer": false
+}
+```
+
+---
+
+### US-STUDY-03: 오답 노트 기록 (신규)
+
+#### 스토리
+
+**사용자로서**, 틀린 문제들의 상세 기록을 확인하고 복습할 수 있다.
+**그래서** 자주 틀리는 단어를 집중적으로 학습할 수 있다.
+
+#### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `GET /api/v1/study/wrong-answers` (신규) |
+| **엔드포인트** | `PATCH /api/v1/study/wrong-answers/{id}/reviewed` (신규) |
+| **인증 필요** | 예 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#53](https://github.com/ee309-team-goat/loops-api/issues/53) |
+
+#### 데이터 모델
+
+```python
+class WrongAnswer(SQLModel, table=True):
+    id: int
+    user_id: UUID
+    card_id: int
+    session_id: UUID | None
+
+    user_answer: str
+    correct_answer: str
+    quiz_type: str
+
+    created_at: datetime
+    reviewed: bool = False
+    reviewed_at: datetime | None = None
+```
+
+#### 요청/응답 예시
+
+**요청:**
+
+```
+GET /api/v1/study/wrong-answers?limit=20&reviewed=false
+Authorization: Bearer {access_token}
+```
+
+**응답 (200 OK):**
+
+```json
+{
+  "wrong_answers": [
+    {
+      "id": 1,
+      "card": {
+        "id": 123,
+        "english_word": "contract",
+        "korean_meaning": "계약"
+      },
+      "user_answer": "contrat",
+      "correct_answer": "contract",
+      "quiz_type": "cloze",
+      "created_at": "2024-12-10T10:30:00Z",
+      "reviewed": false
+    }
+  ],
+  "total": 15,
+  "unreviewed_count": 10
+}
+```
+
+---
+
+### US-STUDY-04: 세션 중단 및 상태 조회 (신규)
+
+#### 스토리
+
+**사용자로서**, 학습 중 뒤로가기 시 남은 문제 수와 목표 달성 정보를 확인하고 중단을 선택할 수 있다.
+**그래서** 의도치 않은 학습 중단을 방지하고 진행 상황을 저장할 수 있다.
+
+#### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `GET /api/v1/study/session/{session_id}/status` (신규) |
+| **엔드포인트** | `POST /api/v1/study/session/{session_id}/abandon` (신규) |
+| **인증 필요** | 예 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#54](https://github.com/ee309-team-goat/loops-api/issues/54) |
+
+#### 세션 상태 조회
+
+**요청:**
+
+```
+GET /api/v1/study/session/{session_id}/status
+Authorization: Bearer {access_token}
+```
+
+**응답 (200 OK):**
+
+```json
+{
+  "session_id": "...",
+  "status": "active",
+  "total_cards": 20,
+  "completed_cards": 8,
+  "remaining_cards": 12,
+  "correct_count": 6,
+  "wrong_count": 2,
+  "started_at": "2024-12-10T10:00:00Z",
+  "elapsed_seconds": 300,
+  "daily_goal": {
+    "goal": 30,
+    "completed_today": 15,
+    "remaining_for_goal": 15,
+    "will_complete_goal": false
+  }
+}
+```
+
+#### 세션 중단
+
+**요청:**
+
+```
+POST /api/v1/study/session/{session_id}/abandon
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+{
+  "save_progress": true
+}
+```
+
+**응답 (200 OK):**
+
+```json
+{
+  "session_id": "...",
+  "status": "abandoned",
+  "summary": {
+    "total_cards": 20,
+    "completed_cards": 8,
+    "correct_count": 6,
+    "wrong_count": 2,
+    "duration_seconds": 300
+  },
+  "progress_saved": true,
+  "message": "학습 진행 상황이 저장되었습니다."
+}
+```
+
+---
+
+### US-STUDY-05: 발음 진단 (신규)
+
+#### 스토리
+
+**사용자로서**, 내 발음을 녹음하여 평가받고 네이티브 발음과 비교할 수 있다.
+**그래서** 정확한 발음을 학습할 수 있다.
+
+#### 상세 정보
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `POST /api/v1/study/pronunciation/evaluate` (신규) |
+| **인증 필요** | 예 |
+| **입력** | 오디오 파일 (wav/m4a/webm) |
+| **출력** | 점수 (0-100), 등급, 피드백 |
+| **상태** | 🔲 미구현 |
+| **GitHub** | [#56](https://github.com/ee309-team-goat/loops-api/issues/56) |
+
+#### 점수 등급
+
+| 점수 | 등급 | 라벨 |
+|------|------|------|
+| 90-100 | `excellent` | 완벽해요! |
+| 75-89 | `good` | 좋아요! |
+| 60-74 | `fair` | 조금 더 연습해요 |
+| 0-59 | `needs_practice` | 다시 도전해보세요 |
+
+#### 요청/응답 예시
+
+**요청:**
+
+```
+POST /api/v1/study/pronunciation/evaluate
+Authorization: Bearer {access_token}
+Content-Type: multipart/form-data
+
+audio_file: (binary)
+card_id: 123
+```
+
+**응답 (200 OK):**
+
+```json
+{
+  "card_id": 123,
+  "word": "innovation",
+  "pronunciation_ipa": "/ˌɪnəˈveɪʃən/",
+
+  "score": 78,
+  "grade": "good",
+
+  "feedback": {
+    "overall": "발음이 좋습니다! 강세 위치에 조금 더 신경 쓰면 완벽해요.",
+    "stress": "'va' 음절에 강세를 더 주세요.",
+    "sounds": [
+      {"phoneme": "ʃ", "score": 65, "tip": "'sh' 소리를 더 부드럽게"}
+    ]
+  },
+
+  "native_audio_url": "https://...",
+  "user_audio_url": "https://..."
+}
+```
+
+#### 구현 단계
+
+| Phase | 내용 |
+|-------|------|
+| Phase 1 | Mock API - 랜덤 점수 + 고정 피드백 반환 |
+| Phase 2 | Azure/Google Speech API 연동 |
+| Phase 3 | 발음 기록 저장 및 통계 |
+
+---
+
 ## 관련 파일
 
 - `src/app/api/study.py`

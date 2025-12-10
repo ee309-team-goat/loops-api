@@ -412,7 +412,9 @@ def main():
 
     # Print results
     if not args.dry_run:
-        print(f"\n[OK] Updated {stats['freq_updated'] + stats['cefr_updated']} fields in {len(cards)} cards")
+        print(
+            f"\n[OK] Updated {stats['freq_updated'] + stats['cefr_updated']} fields in {len(cards)} cards"
+        )
     else:
         print(f"\n[DRY RUN] Would update {stats['freq_updated'] + stats['cefr_updated']} fields")
 
@@ -420,8 +422,12 @@ def main():
     print("FREQUENCY RANK STATISTICS")
     print("=" * 70)
     print(f"Total cards: {stats['total_cards']}")
-    print(f"Matched: {stats['freq_matched']} ({stats['freq_matched'] / stats['total_cards'] * 100:.1f}%)")
-    print(f"Unmatched: {stats['freq_unmatched']} ({stats['freq_unmatched'] / stats['total_cards'] * 100:.1f}%)")
+    print(
+        f"Matched: {stats['freq_matched']} ({stats['freq_matched'] / stats['total_cards'] * 100:.1f}%)"
+    )
+    print(
+        f"Unmatched: {stats['freq_unmatched']} ({stats['freq_unmatched'] / stats['total_cards'] * 100:.1f}%)"
+    )
     print(f"Updated: {stats['freq_updated']}")
     print(f"Already set: {stats['freq_already_set']}")
 
@@ -435,8 +441,12 @@ def main():
     print("\n" + "=" * 70)
     print("CEFR LEVEL STATISTICS")
     print("=" * 70)
-    print(f"From Oxford data: {stats['cefr_from_oxford']} ({stats['cefr_from_oxford'] / stats['total_cards'] * 100:.1f}%)")
-    print(f"From frequency: {stats['cefr_from_frequency']} ({stats['cefr_from_frequency'] / stats['total_cards'] * 100:.1f}%)")
+    print(
+        f"From Oxford data: {stats['cefr_from_oxford']} ({stats['cefr_from_oxford'] / stats['total_cards'] * 100:.1f}%)"
+    )
+    print(
+        f"From frequency: {stats['cefr_from_frequency']} ({stats['cefr_from_frequency'] / stats['total_cards'] * 100:.1f}%)"
+    )
     print(f"Updated: {stats['cefr_updated']}")
     print(f"Already set: {stats['cefr_already_set']}")
 

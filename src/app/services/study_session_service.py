@@ -725,7 +725,11 @@ class StudySessionService:
         total_cards_today = sum(s.correct_count + s.wrong_count for s in sessions)
 
         # Calculate progress
-        progress_value = min((total_cards_today / daily_goal_value) * 100, 100.0) if daily_goal_value > 0 else 0.0
+        progress_value = (
+            min((total_cards_today / daily_goal_value) * 100, 100.0)
+            if daily_goal_value > 0
+            else 0.0
+        )
         is_completed = total_cards_today >= daily_goal_value
 
         daily_goal_status = DailyGoalStatus(
@@ -789,14 +793,21 @@ class StudySessionService:
         # Try to fill remaining slots from the other type if available
         if actual_total < total_cards:
             shortage = total_cards - actual_total
-            if new_cards_allocated < new_cards_requested and new_cards_available > new_cards_allocated:
+            if (
+                new_cards_allocated < new_cards_requested
+                and new_cards_available > new_cards_allocated
+            ):
                 # Try to add more new cards
                 additional_new = min(shortage, new_cards_available - new_cards_allocated)
                 new_cards_allocated += additional_new
                 actual_total += additional_new
                 shortage -= additional_new
 
-            if shortage > 0 and review_cards_allocated < review_cards_requested and review_cards_available > review_cards_allocated:
+            if (
+                shortage > 0
+                and review_cards_allocated < review_cards_requested
+                and review_cards_available > review_cards_allocated
+            ):
                 # Try to add more review cards
                 additional_review = min(shortage, review_cards_available - review_cards_allocated)
                 review_cards_allocated += additional_review
@@ -807,7 +818,10 @@ class StudySessionService:
         if actual_total < total_cards:
             missing = total_cards - actual_total
             message = f"요청한 {total_cards}개의 카드 중 {missing}개가 부족합니다. {actual_total}개의 카드만 사용할 수 있습니다."
-        elif review_cards_allocated < review_cards_requested or new_cards_allocated < new_cards_requested:
+        elif (
+            review_cards_allocated < review_cards_requested
+            or new_cards_allocated < new_cards_requested
+        ):
             message = f"요청한 비율대로 배정할 수 없어 조정되었습니다. 신규 {new_cards_allocated}개, 복습 {review_cards_allocated}개가 배정됩니다."
 
         available = AvailableCards(

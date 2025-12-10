@@ -15,8 +15,6 @@ from app.database import get_session
 from app.models import (
     AnswerRequest,
     AnswerResponse,
-    AvailableCards,
-    CardAllocation,
     CardRequest,
     CardResponse,
     SessionCompleteRequest,

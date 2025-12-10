@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Uuid
+from sqlalchemy import ForeignKey, Uuid
 from sqlmodel import JSON, Column, Enum, Field, SQLModel, UniqueConstraint
 
 from app.models.base import TimestampMixin
@@ -13,8 +13,7 @@ class UserCardProgressBase(SQLModel):
     """Base UserCardProgress model with shared fields."""
 
     user_id: UUID = Field(
-        sa_column=Column(Uuid, nullable=False, index=True),
-        foreign_key="profiles.id",
+        sa_column=Column(Uuid, ForeignKey("profiles.id"), nullable=False, index=True),
     )
     card_id: int = Field(foreign_key="vocabulary_cards.id", index=True)
 

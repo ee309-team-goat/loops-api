@@ -59,3 +59,7 @@ class VocabularyCard(VocabularyCardBase, TimestampMixin, table=True):
 
     # Format: ["business", "IT", "TOEIC"]
     tags: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))
+
+    # Pre-generated cloze sentences for quiz mode
+    # Format: [{"sentence": "The company signed a _____ with...", "answer": "contract", "hint": "계약"}, ...]
+    cloze_sentences: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))

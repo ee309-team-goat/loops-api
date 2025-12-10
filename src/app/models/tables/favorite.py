@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import Uuid
+from sqlalchemy import ForeignKey, Uuid
 from sqlmodel import Column, Field, UniqueConstraint
 
 from app.models.base import TimestampMixin
@@ -19,7 +19,6 @@ class Favorite(TimestampMixin, table=True):
 
     id: int | None = Field(default=None, primary_key=True, nullable=False)
     user_id: UUID = Field(
-        sa_column=Column(Uuid, nullable=False, index=True),
-        foreign_key="profiles.id",
+        sa_column=Column(Uuid, ForeignKey("profiles.id"), nullable=False, index=True),
     )
     card_id: int = Field(foreign_key="vocabulary_cards.id", index=True, nullable=False)

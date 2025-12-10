@@ -7,6 +7,9 @@ from app.models.enums import CardState
 # Schemas (DTOs)
 from app.models.schemas import (
     AccuracyByPeriod,
+    AnswerResult,
+    AnswerSubmitRequest,
+    ClozeQuestion,
     DailyGoalRead,
     DailyGoalStatus,
     DeckCreate,
@@ -24,6 +27,12 @@ from app.models.schemas import (
     ProfileLevelRead,
     ProfileRead,
     ProfileUpdate,
+    QuizCard,
+    QuizCompleteRequest,
+    QuizCompleteResponse,
+    QuizSessionResponse,
+    QuizStartRequest,
+    QuizType,
     ReviewRequest,
     SelectDecksRequest,
     SelectDecksResponse,
@@ -129,4 +138,14 @@ __all__ = [
     "SessionSummary",
     "StreakInfo",
     "DailyGoalStatus",
+    # Quiz Schemas
+    "QuizType",
+    "ClozeQuestion",
+    "QuizCard",
+    "QuizStartRequest",
+    "QuizSessionResponse",
+    "AnswerSubmitRequest",
+    "AnswerResult",
+    "QuizCompleteRequest",
+    "QuizCompleteResponse",
 ]

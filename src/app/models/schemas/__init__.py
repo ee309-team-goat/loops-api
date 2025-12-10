@@ -16,6 +16,17 @@ from app.models.schemas.profile import (
     ProfileUpdate,
     StreakRead,
 )
+from app.models.schemas.quiz import (
+    AnswerResult,
+    AnswerSubmitRequest,
+    ClozeQuestion,
+    QuizCard,
+    QuizCompleteRequest,
+    QuizCompleteResponse,
+    QuizSessionResponse,
+    QuizStartRequest,
+    QuizType,
+)
 from app.models.schemas.stats import (
     AccuracyByPeriod,
     StatsAccuracyRead,
@@ -105,4 +116,14 @@ __all__ = [
     "SessionSummary",
     "StreakInfo",
     "DailyGoalStatus",
+    # Quiz
+    "QuizType",
+    "ClozeQuestion",
+    "QuizCard",
+    "QuizStartRequest",
+    "QuizSessionResponse",
+    "AnswerSubmitRequest",
+    "AnswerResult",
+    "QuizCompleteRequest",
+    "QuizCompleteResponse",
 ]

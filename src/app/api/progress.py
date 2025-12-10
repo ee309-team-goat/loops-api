@@ -9,7 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.dependencies import CurrentActiveUser
+from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
 from app.models import NewCardsCountRead, ReviewRequest, UserCardProgressRead
 from app.services.user_card_progress_service import UserCardProgressService
@@ -37,8 +37,8 @@ router = APIRouter(prefix="/progress", tags=[TAG])
 )
 async def submit_card_review(
     review_data: ReviewRequest,
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
 ):
     """
     카드 복습 결과를 제출합니다.
@@ -60,7 +60,7 @@ async def submit_card_review(
     - 누적 정확도 및 복습 통계
     """
     progress = await UserCardProgressService.process_review(
-        session, current_user.id, review_data.card_id, review_data.is_correct
+        session, current_profile.id, review_data.card_id, review_data.is_correct
     )
     return progress
 
@@ -78,7 +78,7 @@ async def submit_card_review(
 async def get_due_cards(
     limit: int = Query(default=20, ge=1, le=100, description="반환할 최대 카드 수 (1~100)"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    current_profile: CurrentActiveProfile = None,
 ):
     """
     복습 예정 카드를 조회합니다.
@@ -93,7 +93,7 @@ async def get_due_cards(
     **쿼리 파라미터:**
     - `limit`: 반환할 최대 카드 수 (기본값: 20, 최대: 100)
     """
-    cards = await UserCardProgressService.get_due_cards(session, current_user.id, limit=limit)
+    cards = await UserCardProgressService.get_due_cards(session, current_profile.id, limit=limit)
     return cards
 
 
@@ -108,8 +108,8 @@ async def get_due_cards(
     },
 )
 async def get_new_cards_count(
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
 ):
     """
     신규 카드와 복습 예정 카드 수를 조회합니다.
@@ -124,7 +124,7 @@ async def get_new_cards_count(
     - 사용자가 선택한 덱 기준
     - `select_all_decks: true`인 경우 모든 공개 덱 포함
     """
-    count_data = await UserCardProgressService.get_new_cards_count(session, current_user.id)
+    count_data = await UserCardProgressService.get_new_cards_count(session, current_profile.id)
     return NewCardsCountRead(**count_data)
 
 
@@ -142,7 +142,7 @@ async def get_new_cards_count(
 async def get_card_progress(
     card_id: int = Path(description="조회할 카드의 고유 ID"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    current_profile: CurrentActiveProfile = None,
 ):
     """
     특정 카드의 학습 진행 상황을 조회합니다.
@@ -159,7 +159,7 @@ async def get_card_progress(
     - 일정: 다음 복습일, 마지막 복습일
     """
     progress = await UserCardProgressService.get_user_card_progress(
-        session, current_user.id, card_id
+        session, current_profile.id, card_id
     )
     if not progress:
         raise HTTPException(

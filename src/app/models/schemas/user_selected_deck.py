@@ -1,6 +1,7 @@
 """사용자 선택 덱 관련 스키마."""
 
 from datetime import datetime
+from uuid import UUID
 
 from sqlmodel import Field, SQLModel
 
@@ -8,7 +9,7 @@ from sqlmodel import Field, SQLModel
 class UserSelectedDeckCreate(SQLModel):
     """사용자 선택 덱 생성 스키마."""
 
-    user_id: int = Field(description="사용자 ID")
+    user_id: UUID = Field(description="사용자 ID (UUID)")
     deck_id: int = Field(description="덱 ID")
 
 
@@ -16,7 +17,7 @@ class UserSelectedDeckRead(SQLModel):
     """사용자 선택 덱 조회 응답 스키마."""
 
     id: int = Field(description="선택 기록 고유 ID")
-    user_id: int = Field(description="사용자 ID")
+    user_id: UUID = Field(description="사용자 ID (UUID)")
     deck_id: int = Field(description="덱 ID")
     created_at: datetime = Field(description="선택 시간 (UTC)")
     updated_at: datetime | None = Field(default=None, description="최종 수정 시간 (UTC)")

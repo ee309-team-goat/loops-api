@@ -1,111 +1,85 @@
 from datetime import UTC, date, datetime, timedelta
+from uuid import UUID
 
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import User, UserCardProgress, UserUpdate, VocabularyCard
+from app.models import Profile, ProfileUpdate, UserCardProgress, VocabularyCard
 from app.models.enums import CardState
 
 
-class UserService:
-    """Service for user CRUD operations."""
+class ProfileService:
+    """Service for profile CRUD operations."""
 
     @staticmethod
-    async def create_user(
+    async def create_profile(
         session: AsyncSession,
-        supabase_uid: str,
-        email: str,
-        username: str,
-    ) -> User:
-        """Create a new user linked to Supabase Auth."""
-        user = User(
-            supabase_uid=supabase_uid,
-            email=email,
-            username=username,
-        )
-        session.add(user)
+        profile_id: UUID,
+    ) -> Profile:
+        """Create a new profile linked to Supabase Auth user."""
+        profile = Profile(id=profile_id)
+        session.add(profile)
         await session.commit()
-        await session.refresh(user)
-        return user
+        await session.refresh(profile)
+        return profile
 
     @staticmethod
-    async def get_user(session: AsyncSession, user_id: int) -> User | None:
-        """Get a user by ID."""
-        return await session.get(User, user_id)
+    async def get_profile(session: AsyncSession, profile_id: UUID) -> Profile | None:
+        """Get a profile by ID (UUID from Supabase Auth)."""
+        return await session.get(Profile, profile_id)
 
     @staticmethod
-    async def get_user_by_supabase_uid(session: AsyncSession, supabase_uid: str) -> User | None:
-        """Get a user by Supabase UID."""
-        statement = select(User).where(User.supabase_uid == supabase_uid)
-        result = await session.exec(statement)
-        return result.one_or_none()
-
-    @staticmethod
-    async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
-        """Get a user by email."""
-        statement = select(User).where(User.email == email)
-        result = await session.exec(statement)
-        return result.one_or_none()
-
-    @staticmethod
-    async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
-        """Get a user by username."""
-        statement = select(User).where(User.username == username)
-        result = await session.exec(statement)
-        return result.one_or_none()
-
-    @staticmethod
-    async def update_user(
+    async def update_profile(
         session: AsyncSession,
-        user_id: int,
-        user_data: UserUpdate,
-    ) -> User | None:
-        """Update a user."""
-        user = await UserService.get_user(session, user_id)
-        if not user:
+        profile_id: UUID,
+        profile_data: ProfileUpdate,
+    ) -> Profile | None:
+        """Update a profile."""
+        profile = await ProfileService.get_profile(session, profile_id)
+        if not profile:
             return None
 
-        update_dict = user_data.model_dump(exclude_unset=True)
-        user.sqlmodel_update(update_dict)
+        update_dict = profile_data.model_dump(exclude_unset=True)
+        profile.sqlmodel_update(update_dict)
 
-        session.add(user)
+        session.add(profile)
         await session.commit()
-        await session.refresh(user)
-        return user
+        await session.refresh(profile)
+        return profile
 
     @staticmethod
-    async def delete_user(session: AsyncSession, user_id: int) -> bool:
-        """Delete a user."""
-        user = await UserService.get_user(session, user_id)
-        if not user:
+    async def delete_profile(session: AsyncSession, profile_id: UUID) -> bool:
+        """Delete a profile."""
+        profile = await ProfileService.get_profile(session, profile_id)
+        if not profile:
             return False
 
-        await session.delete(user)
+        await session.delete(profile)
         await session.commit()
         return True
 
     @staticmethod
-    async def get_daily_goal(session: AsyncSession, user_id: int) -> dict:
+    async def get_daily_goal(session: AsyncSession, profile_id: UUID) -> dict | None:
         """Get the user's daily goal and today's completion count."""
-        user = await UserService.get_user(session, user_id)
-        if not user:
+        profile = await ProfileService.get_profile(session, profile_id)
+        if not profile:
             return None
 
         # Count today's reviews from UserCardProgress
         today = datetime.now(UTC).date()
         statement = select(func.count(UserCardProgress.id)).where(
-            UserCardProgress.user_id == user_id,
+            UserCardProgress.user_id == profile_id,
             func.date(UserCardProgress.last_review_date) == today,
         )
         result = await session.exec(statement)
         completed_today = result.one()
 
-        return {"daily_goal": user.daily_goal, "completed_today": completed_today}
+        return {"daily_goal": profile.daily_goal, "completed_today": completed_today}
 
     @staticmethod
-    async def update_user_streak(session: AsyncSession, user_id: int) -> dict:
+    async def update_profile_streak(session: AsyncSession, profile_id: UUID) -> dict | None:
         """
-        Update user streak when study session completes.
+        Update profile streak when study session completes.
 
         Handles:
         - Same-day multiple sessions (don't double-count)
@@ -122,58 +96,58 @@ class UserService:
                 "streak_status": "continued" | "started" | "broken"
             }
         """
-        user = await session.get(User, user_id)
-        if not user:
+        profile = await session.get(Profile, profile_id)
+        if not profile:
             return None
 
         today = date.today()
 
         # 1. Check if already studied today (same day multiple sessions)
-        if user.last_study_date == today:
+        if profile.last_study_date == today:
             return {
-                "current_streak": user.current_streak,
-                "longest_streak": user.longest_streak,
+                "current_streak": profile.current_streak,
+                "longest_streak": profile.longest_streak,
                 "is_new_record": False,
                 "streak_status": "continued",
             }
 
         # 2. Calculate streak
-        if user.last_study_date is None:
+        if profile.last_study_date is None:
             # First time studying
-            user.current_streak = 1
+            profile.current_streak = 1
             streak_status = "started"
-        elif user.last_study_date == today - timedelta(days=1):
+        elif profile.last_study_date == today - timedelta(days=1):
             # Studied yesterday - continue streak
-            user.current_streak += 1
+            profile.current_streak += 1
             streak_status = "continued"
         else:
             # Gap > 1 day - streak broken, start fresh
-            user.current_streak = 1
+            profile.current_streak = 1
             streak_status = "broken"
 
         # 3. Update longest streak if new record
         is_new_record = False
-        if user.current_streak > user.longest_streak:
-            user.longest_streak = user.current_streak
+        if profile.current_streak > profile.longest_streak:
+            profile.longest_streak = profile.current_streak
             is_new_record = True
 
         # 4. Update last study date
-        user.last_study_date = today
+        profile.last_study_date = today
 
         # 5. Save to database
-        session.add(user)
+        session.add(profile)
         await session.commit()
-        await session.refresh(user)
+        await session.refresh(profile)
 
         return {
-            "current_streak": user.current_streak,
-            "longest_streak": user.longest_streak,
+            "current_streak": profile.current_streak,
+            "longest_streak": profile.longest_streak,
             "is_new_record": is_new_record,
             "streak_status": streak_status,
         }
 
     @staticmethod
-    async def calculate_user_level(session: AsyncSession, user_id: int) -> dict:
+    async def calculate_profile_level(session: AsyncSession, profile_id: UUID) -> dict:
         """
         Calculate user's current level based on recent review performance.
 
@@ -204,7 +178,7 @@ class UserService:
             .select_from(UserCardProgress)
             .join(VocabularyCard, VocabularyCard.id == UserCardProgress.card_id)
             .where(
-                UserCardProgress.user_id == user_id,
+                UserCardProgress.user_id == profile_id,
                 UserCardProgress.total_reviews > 0,
             )
             .order_by(UserCardProgress.last_review_date.desc())

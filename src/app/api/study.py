@@ -9,7 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.dependencies import CurrentActiveUser
+from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
 from app.models import (
     SessionCompleteRequest,
@@ -42,7 +42,7 @@ router = APIRouter(prefix="/study", tags=[TAG])
 async def complete_study_session(
     request: SessionCompleteRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
-    current_user: CurrentActiveUser,
+    current_profile: CurrentActiveProfile,
 ) -> SessionCompleteResponse:
     """
     학습 세션을 완료합니다.
@@ -67,7 +67,7 @@ async def complete_study_session(
     """
     return await StudySessionService.complete_session(
         session=session,
-        user=current_user,
+        profile=current_profile,
         cards_studied=request.cards_studied,
         cards_correct=request.cards_correct,
         duration_seconds=request.duration_seconds,
@@ -88,7 +88,7 @@ async def complete_study_session(
 async def start_study_session(
     request: SessionStartRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
-    current_user: CurrentActiveUser,
+    current_profile: CurrentActiveProfile,
 ) -> SessionStartResponse:
     """
     새로운 학습 세션을 시작합니다.
@@ -117,7 +117,7 @@ async def start_study_session(
     """
     return await StudySessionService.start_session(
         session=session,
-        user_id=current_user.id,
+        user_id=current_profile.id,
         new_cards_limit=request.new_cards_limit,
         review_cards_limit=request.review_cards_limit,
     )

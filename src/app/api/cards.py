@@ -9,7 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.dependencies import CurrentActiveUser
+from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
 from app.models import VocabularyCardCreate, VocabularyCardRead, VocabularyCardUpdate
 from app.services.vocabulary_card_service import VocabularyCardService
@@ -37,8 +37,8 @@ router = APIRouter(prefix="/cards", tags=[TAG])
 )
 async def create_vocabulary_card(
     card_data: VocabularyCardCreate,
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
 ):
     """
     새로운 단어 카드를 생성합니다.
@@ -78,7 +78,7 @@ async def get_vocabulary_cards(
     difficulty_level: str | None = Query(default=None, description="난이도 필터 (예: 'A1', 'B2')"),
     deck_id: int | None = Query(default=None, description="특정 덱의 카드만 조회"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    current_profile: CurrentActiveProfile = None,
 ):
     """
     단어 카드 목록을 조회합니다.
@@ -119,7 +119,7 @@ async def get_vocabulary_cards(
 async def get_vocabulary_card(
     card_id: int = Path(description="조회할 카드의 고유 ID"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    current_profile: CurrentActiveProfile = None,
 ):
     """
     특정 단어 카드를 조회합니다.
@@ -160,7 +160,7 @@ async def update_vocabulary_card(
     card_data: VocabularyCardUpdate,
     card_id: int = Path(description="수정할 카드의 고유 ID"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    current_profile: CurrentActiveProfile = None,
 ):
     """
     단어 카드를 수정합니다.
@@ -202,7 +202,7 @@ async def update_vocabulary_card(
 async def delete_vocabulary_card(
     card_id: int = Path(description="삭제할 카드의 고유 ID"),
     session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_user: CurrentActiveUser = None,
+    current_profile: CurrentActiveProfile = None,
 ):
     """
     단어 카드를 삭제합니다.

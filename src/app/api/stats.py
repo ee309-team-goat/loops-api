@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.dependencies import CurrentActiveUser
+from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
 from app.models import UserCardProgress, VocabularyCard
 from app.models.enums import CardState
@@ -43,8 +43,8 @@ router = APIRouter(prefix="/stats", tags=[TAG])
     },
 )
 async def get_total_learned(
-    current_user: CurrentActiveUser,
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile,
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
     총 학습량 통계를 조회합니다.
@@ -62,7 +62,7 @@ async def get_total_learned(
 
     # Count total REVIEW state cards
     total_learned_query = select(func.count(UserCardProgress.id)).where(
-        UserCardProgress.user_id == current_user.id,
+        UserCardProgress.user_id == current_profile.id,
         UserCardProgress.card_state == CardState.REVIEW,
     )
     result = await session.exec(total_learned_query)
@@ -77,7 +77,7 @@ async def get_total_learned(
             VocabularyCard.id == UserCardProgress.card_id,
         )
         .where(
-            UserCardProgress.user_id == current_user.id,
+            UserCardProgress.user_id == current_profile.id,
             UserCardProgress.card_state == CardState.REVIEW,
             VocabularyCard.cefr_level.isnot(None),
         )
@@ -92,7 +92,7 @@ async def get_total_learned(
     return TotalLearnedRead(
         total_learned=total_learned,
         by_level=by_level,
-        total_study_time_minutes=current_user.total_study_time_minutes,
+        total_study_time_minutes=current_profile.total_study_time_minutes,
     )
 
 
@@ -107,7 +107,7 @@ async def get_total_learned(
     },
 )
 async def get_stats_history(
-    current_user: CurrentActiveUser,
+    current_profile: CurrentActiveProfile,
     session: Annotated[AsyncSession, Depends(get_session)],
     period: Literal["7d", "30d", "90d", "1y"] = Query(
         default="30d",
@@ -151,7 +151,7 @@ async def get_stats_history(
             func.sum(UserCardProgress.correct_count).label("correct_count"),
         )
         .where(
-            UserCardProgress.user_id == current_user.id,
+            UserCardProgress.user_id == current_profile.id,
             UserCardProgress.last_review_date >= start_date,
             UserCardProgress.last_review_date.isnot(None),
         )
@@ -193,7 +193,7 @@ async def get_stats_history(
     },
 )
 async def get_stats_accuracy(
-    current_user: CurrentActiveUser,
+    current_profile: CurrentActiveProfile,
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """
@@ -227,7 +227,7 @@ async def get_stats_accuracy(
         query = select(
             func.sum(UserCardProgress.total_reviews),
             func.sum(UserCardProgress.correct_count),
-        ).where(UserCardProgress.user_id == current_user.id)
+        ).where(UserCardProgress.user_id == current_profile.id)
 
         if days is not None:
             start_date = now - timedelta(days=days)
@@ -267,7 +267,7 @@ async def get_stats_accuracy(
         .select_from(UserCardProgress)
         .join(VocabularyCard, VocabularyCard.id == UserCardProgress.card_id)
         .where(
-            UserCardProgress.user_id == current_user.id,
+            UserCardProgress.user_id == current_profile.id,
             VocabularyCard.cefr_level.isnot(None),
         )
         .group_by(VocabularyCard.cefr_level)
@@ -290,7 +290,7 @@ async def get_stats_accuracy(
             func.sum(UserCardProgress.total_reviews),
             func.sum(UserCardProgress.correct_count),
         ).where(
-            UserCardProgress.user_id == current_user.id,
+            UserCardProgress.user_id == current_profile.id,
             UserCardProgress.last_review_date >= prev_start,
             UserCardProgress.last_review_date < prev_end,
         )

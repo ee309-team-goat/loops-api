@@ -1,6 +1,7 @@
 """Schemas for Favorite model."""
 
 from datetime import datetime
+from uuid import UUID
 
 from sqlmodel import Field, SQLModel
 
@@ -15,7 +16,7 @@ class FavoriteRead(SQLModel):
     """Schema for reading a favorite."""
 
     id: int
-    user_id: int
+    user_id: UUID
     card_id: int
     created_at: datetime
     updated_at: datetime | None = None

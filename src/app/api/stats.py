@@ -20,6 +20,7 @@ from app.models.schemas.stats import (
     StatsAccuracyRead,
     StatsHistoryItem,
     StatsHistoryRead,
+    StatsHistorySummary,
     TodayStatsRead,
     TodayVocabularyStats,
     TotalLearnedRead,
@@ -112,9 +113,9 @@ async def get_total_learned(
 async def get_stats_history(
     current_profile: CurrentActiveProfile,
     session: Annotated[AsyncSession, Depends(get_session)],
-    period: Literal["7d", "30d", "90d", "1y"] = Query(
+    period: Literal["7d", "30d", "1y", "all"] = Query(
         default="30d",
-        description="조회 기간. 7d(7일), 30d(30일), 90d(90일), 1y(1년) 중 선택",
+        description="조회 기간. 7d(7일), 30d(30일), 1y(1년), all(전체) 중 선택",
     ),
 ):
     """
@@ -126,52 +127,95 @@ async def get_stats_history(
     - `period`: 조회 기간
       - `7d`: 최근 7일
       - `30d`: 최근 30일 (기본값)
-      - `90d`: 최근 90일
       - `1y`: 최근 1년
+      - `all`: 전체 기간
 
     **반환 정보 (일별):**
     - `date`: 날짜
     - `cards_studied`: 학습한 카드 수
     - `correct_count`: 정답 수
     - `accuracy_rate`: 정확도 (%)
+    - `study_time_seconds`: 학습 시간 (초)
+
+    **반환 정보 (요약):**
+    - `total_study_time_seconds`: 기간 내 총 학습 시간
+    - `total_cards_studied`: 기간 내 총 학습 카드 수
+    - `avg_daily_study_time_seconds`: 하루 평균 학습 시간 (활동 일수 기준)
+    - `avg_daily_cards_studied`: 하루 평균 학습 카드 수 (활동 일수 기준)
+    - `days_with_activity`: 활동이 있었던 일수
 
     **용도:**
     - 학습 추이 그래프
     - 일별 학습량 비교
+    - 평균 통계 표시
     """
     # Calculate date range based on period
     now = datetime.now(UTC)
-    period_days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}
-    days = period_days[period]
-    start_date = now - timedelta(days=days)
+    if period == "all":
+        # No date filter for all period
+        start_date = None
+    else:
+        period_days = {"7d": 7, "30d": 30, "1y": 365}
+        days = period_days[period]
+        start_date = now - timedelta(days=days)
 
-    # Query for daily stats grouped by date
-    # Using correct_count and total_reviews from UserCardProgress
-    history_query = (
-        select(
-            func.date(UserCardProgress.last_review_date).label("review_date"),
-            func.sum(UserCardProgress.total_reviews).label("cards_studied"),
-            func.sum(UserCardProgress.correct_count).label("correct_count"),
-        )
-        .where(
-            UserCardProgress.user_id == current_profile.id,
-            UserCardProgress.last_review_date >= start_date,
-            UserCardProgress.last_review_date.isnot(None),
-        )
-        .group_by(func.date(UserCardProgress.last_review_date))
-        .order_by(func.date(UserCardProgress.last_review_date).asc())
+    # Query for daily stats grouped by date from UserCardProgress
+    history_query = select(
+        func.date(UserCardProgress.last_review_date).label("review_date"),
+        func.sum(UserCardProgress.total_reviews).label("cards_studied"),
+        func.sum(UserCardProgress.correct_count).label("correct_count"),
+    ).where(
+        UserCardProgress.user_id == current_profile.id,
+        UserCardProgress.last_review_date.isnot(None),
     )
+
+    if start_date:
+        history_query = history_query.where(
+            UserCardProgress.last_review_date >= start_date
+        )
+
+    history_query = history_query.group_by(
+        func.date(UserCardProgress.last_review_date)
+    ).order_by(func.date(UserCardProgress.last_review_date).asc())
 
     result = await session.exec(history_query)
     rows = result.all()
 
-    # Build history items
+    # Query for daily study time from StudySession
+    study_time_query = select(
+        func.date(StudySession.started_at).label("session_date"),
+        func.sum(
+            func.extract(
+                "epoch",
+                StudySession.completed_at - StudySession.started_at,
+            )
+        ).label("total_seconds"),
+    ).where(
+        StudySession.user_id == current_profile.id,
+        StudySession.completed_at.isnot(None),
+    )
+
+    if start_date:
+        study_time_query = study_time_query.where(StudySession.started_at >= start_date)
+
+    study_time_query = study_time_query.group_by(
+        func.date(StudySession.started_at)
+    ).order_by(func.date(StudySession.started_at).asc())
+
+    time_result = await session.exec(study_time_query)
+    time_rows = time_result.all()
+
+    # Build a map of date -> study_time_seconds
+    study_time_map = {row[0]: int(row[1] or 0) for row in time_rows}
+
+    # Build history items with study time
     history_data = []
     for row in rows:
         review_date, cards_studied, correct_count = row
         cards_studied = cards_studied or 0
         correct_count = correct_count or 0
         accuracy = (correct_count / cards_studied * 100) if cards_studied > 0 else 0.0
+        study_time = study_time_map.get(review_date, 0)
 
         history_data.append(
             StatsHistoryItem(
@@ -179,10 +223,31 @@ async def get_stats_history(
                 cards_studied=cards_studied,
                 correct_count=correct_count,
                 accuracy_rate=round(accuracy, 1),
+                study_time_seconds=study_time,
             )
         )
 
-    return StatsHistoryRead(period=period, data=history_data)
+    # Calculate summary statistics
+    total_study_time = sum(item.study_time_seconds for item in history_data)
+    total_cards = sum(item.cards_studied for item in history_data)
+    days_with_activity = len([item for item in history_data if item.cards_studied > 0])
+
+    avg_study_time = (
+        int(total_study_time / days_with_activity) if days_with_activity > 0 else 0
+    )
+    avg_cards = (
+        int(total_cards / days_with_activity) if days_with_activity > 0 else 0
+    )
+
+    summary = StatsHistorySummary(
+        total_study_time_seconds=total_study_time,
+        total_cards_studied=total_cards,
+        avg_daily_study_time_seconds=avg_study_time,
+        avg_daily_cards_studied=avg_cards,
+        days_with_activity=days_with_activity,
+    )
+
+    return StatsHistoryRead(period=period, summary=summary, data=history_data)
 
 
 @router.get(

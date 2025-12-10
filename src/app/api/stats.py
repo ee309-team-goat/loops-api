@@ -170,13 +170,11 @@ async def get_stats_history(
     )
 
     if start_date:
-        history_query = history_query.where(
-            UserCardProgress.last_review_date >= start_date
-        )
+        history_query = history_query.where(UserCardProgress.last_review_date >= start_date)
 
-    history_query = history_query.group_by(
-        func.date(UserCardProgress.last_review_date)
-    ).order_by(func.date(UserCardProgress.last_review_date).asc())
+    history_query = history_query.group_by(func.date(UserCardProgress.last_review_date)).order_by(
+        func.date(UserCardProgress.last_review_date).asc()
+    )
 
     result = await session.exec(history_query)
     rows = result.all()
@@ -198,9 +196,9 @@ async def get_stats_history(
     if start_date:
         study_time_query = study_time_query.where(StudySession.started_at >= start_date)
 
-    study_time_query = study_time_query.group_by(
-        func.date(StudySession.started_at)
-    ).order_by(func.date(StudySession.started_at).asc())
+    study_time_query = study_time_query.group_by(func.date(StudySession.started_at)).order_by(
+        func.date(StudySession.started_at).asc()
+    )
 
     time_result = await session.exec(study_time_query)
     time_rows = time_result.all()
@@ -232,12 +230,8 @@ async def get_stats_history(
     total_cards = sum(item.cards_studied for item in history_data)
     days_with_activity = len([item for item in history_data if item.cards_studied > 0])
 
-    avg_study_time = (
-        int(total_study_time / days_with_activity) if days_with_activity > 0 else 0
-    )
-    avg_cards = (
-        int(total_cards / days_with_activity) if days_with_activity > 0 else 0
-    )
+    avg_study_time = int(total_study_time / days_with_activity) if days_with_activity > 0 else 0
+    avg_cards = int(total_cards / days_with_activity) if days_with_activity > 0 else 0
 
     summary = StatsHistorySummary(
         total_study_time_seconds=total_study_time,

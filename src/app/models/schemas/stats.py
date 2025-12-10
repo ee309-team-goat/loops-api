@@ -31,9 +31,7 @@ class StatsHistorySummary(SQLModel):
     avg_daily_study_time_seconds: int = Field(
         description="하루 평균 학습 시간 (초, 활동 일수 기준)"
     )
-    avg_daily_cards_studied: int = Field(
-        description="하루 평균 학습 카드 수 (활동 일수 기준)"
-    )
+    avg_daily_cards_studied: int = Field(description="하루 평균 학습 카드 수 (활동 일수 기준)")
     days_with_activity: int = Field(description="활동이 있었던 일수")
 
 

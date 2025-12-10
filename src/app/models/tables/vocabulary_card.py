@@ -18,6 +18,11 @@ class VocabularyCardBase(SQLModel):
     # Definition
     definition_en: str | None = Field(default=None)  # English definition
 
+    # Entry type
+    word_type: str | None = Field(
+        default="word", max_length=50, index=True
+    )  # word, phrase, idiom, collocation
+
     # Categorization
     difficulty_level: str | None = Field(
         default=None, max_length=50, index=True

@@ -36,7 +36,13 @@ def upgrade() -> None:
         sa.Column("review_cards_limit", sa.Integer(), nullable=False, server_default="20"),
         sa.Column(
             "status",
-            sa.Enum("active", "completed", "abandoned", name="sessionstatus"),
+            postgresql.ENUM(
+                "active",
+                "completed",
+                "abandoned",
+                name="sessionstatus",
+                create_type=False,
+            ),
             nullable=False,
             server_default="active",
         ),

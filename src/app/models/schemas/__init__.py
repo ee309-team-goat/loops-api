@@ -29,6 +29,8 @@ from app.models.schemas.stats import (
 from app.models.schemas.study import (
     AnswerRequest,
     AnswerResponse,
+    AvailableCards,
+    CardAllocation,
     CardRequest,
     CardResponse,
     ClozeQuestion,
@@ -36,6 +38,8 @@ from app.models.schemas.study import (
     DueCardSummary,
     SessionCompleteRequest,
     SessionCompleteResponse,
+    SessionPreviewRequest,
+    SessionPreviewResponse,
     SessionStartRequest,
     SessionStartResponse,
     SessionSummary,
@@ -128,4 +132,9 @@ __all__ = [
     # Study Overview
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Session Preview
+    "AvailableCards",
+    "CardAllocation",
+    "SessionPreviewRequest",
+    "SessionPreviewResponse",
 ]

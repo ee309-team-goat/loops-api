@@ -16,17 +16,6 @@ from app.models.schemas.profile import (
     ProfileUpdate,
     StreakRead,
 )
-from app.models.schemas.quiz import (
-    AnswerResult,
-    AnswerSubmitRequest,
-    ClozeQuestion,
-    QuizCard,
-    QuizCompleteRequest,
-    QuizCompleteResponse,
-    QuizSessionResponse,
-    QuizStartRequest,
-    QuizType,
-)
 from app.models.schemas.stats import (
     AccuracyByPeriod,
     StatsAccuracyRead,
@@ -35,14 +24,22 @@ from app.models.schemas.stats import (
     TotalLearnedRead,
 )
 from app.models.schemas.study import (
+    AnswerRequest,
+    AnswerResponse,
+    CardRequest,
+    CardResponse,
+    ClozeQuestion,
     DailyGoalStatus,
-    SessionCard,
+    DueCardSummary,
     SessionCompleteRequest,
     SessionCompleteResponse,
     SessionStartRequest,
     SessionStartResponse,
     SessionSummary,
     StreakInfo,
+    StudyCard,
+    StudyOverviewResponse,
+    XPInfo,
 )
 from app.models.schemas.user_card_progress import (
     NewCardsCountRead,
@@ -108,22 +105,21 @@ __all__ = [
     "StatsAccuracyRead",
     "AccuracyByPeriod",
     # Study Session
-    "SessionCompleteRequest",
-    "SessionCompleteResponse",
     "SessionStartRequest",
     "SessionStartResponse",
-    "SessionCard",
+    "CardRequest",
+    "CardResponse",
+    "StudyCard",
+    "ClozeQuestion",
+    "AnswerRequest",
+    "AnswerResponse",
+    "SessionCompleteRequest",
+    "SessionCompleteResponse",
     "SessionSummary",
     "StreakInfo",
     "DailyGoalStatus",
-    # Quiz
-    "QuizType",
-    "ClozeQuestion",
-    "QuizCard",
-    "QuizStartRequest",
-    "QuizSessionResponse",
-    "AnswerSubmitRequest",
-    "AnswerResult",
-    "QuizCompleteRequest",
-    "QuizCompleteResponse",
+    "XPInfo",
+    # Study Overview
+    "DueCardSummary",
+    "StudyOverviewResponse",
 ]

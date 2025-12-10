@@ -1,48 +1,390 @@
 """
 Study session service for managing study sessions and card selection.
+
+Quiz 기능이 통합되어 세션 시작, 카드 요청, 정답 제출, 세션 완료를 모두 처리합니다.
 """
 
+import random
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.exceptions import NotFoundError, ValidationError
 from app.models import (
+    AnswerResponse,
+    CardResponse,
+    ClozeQuestion,
     DailyGoalStatus,
     Deck,
+    DueCardSummary,
     Profile,
-    SessionCard,
+    QuizType,
     SessionCompleteResponse,
     SessionStartResponse,
+    SessionStatus,
     SessionSummary,
     StreakInfo,
+    StudyCard,
+    StudyOverviewResponse,
+    StudySession,
     UserCardProgress,
     UserSelectedDeck,
     VocabularyCard,
+    XPInfo,
 )
 from app.services.profile_service import ProfileService
+from app.services.user_card_progress_service import UserCardProgressService
 
 
 class StudySessionService:
     """Service for study session operations."""
 
+    # ============================================================
+    # Session Start
+    # ============================================================
+
     @staticmethod
-    async def get_new_cards_for_session(
+    async def start_session(
+        session: AsyncSession,
+        user_id: UUID,
+        new_cards_limit: int = 10,
+        review_cards_limit: int = 20,
+    ) -> SessionStartResponse:
+        """
+        Start a new study session.
+
+        Creates a StudySession record in DB and returns session info.
+        Cards are NOT returned here - use get_next_card() to get each card.
+        """
+        started_at = datetime.now(UTC)
+
+        # Get new cards
+        new_cards = await StudySessionService._get_new_cards(
+            session, user_id, limit=new_cards_limit
+        )
+
+        # Get due review cards
+        review_cards_data = await StudySessionService._get_due_review_cards(
+            session, user_id, limit=review_cards_limit
+        )
+
+        # Build card ID list (new cards + review cards)
+        card_ids = [card.id for card in new_cards]
+        card_ids.extend([card.id for _, card in review_cards_data])
+
+        # Shuffle for variety
+        random.shuffle(card_ids)
+
+        # Create StudySession record
+        study_session = StudySession(
+            user_id=user_id,
+            new_cards_limit=new_cards_limit,
+            review_cards_limit=review_cards_limit,
+            status=SessionStatus.ACTIVE,
+            card_ids=card_ids,
+            current_index=0,
+            correct_count=0,
+            wrong_count=0,
+            started_at=started_at,
+        )
+
+        session.add(study_session)
+        await session.commit()
+        await session.refresh(study_session)
+
+        return SessionStartResponse(
+            session_id=study_session.id,
+            total_cards=len(card_ids),
+            new_cards_count=len(new_cards),
+            review_cards_count=len(review_cards_data),
+            started_at=started_at,
+        )
+
+    # ============================================================
+    # Get Next Card
+    # ============================================================
+
+    @staticmethod
+    async def get_next_card(
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+        quiz_type: QuizType,
+    ) -> CardResponse:
+        """
+        Get the next card in the session with quiz formatting.
+
+        Args:
+            session: DB session
+            user_id: User ID (for validation)
+            session_id: Study session ID
+            quiz_type: Quiz type for this card
+
+        Returns:
+            CardResponse with formatted StudyCard or None if session complete
+        """
+        # Get study session
+        study_session = await session.get(StudySession, session_id)
+        if not study_session:
+            raise NotFoundError(f"Session {session_id} not found")
+
+        if study_session.user_id != user_id:
+            raise ValidationError("Session does not belong to this user")
+
+        if study_session.status != SessionStatus.ACTIVE:
+            raise ValidationError(f"Session is {study_session.status.value}, not active")
+
+        # Check if all cards completed
+        total_cards = len(study_session.card_ids)
+        if study_session.current_index >= total_cards:
+            return CardResponse(
+                card=None,
+                cards_remaining=0,
+                cards_completed=total_cards,
+            )
+
+        # Get current card
+        card_id = study_session.card_ids[study_session.current_index]
+        card = await session.get(VocabularyCard, card_id)
+        if not card:
+            raise NotFoundError(f"Card {card_id} not found")
+
+        # Check if this card is new or review
+        progress = await session.exec(
+            select(UserCardProgress).where(
+                UserCardProgress.user_id == user_id,
+                UserCardProgress.card_id == card_id,
+            )
+        )
+        existing_progress = progress.first()
+        is_new = existing_progress is None
+
+        # Format card based on quiz type
+        study_card = await StudySessionService._format_card(session, card, quiz_type, is_new)
+
+        # Increment current_index
+        study_session.current_index += 1
+        session.add(study_session)
+        await session.commit()
+
+        cards_remaining = total_cards - study_session.current_index
+
+        return CardResponse(
+            card=study_card,
+            cards_remaining=cards_remaining,
+            cards_completed=study_session.current_index - 1,  # Don't count current card
+        )
+
+    # ============================================================
+    # Submit Answer
+    # ============================================================
+
+    @staticmethod
+    async def submit_answer(
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+        card_id: int,
+        user_answer: str,
+        response_time_ms: int | None = None,
+    ) -> AnswerResponse:
+        """
+        Submit an answer and update FSRS progress.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            session_id: Study session ID
+            card_id: Card ID being answered
+            user_answer: User's answer
+            response_time_ms: Response time in milliseconds (optional)
+
+        Returns:
+            AnswerResponse with correctness and FSRS update info
+        """
+        # Get study session
+        study_session = await session.get(StudySession, session_id)
+        if not study_session:
+            raise NotFoundError(f"Session {session_id} not found")
+
+        if study_session.user_id != user_id:
+            raise ValidationError("Session does not belong to this user")
+
+        if study_session.status != SessionStatus.ACTIVE:
+            raise ValidationError(f"Session is {study_session.status.value}, not active")
+
+        # Verify card is in session
+        if card_id not in study_session.card_ids:
+            raise ValidationError("Card is not in this session")
+
+        # Get card to determine correct answer
+        card = await session.get(VocabularyCard, card_id)
+        if not card:
+            raise NotFoundError(f"Card {card_id} not found")
+
+        # Determine correct answer based on typical quiz patterns
+        # For word_to_meaning: korean_meaning is correct
+        # For meaning_to_word, cloze, listening: english_word is correct
+        # Since we don't know which quiz_type was used, we check both
+        is_correct = (
+            user_answer.strip().lower() == card.korean_meaning.strip().lower()
+            or user_answer.strip().lower() == card.english_word.strip().lower()
+        )
+
+        # Update FSRS progress
+        progress = await UserCardProgressService.process_review(
+            session=session,
+            user_id=user_id,
+            card_id=card_id,
+            is_correct=is_correct,
+        )
+
+        # Update session counts
+        if is_correct:
+            study_session.correct_count += 1
+        else:
+            study_session.wrong_count += 1
+
+        session.add(study_session)
+        await session.commit()
+
+        # Generate feedback
+        if is_correct:
+            feedback = "정답입니다! 🎉"
+        else:
+            feedback = f"틀렸습니다. 정답: {card.korean_meaning} / {card.english_word}"
+
+        return AnswerResponse(
+            card_id=card_id,
+            is_correct=is_correct,
+            correct_answer=card.english_word,  # Primary answer
+            user_answer=user_answer,
+            feedback=feedback,
+            next_review_date=progress.next_review_date,
+            card_state=progress.card_state,
+        )
+
+    # ============================================================
+    # Session Complete
+    # ============================================================
+
+    @staticmethod
+    async def complete_session(
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+        duration_seconds: int | None = None,
+    ) -> SessionCompleteResponse:
+        """
+        Complete a study session and update user statistics.
+
+        Updates:
+        - Session status to completed
+        - User streak (consecutive study days)
+        - Total study time
+        - Returns session summary, streak info, XP, and daily goal status
+        """
+        # Get study session
+        study_session = await session.get(StudySession, session_id)
+        if not study_session:
+            raise NotFoundError(f"Session {session_id} not found")
+
+        if study_session.user_id != user_id:
+            raise ValidationError("Session does not belong to this user")
+
+        if study_session.status == SessionStatus.COMPLETED:
+            raise ValidationError("Session already completed")
+
+        # Get profile
+        profile = await session.get(Profile, user_id)
+        if not profile:
+            raise NotFoundError(f"Profile {user_id} not found")
+
+        # Calculate duration (use provided or calculate from timestamps)
+        now = datetime.now(UTC)
+        if duration_seconds is None:
+            duration_seconds = int((now - study_session.started_at).total_seconds())
+
+        # Update session status
+        study_session.status = SessionStatus.COMPLETED
+        study_session.completed_at = now
+        session.add(study_session)
+
+        # Calculate session summary
+        total_cards = study_session.correct_count + study_session.wrong_count
+        accuracy = (study_session.correct_count / total_cards * 100) if total_cards > 0 else 0.0
+
+        session_summary = SessionSummary(
+            total_cards=total_cards,
+            correct=study_session.correct_count,
+            wrong=study_session.wrong_count,
+            accuracy=round(accuracy, 1),
+            duration_seconds=duration_seconds,
+        )
+
+        # Calculate XP
+        base_xp = study_session.correct_count * 10
+        bonus_xp = 50 if accuracy >= 80.0 else 0
+        total_xp = base_xp + bonus_xp
+
+        xp_info = XPInfo(
+            base_xp=base_xp,
+            bonus_xp=bonus_xp,
+            total_xp=total_xp,
+        )
+
+        # Update profile streak
+        streak_result = await ProfileService.update_profile_streak(session, profile.id)
+        message = StudySessionService._generate_streak_message(streak_result)
+
+        streak_info = StreakInfo(
+            current_streak=streak_result["current_streak"],
+            longest_streak=streak_result["longest_streak"],
+            is_new_record=streak_result["is_new_record"],
+            streak_status=streak_result["streak_status"],
+            message=message,
+        )
+
+        # Update total study time
+        duration_minutes = duration_seconds // 60
+        profile.total_study_time_minutes += duration_minutes
+        session.add(profile)
+
+        # Get daily goal status
+        daily_goal_data = await ProfileService.get_daily_goal(session, profile.id)
+        goal = daily_goal_data["daily_goal"]
+        completed = daily_goal_data["completed_today"]
+        progress = (completed / goal * 100) if goal > 0 else 0.0
+
+        daily_goal_status = DailyGoalStatus(
+            goal=goal,
+            completed=completed,
+            progress=round(min(progress, 100.0), 1),
+            is_completed=completed >= goal,
+        )
+
+        await session.commit()
+
+        return SessionCompleteResponse(
+            session_summary=session_summary,
+            streak=streak_info,
+            daily_goal=daily_goal_status,
+            xp=xp_info,
+        )
+
+    # ============================================================
+    # Helper Methods: Card Selection
+    # ============================================================
+
+    @staticmethod
+    async def _get_new_cards(
         session: AsyncSession,
         user_id: UUID,
         limit: int = 10,
     ) -> list[VocabularyCard]:
-        """
-        Get new cards user hasn't seen, ordered by frequency rank.
-
-        Respects user's deck selection:
-        - If select_all_decks=true: get from all public decks
-        - If select_all_decks=false: get from selected decks only
-
-        Cards are ordered by frequency_rank ASC (most common words first).
-        """
-        # Get profile to check deck selection preference
+        """Get new cards user hasn't seen, ordered by frequency rank."""
         profile = await session.get(Profile, user_id)
         if not profile:
             return []
@@ -57,35 +399,28 @@ class StudySessionService:
 
         # Apply deck filtering based on user preference
         if profile.select_all_decks:
-            # Get from all public decks (or cards without a deck)
             query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
                 (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
             )
         else:
-            # Get from selected decks only
             selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
                 UserSelectedDeck.user_id == user_id
             )
             query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
 
-        # Order by frequency rank (most common words first)
-        # Cards without frequency_rank go last
+        # Order by frequency rank
         query = query.order_by(VocabularyCard.frequency_rank.asc().nullslast()).limit(limit)
 
         result = await session.exec(query)
         return list(result.all())
 
     @staticmethod
-    async def get_due_review_cards(
+    async def _get_due_review_cards(
         session: AsyncSession,
         user_id: UUID,
         limit: int = 20,
     ) -> list[tuple[UserCardProgress, VocabularyCard]]:
-        """
-        Get cards due for review (next_review_date <= now).
-
-        Returns list of (progress, card) tuples.
-        """
+        """Get cards due for review (next_review_date <= now)."""
         now = datetime.now(UTC)
 
         query = (
@@ -102,72 +437,203 @@ class StudySessionService:
         result = await session.exec(query)
         return list(result.all())
 
+    # ============================================================
+    # Helper Methods: Card Formatting
+    # ============================================================
+
     @staticmethod
-    async def start_session(
+    async def _format_card(
         session: AsyncSession,
-        user_id: UUID,
-        new_cards_limit: int = 10,
-        review_cards_limit: int = 20,
-    ) -> SessionStartResponse:
-        """
-        Start a new study session.
+        card: VocabularyCard,
+        quiz_type: QuizType,
+        is_new: bool,
+    ) -> StudyCard:
+        """Format a VocabularyCard as a StudyCard with quiz formatting."""
+        question: str | ClozeQuestion
+        options: list[str] | None = None
 
-        Returns session data with mixed new and review cards.
-        """
-        session_id = str(uuid4())
-        started_at = datetime.now(UTC)
-
-        # Get new cards
-        new_cards = await StudySessionService.get_new_cards_for_session(
-            session, user_id, limit=new_cards_limit
-        )
-
-        # Get due review cards
-        review_cards_data = await StudySessionService.get_due_review_cards(
-            session, user_id, limit=review_cards_limit
-        )
-
-        # Build session cards list
-        session_cards: list[SessionCard] = []
-
-        # Add new cards (is_new=True)
-        for card in new_cards:
-            session_cards.append(
-                SessionCard(
-                    id=card.id,
-                    english_word=card.english_word,
-                    korean_meaning=card.korean_meaning,
-                    part_of_speech=card.part_of_speech,
-                    pronunciation_ipa=card.pronunciation_ipa,
-                    definition_en=card.definition_en,
-                    example_sentences=card.example_sentences,
-                    is_new=True,
-                )
+        if quiz_type == QuizType.WORD_TO_MEANING:
+            question = card.english_word
+            correct_answer = card.korean_meaning
+            options = await StudySessionService._generate_options(
+                session, correct_answer, quiz_type, card
             )
 
-        # Add review cards (is_new=False)
-        for _progress, card in review_cards_data:
-            session_cards.append(
-                SessionCard(
-                    id=card.id,
-                    english_word=card.english_word,
-                    korean_meaning=card.korean_meaning,
-                    part_of_speech=card.part_of_speech,
-                    pronunciation_ipa=card.pronunciation_ipa,
-                    definition_en=card.definition_en,
-                    example_sentences=card.example_sentences,
-                    is_new=False,
-                )
+        elif quiz_type == QuizType.MEANING_TO_WORD:
+            question = card.korean_meaning
+            if card.part_of_speech:
+                question = f"{question} ({card.part_of_speech})"
+            correct_answer = card.english_word
+            options = await StudySessionService._generate_options(
+                session, correct_answer, quiz_type, card
             )
 
-        return SessionStartResponse(
-            session_id=session_id,
-            total_cards=len(session_cards),
-            new_cards_count=len(new_cards),
-            review_cards_count=len(review_cards_data),
-            cards=session_cards,
-            started_at=started_at,
+        elif quiz_type == QuizType.CLOZE:
+            cloze = StudySessionService._generate_cloze_question(card)
+            if cloze:
+                question = cloze
+                correct_answer = cloze.answer
+                # Cloze is direct input, no options
+                options = None
+            else:
+                # Fallback to word_to_meaning if no cloze available
+                question = card.english_word
+                correct_answer = card.korean_meaning
+                options = await StudySessionService._generate_options(
+                    session, correct_answer, QuizType.WORD_TO_MEANING, card
+                )
+
+        elif quiz_type == QuizType.LISTENING:
+            question = "🔊 Listen and choose the correct word"
+            correct_answer = card.english_word
+            options = await StudySessionService._generate_options(
+                session, correct_answer, quiz_type, card
+            )
+
+        else:
+            # Default
+            question = card.english_word
+            correct_answer = card.korean_meaning
+
+        return StudyCard(
+            id=card.id,
+            english_word=card.english_word,
+            korean_meaning=card.korean_meaning,
+            part_of_speech=card.part_of_speech,
+            pronunciation_ipa=card.pronunciation_ipa,
+            definition_en=card.definition_en,
+            example_sentences=card.example_sentences,
+            audio_url=card.audio_url,
+            is_new=is_new,
+            quiz_type=quiz_type,
+            question=question,
+            options=options,
         )
+
+    @staticmethod
+    async def _generate_options(
+        session: AsyncSession,
+        correct_answer: str,
+        quiz_type: QuizType,
+        card: VocabularyCard,
+        count: int = 4,
+    ) -> list[str]:
+        """Generate multiple choice options."""
+        wrong_answers: list[str] = []
+        needed = count - 1
+
+        # Get candidates with same difficulty/part of speech
+        query = select(VocabularyCard).where(VocabularyCard.id != card.id)
+
+        if card.difficulty_level:
+            query = query.where(VocabularyCard.difficulty_level == card.difficulty_level)
+
+        if card.part_of_speech:
+            query = query.where(VocabularyCard.part_of_speech == card.part_of_speech)
+
+        query = query.order_by(func.random()).limit(needed * 2)
+
+        result = await session.exec(query)
+        candidates = list(result.all())
+
+        # Extract wrong answers based on quiz type
+        for candidate in candidates:
+            if len(wrong_answers) >= needed:
+                break
+
+            if quiz_type == QuizType.WORD_TO_MEANING:
+                answer = candidate.korean_meaning
+            else:
+                answer = candidate.english_word
+
+            if answer and answer.lower() != correct_answer.lower():
+                if answer not in wrong_answers:
+                    wrong_answers.append(answer)
+
+        # Fallback if not enough candidates
+        if len(wrong_answers) < needed:
+            fallback_query = (
+                select(VocabularyCard)
+                .where(VocabularyCard.id != card.id)
+                .order_by(func.random())
+                .limit(needed * 2)
+            )
+            result = await session.exec(fallback_query)
+            fallback_candidates = list(result.all())
+
+            for candidate in fallback_candidates:
+                if len(wrong_answers) >= needed:
+                    break
+
+                if quiz_type == QuizType.WORD_TO_MEANING:
+                    answer = candidate.korean_meaning
+                else:
+                    answer = candidate.english_word
+
+                if answer and answer.lower() != correct_answer.lower():
+                    if answer not in wrong_answers:
+                        wrong_answers.append(answer)
+
+        # Shuffle options
+        options = [correct_answer] + wrong_answers[:needed]
+        random.shuffle(options)
+
+        return options
+
+    # ============================================================
+    # Helper Methods: Cloze Generation
+    # ============================================================
+
+    @staticmethod
+    def _generate_cloze_question(card: VocabularyCard) -> ClozeQuestion | None:
+        """
+        Generate a cloze question from a card.
+
+        Uses cloze_sentences if available, otherwise generates from example_sentences.
+        """
+        import re
+
+        word = card.english_word.lower()
+
+        # Try pre-generated cloze_sentences first
+        if card.cloze_sentences and len(card.cloze_sentences) > 0:
+            cloze_data = card.cloze_sentences[0]
+            if isinstance(cloze_data, dict):
+                return ClozeQuestion(
+                    sentence_with_blank=cloze_data.get("sentence_with_blank", ""),
+                    hint=cloze_data.get("hint", ""),
+                    answer=cloze_data.get("answer", card.english_word),
+                    blank_position=cloze_data.get("blank_position", 0),
+                )
+
+        # Generate from example_sentences
+        if card.example_sentences and len(card.example_sentences) > 0:
+            example = card.example_sentences[0]
+            sentence = example.get("en", "") if isinstance(example, dict) else str(example)
+
+            if sentence:
+                # Replace word with blank (case insensitive)
+                pattern = re.compile(re.escape(word), re.IGNORECASE)
+                sentence_with_blank = pattern.sub("______", sentence)
+
+                if sentence_with_blank != sentence:
+                    # Generate hint
+                    hint = f"{word[0]}로 시작하는 {len(word)}글자"
+                    if card.part_of_speech:
+                        hint += f" ({card.part_of_speech})"
+
+                    return ClozeQuestion(
+                        sentence_with_blank=sentence_with_blank,
+                        hint=hint,
+                        answer=card.english_word,
+                        blank_position=sentence.lower().find(word),
+                    )
+
+        return None
+
+    # ============================================================
+    # Helper Methods: Messages
+    # ============================================================
 
     @staticmethod
     def _generate_streak_message(streak_result: dict) -> str:
@@ -182,69 +648,56 @@ class StudySessionService:
         else:  # broken
             return "💪 다시 시작해요! 오늘이 새로운 시작입니다!"
 
+    # ============================================================
+    # Study Overview
+    # ============================================================
+
     @staticmethod
-    async def complete_session(
+    async def get_overview(
         session: AsyncSession,
-        profile: Profile,
-        cards_studied: int,
-        cards_correct: int,
-        duration_seconds: int,
-    ) -> SessionCompleteResponse:
+        user_id: UUID,
+        limit: int = 50,
+    ) -> StudyOverviewResponse:
         """
-        Complete a study session and update user statistics.
+        Get study overview with card counts and due cards list.
 
-        Updates:
-        - User streak (consecutive study days)
-        - Total study time
-        - Returns session summary, streak info, and daily goal status
+        Args:
+            session: DB session
+            user_id: User ID
+            limit: Maximum number of due cards to return
+
+        Returns:
+            StudyOverviewResponse with counts and due cards
         """
-        # 1. Calculate session summary
-        wrong_count = cards_studied - cards_correct
-        accuracy = (cards_studied / cards_studied * 100) if cards_studied > 0 else 0.0
+        # Get counts using existing service method
+        count_data = await UserCardProgressService.get_new_cards_count(session, user_id)
+        new_cards_count = count_data["new_cards_count"]
+        review_cards_count = count_data["review_cards_count"]
 
-        session_summary = SessionSummary(
-            total_cards=cards_studied,
-            correct=cards_correct,
-            wrong=wrong_count,
-            accuracy=round(accuracy, 1),
-            duration_seconds=duration_seconds,
+        # Get due cards with details
+        due_progress_list = await UserCardProgressService.get_due_cards(
+            session, user_id, limit=limit
         )
 
-        # 2. Update profile streak
-        streak_result = await ProfileService.update_profile_streak(session, profile.id)
-        message = StudySessionService._generate_streak_message(streak_result)
+        # Build due cards summary list
+        due_cards: list[DueCardSummary] = []
+        for progress in due_progress_list:
+            # Get card details
+            card = await session.get(VocabularyCard, progress.card_id)
+            if card:
+                due_cards.append(
+                    DueCardSummary(
+                        card_id=progress.card_id,
+                        english_word=card.english_word,
+                        korean_meaning=card.korean_meaning,
+                        next_review_date=progress.next_review_date,
+                        card_state=progress.card_state,
+                    )
+                )
 
-        streak_info = StreakInfo(
-            current_streak=streak_result["current_streak"],
-            longest_streak=streak_result["longest_streak"],
-            is_new_record=streak_result["is_new_record"],
-            streak_status=streak_result["streak_status"],
-            message=message,
-        )
-
-        # 3. Update total study time
-        duration_minutes = duration_seconds // 60
-        profile.total_study_time_minutes += duration_minutes
-        session.add(profile)
-
-        # 4. Get daily goal status
-        daily_goal_data = await ProfileService.get_daily_goal(session, profile.id)
-        goal = daily_goal_data["daily_goal"]
-        completed = daily_goal_data["completed_today"]
-        progress = (completed / goal * 100) if goal > 0 else 0.0
-
-        daily_goal_status = DailyGoalStatus(
-            goal=goal,
-            completed=completed,
-            progress=round(progress, 1),
-            is_completed=completed >= goal,
-        )
-
-        # 5. Commit changes
-        await session.commit()
-
-        return SessionCompleteResponse(
-            session_summary=session_summary,
-            streak=streak_info,
-            daily_goal=daily_goal_status,
+        return StudyOverviewResponse(
+            new_cards_count=new_cards_count,
+            review_cards_count=review_cards_count,
+            total_available=new_cards_count + review_cards_count,
+            due_cards=due_cards,
         )

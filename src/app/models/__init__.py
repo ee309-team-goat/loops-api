@@ -2,13 +2,15 @@
 from app.models.base import TimestampMixin
 
 # Enums
-from app.models.enums import CardState
+from app.models.enums import CardState, QuizType, SessionStatus
 
 # Schemas (DTOs)
 from app.models.schemas import (
     AccuracyByPeriod,
-    AnswerResult,
-    AnswerSubmitRequest,
+    AnswerRequest,
+    AnswerResponse,
+    CardRequest,
+    CardResponse,
     ClozeQuestion,
     DailyGoalRead,
     DailyGoalStatus,
@@ -18,6 +20,7 @@ from app.models.schemas import (
     DecksListResponse,
     DeckUpdate,
     DeckWithProgressRead,
+    DueCardSummary,
     FavoriteCreate,
     FavoriteRead,
     GetSelectedDecksResponse,
@@ -27,17 +30,10 @@ from app.models.schemas import (
     ProfileLevelRead,
     ProfileRead,
     ProfileUpdate,
-    QuizCard,
-    QuizCompleteRequest,
-    QuizCompleteResponse,
-    QuizSessionResponse,
-    QuizStartRequest,
-    QuizType,
     ReviewRequest,
     SelectDecksRequest,
     SelectDecksResponse,
     SelectedDeckInfo,
-    SessionCard,
     SessionCompleteRequest,
     SessionCompleteResponse,
     SessionStartRequest,
@@ -48,6 +44,8 @@ from app.models.schemas import (
     StatsHistoryRead,
     StreakInfo,
     StreakRead,
+    StudyCard,
+    StudyOverviewResponse,
     TodayProgressRead,
     UserCardProgressCreate,
     UserCardProgressRead,
@@ -56,6 +54,7 @@ from app.models.schemas import (
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
+    XPInfo,
 )
 
 # Tables (DB Models) - includes Base classes
@@ -65,6 +64,8 @@ from app.models.tables import (
     Favorite,
     Profile,
     ProfileBase,
+    StudySession,
+    StudySessionBase,
     UserCardProgress,
     UserCardProgressBase,
     UserSelectedDeck,
@@ -77,6 +78,8 @@ __all__ = [
     "TimestampMixin",
     # Enums
     "CardState",
+    "SessionStatus",
+    "QuizType",
     # Tables
     "Profile",
     "VocabularyCard",
@@ -84,11 +87,13 @@ __all__ = [
     "Deck",
     "Favorite",
     "UserSelectedDeck",
+    "StudySession",
     # Base classes (from tables)
     "ProfileBase",
     "VocabularyCardBase",
     "UserCardProgressBase",
     "DeckBase",
+    "StudySessionBase",
     # Profile Schemas
     "ProfileRead",
     "ProfileUpdate",
@@ -130,22 +135,21 @@ __all__ = [
     "StatsAccuracyRead",
     "AccuracyByPeriod",
     # Study Session Schemas
-    "SessionCompleteRequest",
-    "SessionCompleteResponse",
     "SessionStartRequest",
     "SessionStartResponse",
-    "SessionCard",
+    "CardRequest",
+    "CardResponse",
+    "StudyCard",
+    "ClozeQuestion",
+    "AnswerRequest",
+    "AnswerResponse",
+    "SessionCompleteRequest",
+    "SessionCompleteResponse",
     "SessionSummary",
     "StreakInfo",
     "DailyGoalStatus",
-    # Quiz Schemas
-    "QuizType",
-    "ClozeQuestion",
-    "QuizCard",
-    "QuizStartRequest",
-    "QuizSessionResponse",
-    "AnswerSubmitRequest",
-    "AnswerResult",
-    "QuizCompleteRequest",
-    "QuizCompleteResponse",
+    "XPInfo",
+    # Study Overview Schemas
+    "DueCardSummary",
+    "StudyOverviewResponse",
 ]

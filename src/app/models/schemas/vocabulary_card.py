@@ -50,6 +50,18 @@ class VocabularyCardCreate(VocabularyCardBase):
             raise ValueError(f"Difficulty level must be one of: {', '.join(allowed_levels)}")
         return v
 
+    @field_validator("word_type")
+    @classmethod
+    def word_type_valid(cls, v: str | None) -> str | None:
+        """word_type이 유효한지 검증합니다."""
+        if v is None:
+            return "word"
+        allowed_types = {"word", "phrase", "idiom", "collocation"}
+        v = v.lower().strip()
+        if v not in allowed_types:
+            raise ValueError(f"Word type must be one of: {', '.join(allowed_types)}")
+        return v
+
     @field_validator("tags")
     @classmethod
     def tags_not_empty(cls, v: list[str] | None) -> list[str] | None:
@@ -84,6 +96,11 @@ class VocabularyCardUpdate(SQLModel):
     korean_meaning: str | None = Field(default=None, max_length=255, description="한국어 뜻")
     part_of_speech: str | None = Field(
         default=None, max_length=50, description="품사 (noun, verb 등)"
+    )
+    word_type: str | None = Field(
+        default=None,
+        max_length=50,
+        description="항목 유형 (word, phrase, idiom, collocation)",
     )
     pronunciation_ipa: str | None = Field(default=None, max_length=255, description="IPA 발음 기호")
     definition_en: str | None = Field(default=None, description="영어 정의")
@@ -135,6 +152,18 @@ class VocabularyCardUpdate(SQLModel):
         v = v.lower().strip()
         if v not in allowed_levels:
             raise ValueError(f"Difficulty level must be one of: {', '.join(allowed_levels)}")
+        return v
+
+    @field_validator("word_type")
+    @classmethod
+    def word_type_valid(cls, v: str | None) -> str | None:
+        """word_type이 유효한지 검증합니다."""
+        if v is None:
+            return v
+        allowed_types = {"word", "phrase", "idiom", "collocation"}
+        v = v.lower().strip()
+        if v not in allowed_types:
+            raise ValueError(f"Word type must be one of: {', '.join(allowed_types)}")
         return v
 
     @field_validator("tags")

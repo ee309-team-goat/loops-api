@@ -10,14 +10,13 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlmodel import delete, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.constants.categories import get_all_category_ids, get_category_metadata
 from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
-from app.constants.categories import CATEGORIES, get_all_category_ids, get_category_metadata
 from app.models import (
     CategoriesResponse,
     CategoryDecksResponse,
     CategoryDetail,
-    CategoryInfo,
     CategoryWithStats,
     Deck,
     DeckDetailRead,
@@ -489,9 +488,7 @@ async def get_category_decks(
         if is_selected:
             selected_count += 1
 
-        cards_query = select(func.count(VocabularyCard.id)).where(
-            VocabularyCard.deck_id == deck.id
-        )
+        cards_query = select(func.count(VocabularyCard.id)).where(VocabularyCard.deck_id == deck.id)
         result = await session.exec(cards_query)
         total_cards = result.one() or 0
 

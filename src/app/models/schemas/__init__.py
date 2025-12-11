@@ -1,6 +1,12 @@
 from app.models.schemas.deck import (
+    CategoriesResponse,
+    CategoryDecksResponse,
+    CategoryDetail,
+    CategoryInfo,
+    CategoryWithStats,
     DeckCreate,
     DeckDetailRead,
+    DeckInCategory,
     DeckRead,
     DecksListResponse,
     DeckUpdate,
@@ -87,7 +93,14 @@ __all__ = [
     "DeckUpdate",
     "DeckWithProgressRead",
     "DeckDetailRead",
+    "DeckInCategory",
     "DecksListResponse",
+    # Category
+    "CategoryInfo",
+    "CategoryWithStats",
+    "CategoryDetail",
+    "CategoriesResponse",
+    "CategoryDecksResponse",
     # Favorite
     "FavoriteCreate",
     "FavoriteRead",

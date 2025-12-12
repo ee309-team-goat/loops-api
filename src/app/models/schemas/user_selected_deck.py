@@ -53,6 +53,36 @@ class SelectedDeckInfo(SQLModel):
     progress_percent: float = Field(description="학습 진행률 (%)")
 
 
+class DisplayItem(SQLModel):
+    """코스명 표시용 항목."""
+
+    type: str = Field(description="항목 타입: category(카테고리) | deck(덱)")
+    name: str = Field(description="표시 이름")
+    count: int = Field(description="해당 항목의 덱/카드 수")
+
+
+class CategorySelectionState(SQLModel):
+    """카테고리별 선택 상태."""
+
+    category_id: str = Field(description="카테고리 ID")
+    category_name: str = Field(description="카테고리 이름")
+    total_decks: int = Field(description="카테고리 내 전체 덱 수")
+    selected_decks: int = Field(description="선택된 덱 수")
+    selection_state: str = Field(description="선택 상태: all | partial | none")
+
+
+class SelectedDecksSummary(SQLModel):
+    """선택된 덱 요약 정보."""
+
+    course_name: str = Field(description="규칙에 따라 생성된 코스명")
+    total_selected_decks: int = Field(description="선택된 총 덱 수")
+    total_selected_cards: int = Field(description="선택된 덱의 총 카드 수")
+    display_items: list[DisplayItem] = Field(description="UI 표시용 요약 항목")
+    category_states: list[CategorySelectionState] = Field(
+        description="카테고리별 선택 상태 (indeterminate UI용)"
+    )
+
+
 class GetSelectedDecksResponse(SQLModel):
     """선택된 덱 조회 응답 스키마."""
 
@@ -60,4 +90,8 @@ class GetSelectedDecksResponse(SQLModel):
     deck_ids: list[int] = Field(description="선택된 덱 ID 목록 (select_all=true면 빈 배열)")
     decks: list[SelectedDeckInfo] = Field(
         description="선택된 덱의 상세 정보 목록 (select_all=true면 빈 배열)"
+    )
+    summary: SelectedDecksSummary | None = Field(
+        default=None,
+        description="선택된 덱 요약 정보 (select_all=true면 null)",
     )

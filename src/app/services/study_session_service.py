@@ -210,6 +210,8 @@ class StudySessionService:
         card_id: int,
         user_answer: str,
         response_time_ms: int | None = None,
+        hint_count: int = 0,
+        revealed_answer: bool = False,
     ) -> AnswerResponse:
         """
         Submit an answer and update FSRS progress.
@@ -221,9 +223,11 @@ class StudySessionService:
             card_id: Card ID being answered
             user_answer: User's answer
             response_time_ms: Response time in milliseconds (optional)
+            hint_count: Number of hints used (0 = no hints)
+            revealed_answer: Whether the answer was revealed (show answer button)
 
         Returns:
-            AnswerResponse with correctness and FSRS update info
+            AnswerResponse with correctness, score, and FSRS update info
         """
         # Get study session
         study_session = await session.get(StudySession, session_id)
@@ -254,16 +258,31 @@ class StudySessionService:
             or user_answer.strip().lower() == card.english_word.strip().lower()
         )
 
+        # Calculate score based on hint usage (Issue #52)
+        score, hint_penalty = StudySessionService._calculate_score(
+            is_correct=is_correct,
+            hint_count=hint_count,
+            revealed_answer=revealed_answer,
+        )
+
+        # Determine FSRS rating based on hint usage
+        # - revealed_answer: treat as incorrect (Again)
+        # - hint_count > 0: treat as Hard (2)
+        # - correct without hints: Good (3, default)
+        fsrs_is_correct = is_correct and not revealed_answer
+        fsrs_rating_hint = 2 if hint_count > 0 and is_correct else None  # 2 = Hard
+
         # Update FSRS progress
         progress = await UserCardProgressService.process_review(
             session=session,
             user_id=user_id,
             card_id=card_id,
-            is_correct=is_correct,
+            is_correct=fsrs_is_correct,
+            rating_hint=fsrs_rating_hint,
         )
 
-        # Update session counts
-        if is_correct:
+        # Update session counts (revealed_answer counts as wrong)
+        if is_correct and not revealed_answer:
             study_session.correct_count += 1
         else:
             study_session.wrong_count += 1
@@ -272,8 +291,13 @@ class StudySessionService:
         await session.commit()
 
         # Generate feedback
-        if is_correct:
-            feedback = "정답입니다! 🎉"
+        if revealed_answer:
+            feedback = f"정답: {card.korean_meaning} / {card.english_word}"
+        elif is_correct:
+            if hint_count > 0:
+                feedback = f"정답입니다! (힌트 {hint_count}회 사용)"
+            else:
+                feedback = "정답입니다! 🎉"
         else:
             feedback = f"틀렸습니다. 정답: {card.korean_meaning} / {card.english_word}"
 
@@ -283,9 +307,43 @@ class StudySessionService:
             correct_answer=card.english_word,  # Primary answer
             user_answer=user_answer,
             feedback=feedback,
+            score=score,
+            hint_penalty=hint_penalty,
             next_review_date=progress.next_review_date,
             card_state=progress.card_state,
         )
+
+    @staticmethod
+    def _calculate_score(
+        is_correct: bool,
+        hint_count: int,
+        revealed_answer: bool,
+    ) -> tuple[int, int]:
+        """
+        Calculate score based on correctness and hint usage.
+
+        Args:
+            is_correct: Whether the answer was correct
+            hint_count: Number of hints used
+            revealed_answer: Whether the answer was revealed
+
+        Returns:
+            Tuple of (score, hint_penalty)
+        """
+        if revealed_answer:
+            return 0, 0  # No score when answer revealed
+
+        if not is_correct:
+            return 0, 0  # No score for incorrect answer
+
+        # Base score for correct answer
+        base_score = 100
+        penalty_per_hint = 20
+
+        hint_penalty = min(hint_count * penalty_per_hint, base_score)
+        score = max(0, base_score - hint_penalty)
+
+        return score, hint_penalty
 
     # ============================================================
     # Session Complete

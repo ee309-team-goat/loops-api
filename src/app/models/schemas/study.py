@@ -109,6 +109,10 @@ class AnswerRequest(SQLModel):
     answer: str = Field(description="사용자 입력 정답")
     response_time_ms: int | None = Field(default=None, ge=0, description="응답 시간 (밀리초)")
 
+    # 힌트 관련 (Issue #52)
+    hint_count: int = Field(default=0, ge=0, description="사용한 힌트 횟수 (0=미사용)")
+    revealed_answer: bool = Field(default=False, description="정답보기로 정답 공개했는지 여부")
+
 
 class AnswerResponse(SQLModel):
     """정답 제출 응답 스키마."""
@@ -118,6 +122,10 @@ class AnswerResponse(SQLModel):
     correct_answer: str = Field(description="정답")
     user_answer: str = Field(description="사용자 입력 답")
     feedback: str | None = Field(default=None, description="피드백 메시지")
+
+    # 점수 정보 (Issue #52)
+    score: int = Field(default=100, description="획득 점수 (힌트 사용 시 감점, 0~100)")
+    hint_penalty: int = Field(default=0, description="힌트 사용으로 인한 감점")
 
     # FSRS 업데이트 정보
     next_review_date: datetime | None = Field(description="다음 복습 예정일")

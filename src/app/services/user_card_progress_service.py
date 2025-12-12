@@ -175,16 +175,31 @@ class UserCardProgressService:
 
     @staticmethod
     async def process_review(
-        session: AsyncSession, user_id: UUID, card_id: int, is_correct: bool
+        session: AsyncSession,
+        user_id: UUID,
+        card_id: int,
+        is_correct: bool,
+        rating_hint: int | None = None,
     ) -> UserCardProgress:
         """
         Process a card review using FSRS algorithm.
 
-        Binary rating:
+        Binary rating (default):
         - Correct → Good (3)
         - Wrong → Again (1)
+
+        rating_hint can override the default rating:
+        - 1 = Again (forgot)
+        - 2 = Hard (struggled with hints)
+        - 3 = Good (normal)
+        - 4 = Easy (perfect)
         """
-        fsrs_rating = Rating.Good if is_correct else Rating.Again
+        # Use rating_hint if provided, otherwise use binary rating
+        if rating_hint is not None:
+            rating_map = {1: Rating.Again, 2: Rating.Hard, 3: Rating.Good, 4: Rating.Easy}
+            fsrs_rating = rating_map.get(rating_hint, Rating.Good if is_correct else Rating.Again)
+        else:
+            fsrs_rating = Rating.Good if is_correct else Rating.Again
         now = datetime.now(UTC)
 
         progress = await UserCardProgressService.get_user_card_progress(session, user_id, card_id)

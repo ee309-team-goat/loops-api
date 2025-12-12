@@ -18,6 +18,9 @@ class ProfileRead(ProfileBase):
     last_study_date: date | None = Field(default=None, description="마지막 학습 날짜")
     select_all_decks: bool = Field(description="전체 덱 선택 여부. true면 모든 공개 덱에서 학습")
     daily_goal: int = Field(description="일일 학습 목표 카드 수")
+    review_ratio_mode: str = Field(description="복습 비율 모드: normal(일반) | custom(커스텀)")
+    custom_review_ratio: float = Field(description="커스텀 모드 복습 비율 (0.0~1.0)")
+    min_new_ratio: float = Field(description="일반 모드 최소 새 단어 비율 (0.0~1.0)")
     timezone: str = Field(description="사용자 타임존 (예: Asia/Seoul)")
     theme: str = Field(description="앱 테마 (light, dark, auto)")
     notification_enabled: bool = Field(description="알림 활성화 여부")
@@ -33,6 +36,23 @@ class ProfileUpdate(SQLModel):
     daily_goal: int | None = Field(
         default=None, gt=0, le=1000, description="일일 학습 목표 (1~1000)"
     )
+    review_ratio_mode: str | None = Field(
+        default=None,
+        max_length=20,
+        description="복습 비율 모드: normal(일반) | custom(커스텀)",
+    )
+    custom_review_ratio: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="커스텀 모드 복습 비율 (0.0~1.0)",
+    )
+    min_new_ratio: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="일반 모드 최소 새 단어 비율 (0.0~1.0)",
+    )
     timezone: str | None = Field(default=None, max_length=50, description="타임존 (예: Asia/Seoul)")
     theme: str | None = Field(default=None, max_length=20, description="테마 (light, dark, auto)")
     notification_enabled: bool | None = Field(default=None, description="알림 활성화 여부")
@@ -46,6 +66,17 @@ class ProfileUpdate(SQLModel):
         allowed_themes = {"light", "dark", "auto"}
         if v not in allowed_themes:
             raise ValueError(f"Theme must be one of: {', '.join(allowed_themes)}")
+        return v
+
+    @field_validator("review_ratio_mode")
+    @classmethod
+    def review_ratio_mode_valid(cls, v: str | None) -> str | None:
+        """복습 비율 모드가 허용된 값인지 검증합니다."""
+        if v is None:
+            return v
+        allowed_modes = {"normal", "custom"}
+        if v not in allowed_modes:
+            raise ValueError(f"Review ratio mode must be one of: {', '.join(allowed_modes)}")
         return v
 
 
@@ -72,6 +103,9 @@ class ProfileConfigRead(SQLModel):
 
     daily_goal: int = Field(description="일일 학습 목표 카드 수")
     select_all_decks: bool = Field(description="전체 덱 선택 여부")
+    review_ratio_mode: str = Field(description="복습 비율 모드: normal(일반) | custom(커스텀)")
+    custom_review_ratio: float = Field(description="커스텀 모드 복습 비율 (0.0~1.0)")
+    min_new_ratio: float = Field(description="일반 모드 최소 새 단어 비율 (0.0~1.0)")
     timezone: str = Field(description="사용자 타임존")
     theme: str = Field(description="앱 테마 (light, dark, auto)")
     notification_enabled: bool = Field(description="알림 활성화 여부")
@@ -84,6 +118,23 @@ class ProfileConfigUpdate(SQLModel):
         default=None, gt=0, le=1000, description="일일 학습 목표 (1~1000)"
     )
     select_all_decks: bool | None = Field(default=None, description="전체 덱 선택 여부")
+    review_ratio_mode: str | None = Field(
+        default=None,
+        max_length=20,
+        description="복습 비율 모드: normal(일반) | custom(커스텀)",
+    )
+    custom_review_ratio: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="커스텀 모드 복습 비율 (0.0~1.0)",
+    )
+    min_new_ratio: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="일반 모드 최소 새 단어 비율 (0.0~1.0)",
+    )
     timezone: str | None = Field(default=None, max_length=50, description="타임존 (예: Asia/Seoul)")
     theme: str | None = Field(default=None, max_length=20, description="테마 (light, dark, auto)")
     notification_enabled: bool | None = Field(default=None, description="알림 활성화 여부")
@@ -97,6 +148,17 @@ class ProfileConfigUpdate(SQLModel):
         allowed_themes = {"light", "dark", "auto"}
         if v not in allowed_themes:
             raise ValueError(f"Theme must be one of: {', '.join(allowed_themes)}")
+        return v
+
+    @field_validator("review_ratio_mode")
+    @classmethod
+    def review_ratio_mode_valid(cls, v: str | None) -> str | None:
+        """복습 비율 모드가 허용된 값인지 검증합니다."""
+        if v is None:
+            return v
+        allowed_modes = {"normal", "custom"}
+        if v not in allowed_modes:
+            raise ValueError(f"Review ratio mode must be one of: {', '.join(allowed_modes)}")
         return v
 
 

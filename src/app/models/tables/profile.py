@@ -21,6 +21,11 @@ class ProfileBase(SQLModel):
     theme: str = Field(default="auto", max_length=20)  # light/dark/auto
     notification_enabled: bool = Field(default=True)
 
+    # UI customization (Issue #55)
+    highlight_color: str = Field(
+        default="#4CAF50", max_length=20, description="Clue 하이라이트 색상 (HEX 코드)"
+    )
+
 
 class Profile(ProfileBase, TimestampMixin, table=True):
     """Profile database model linked to Supabase Auth user."""

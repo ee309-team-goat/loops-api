@@ -11,8 +11,24 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
-from app.models import VocabularyCardCreate, VocabularyCardRead, VocabularyCardUpdate
+from app.models import (
+    CardSummary,
+    RelatedWordInfo,
+    RelatedWordsResponse,
+    VocabularyCardCreate,
+    VocabularyCardRead,
+    VocabularyCardUpdate,
+)
 from app.services.vocabulary_card_service import VocabularyCardService
+
+# relation_type -> 한글 라벨 매핑
+RELATION_TYPE_LABELS = {
+    "etymology": "어원",
+    "synonym": "유의어",
+    "antonym": "반의어",
+    "topic": "주제 연관",
+    "collocation": "연어",
+}
 
 TAG = "cards"
 TAG_METADATA = {
@@ -220,3 +236,79 @@ async def delete_vocabulary_card(
             detail="Vocabulary card not found",
         )
     return None
+
+
+@router.get(
+    "/{card_id}/related",
+    response_model=RelatedWordsResponse,
+    summary="연관 단어 조회",
+    description="특정 단어 카드의 연관 단어(연상 네트워크) 정보를 조회합니다.",
+    responses={
+        200: {"description": "연관 단어 정보 반환 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "단어 카드를 찾을 수 없음"},
+    },
+)
+async def get_related_words(
+    card_id: int = Path(description="조회할 카드의 고유 ID"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> RelatedWordsResponse:
+    """
+    특정 단어 카드의 연관 단어를 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **반환 정보:**
+    - `card`: 기준 카드 정보 (id, english_word, korean_meaning)
+    - `related_words`: 연관 단어 목록
+      - `card_id`: 연관 단어 카드 ID (DB에 존재하는 경우)
+      - `english_word`: 영어 단어
+      - `korean_meaning`: 한국어 뜻
+      - `relation_type`: 연관 유형 (etymology/synonym/antonym/topic/collocation)
+      - `relation_label`: 연관 유형 한글 라벨
+      - `reason`: 연관 이유 설명
+    - `total_related`: 연관 단어 총 개수
+
+    **relation_type 종류:**
+    - `etymology`: 어원 (같은 어근/접두사/접미사)
+    - `synonym`: 유의어 (비슷한 의미)
+    - `antonym`: 반의어 (반대 의미)
+    - `topic`: 주제 연관 (같은 분야/상황)
+    - `collocation`: 연어 (자주 함께 쓰이는 단어)
+    """
+    card = await VocabularyCardService.get_card(session, card_id)
+    if not card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vocabulary card not found",
+        )
+
+    card_summary = CardSummary(
+        id=card.id,
+        english_word=card.english_word,
+        korean_meaning=card.korean_meaning,
+    )
+
+    related_words: list[RelatedWordInfo] = []
+
+    if card.related_words:
+        for related in card.related_words:
+            if isinstance(related, dict):
+                relation_type = related.get("relation_type", "topic")
+                related_words.append(
+                    RelatedWordInfo(
+                        card_id=related.get("card_id"),
+                        english_word=related.get("word", ""),
+                        korean_meaning=related.get("meaning", ""),
+                        relation_type=relation_type,
+                        relation_label=RELATION_TYPE_LABELS.get(relation_type, "기타"),
+                        reason=related.get("reason", ""),
+                    )
+                )
+
+    return RelatedWordsResponse(
+        card=card_summary,
+        related_words=related_words,
+        total_related=len(related_words),
+    )

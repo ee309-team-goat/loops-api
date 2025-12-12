@@ -174,3 +174,37 @@ class VocabularyCardUpdate(SQLModel):
             return v
         cleaned = [tag.strip() for tag in v if tag and tag.strip()]
         return cleaned if cleaned else None
+
+
+# ============================================================
+# Related Words Schemas (Issue #51)
+# ============================================================
+
+
+class RelatedWordInfo(SQLModel):
+    """연관 단어 정보 스키마."""
+
+    card_id: int | None = Field(default=None, description="연관 단어 카드 ID (DB에 존재하는 경우)")
+    english_word: str = Field(description="영어 단어")
+    korean_meaning: str = Field(description="한국어 뜻")
+    relation_type: str = Field(
+        description="연관 유형: etymology(어원) | synonym(유의어) | antonym(반의어) | topic(주제) | collocation(연어)"
+    )
+    relation_label: str = Field(description="연관 유형 한글 라벨")
+    reason: str = Field(description="연관 이유 설명")
+
+
+class CardSummary(SQLModel):
+    """카드 요약 정보 스키마."""
+
+    id: int = Field(description="카드 고유 ID")
+    english_word: str = Field(description="영어 단어")
+    korean_meaning: str = Field(description="한국어 뜻")
+
+
+class RelatedWordsResponse(SQLModel):
+    """연관 단어 조회 응답 스키마."""
+
+    card: CardSummary = Field(description="기준 카드 정보")
+    related_words: list[RelatedWordInfo] = Field(description="연관 단어 목록")
+    total_related: int = Field(description="연관 단어 총 개수")

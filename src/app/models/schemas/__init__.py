@@ -66,6 +66,9 @@ from app.models.schemas.user_selected_deck import (
     UserSelectedDeckRead,
 )
 from app.models.schemas.vocabulary_card import (
+    CardSummary,
+    RelatedWordInfo,
+    RelatedWordsResponse,
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
@@ -84,6 +87,9 @@ __all__ = [
     "VocabularyCardCreate",
     "VocabularyCardRead",
     "VocabularyCardUpdate",
+    "RelatedWordInfo",
+    "CardSummary",
+    "RelatedWordsResponse",
     # UserCardProgress
     "UserCardProgressCreate",
     "UserCardProgressRead",

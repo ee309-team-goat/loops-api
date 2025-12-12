@@ -23,9 +23,14 @@ from app.models import (
     SessionStartResponse,
     StudyOverviewResponse,
     UserCardProgressRead,
+    WrongAnswerReviewedResponse,
+    WrongAnswersResponse,
+    WrongReviewSessionRequest,
+    WrongReviewSessionResponse,
 )
 from app.services.study_session_service import StudySessionService
 from app.services.user_card_progress_service import UserCardProgressService
+from app.services.wrong_answer_service import WrongAnswerService
 
 TAG = "study"
 TAG_METADATA = {
@@ -211,6 +216,7 @@ async def submit_answer(
         response_time_ms=request.response_time_ms,
         hint_count=request.hint_count,
         revealed_answer=request.revealed_answer,
+        quiz_type=request.quiz_type,
     )
 
 
@@ -365,3 +371,163 @@ async def get_card_progress(
             detail="Progress not found for this card",
         )
     return progress
+
+
+# ============================================================
+# Wrong Answer Endpoints (Issue #53)
+# ============================================================
+
+
+@router.get(
+    "/wrong-answers",
+    response_model=WrongAnswersResponse,
+    summary="오답 기록 목록 조회",
+    description="사용자의 오답 기록 목록을 조회합니다.",
+    responses={
+        200: {"description": "오답 기록 조회 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
+async def get_wrong_answers(
+    limit: int = Query(default=20, ge=1, le=100, description="조회할 오답 수 (1~100)"),
+    offset: int = Query(default=0, ge=0, description="페이지네이션 오프셋"),
+    reviewed: bool | None = Query(
+        default=None, description="복습 여부 필터 (true/false/null=전체)"
+    ),
+    quiz_type: str | None = Query(default=None, description="퀴즈 유형 필터"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> WrongAnswersResponse:
+    """
+    오답 기록 목록을 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **쿼리 파라미터:**
+    - `limit`: 조회할 오답 수 (기본값: 20)
+    - `offset`: 페이지네이션 오프셋 (기본값: 0)
+    - `reviewed`: 복습 여부 필터 (true=복습완료, false=미복습, null=전체)
+    - `quiz_type`: 퀴즈 유형 필터 (word_to_meaning/meaning_to_word/cloze/listening)
+
+    **반환 정보:**
+    - `wrong_answers`: 오답 기록 목록
+    - `total`: 전체 오답 수
+    - `unreviewed_count`: 미복습 오답 수
+    """
+    return await WrongAnswerService.get_wrong_answers(
+        session=session,
+        user_id=current_profile.id,
+        limit=limit,
+        offset=offset,
+        reviewed=reviewed,
+        quiz_type=quiz_type,
+    )
+
+
+@router.patch(
+    "/wrong-answers/{wrong_answer_id}/reviewed",
+    response_model=WrongAnswerReviewedResponse,
+    summary="오답 복습 완료 표시",
+    description="오답 기록을 복습 완료로 표시합니다.",
+    responses={
+        200: {"description": "복습 완료 표시 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "오답 기록을 찾을 수 없음"},
+    },
+)
+async def mark_wrong_answer_reviewed(
+    wrong_answer_id: int = Path(description="오답 기록 ID"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> WrongAnswerReviewedResponse:
+    """
+    오답 기록을 복습 완료로 표시합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **파라미터:**
+    - `wrong_answer_id`: 오답 기록 ID
+
+    **반환 정보:**
+    - `id`: 오답 기록 ID
+    - `reviewed`: 복습 완료 여부 (true)
+    - `reviewed_at`: 복습 완료 시간
+    """
+    result = await WrongAnswerService.mark_reviewed(
+        session=session,
+        user_id=current_profile.id,
+        wrong_answer_id=wrong_answer_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wrong answer not found",
+        )
+    return result
+
+
+@router.post(
+    "/session/start-wrong-review",
+    response_model=WrongReviewSessionResponse,
+    summary="오답 재학습 세션 시작",
+    description="미복습 오답 카드로 재학습 세션을 시작합니다.",
+    responses={
+        200: {"description": "오답 재학습 세션 시작 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
+async def start_wrong_review_session(
+    request: WrongReviewSessionRequest,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> WrongReviewSessionResponse:
+    """
+    미복습 오답 카드로 재학습 세션을 시작합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **요청 본문:**
+    - `limit`: 재학습할 카드 수 (기본값: 10, 최대: 50)
+
+    **반환 정보:**
+    - `session_id`: 세션 ID
+    - `total_cards`: 총 카드 수
+    - `cards_from_wrong_answers`: 오답 카드 기반 세션 여부 (항상 true)
+    - `started_at`: 세션 시작 시간
+
+    **다음 단계:**
+    - `/session/card`로 카드 조회 (quiz_type 지정)
+    - `/session/answer`로 정답 제출
+    - 모든 카드 완료 후 `/session/complete`로 세션 종료
+    """
+    # Get unreviewed wrong answer card IDs
+    card_ids = await WrongAnswerService.get_unreviewed_card_ids(
+        session=session,
+        user_id=current_profile.id,
+        limit=request.limit,
+    )
+
+    if not card_ids:
+        # Return empty session if no wrong answers
+        from datetime import UTC, datetime
+
+        return WrongReviewSessionResponse(
+            session_id="00000000-0000-0000-0000-000000000000",
+            total_cards=0,
+            cards_from_wrong_answers=True,
+            started_at=datetime.now(UTC),
+        )
+
+    # Start session with wrong answer cards
+    session_response = await StudySessionService.start_session_with_cards(
+        session=session,
+        user_id=current_profile.id,
+        card_ids=card_ids,
+    )
+
+    return WrongReviewSessionResponse(
+        session_id=session_response.session_id,
+        total_cards=session_response.total_cards,
+        cards_from_wrong_answers=True,
+        started_at=session_response.started_at,
+    )

@@ -5,6 +5,7 @@ from app.models.tables.study_session import StudySession, StudySessionBase
 from app.models.tables.user_card_progress import UserCardProgress, UserCardProgressBase
 from app.models.tables.user_selected_deck import UserSelectedDeck
 from app.models.tables.vocabulary_card import VocabularyCard, VocabularyCardBase
+from app.models.tables.wrong_answer import WrongAnswer, WrongAnswerBase
 
 __all__ = [
     # Tables
@@ -15,10 +16,12 @@ __all__ = [
     "Favorite",
     "UserSelectedDeck",
     "StudySession",
+    "WrongAnswer",
     # Base classes
     "ProfileBase",
     "VocabularyCardBase",
     "UserCardProgressBase",
     "DeckBase",
     "StudySessionBase",
+    "WrongAnswerBase",
 ]

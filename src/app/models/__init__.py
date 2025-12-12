@@ -60,6 +60,12 @@ from app.models.schemas import (
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
+    WrongAnswerCardInfo,
+    WrongAnswerRead,
+    WrongAnswerReviewedResponse,
+    WrongAnswersResponse,
+    WrongReviewSessionRequest,
+    WrongReviewSessionResponse,
     XPInfo,
 )
 
@@ -77,6 +83,8 @@ from app.models.tables import (
     UserSelectedDeck,
     VocabularyCard,
     VocabularyCardBase,
+    WrongAnswer,
+    WrongAnswerBase,
 )
 
 __all__ = [
@@ -94,12 +102,14 @@ __all__ = [
     "Favorite",
     "UserSelectedDeck",
     "StudySession",
+    "WrongAnswer",
     # Base classes (from tables)
     "ProfileBase",
     "VocabularyCardBase",
     "UserCardProgressBase",
     "DeckBase",
     "StudySessionBase",
+    "WrongAnswerBase",
     # Profile Schemas
     "ProfileRead",
     "ProfileUpdate",
@@ -164,4 +174,11 @@ __all__ = [
     # Study Overview Schemas
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Wrong Answer Schemas
+    "WrongAnswerCardInfo",
+    "WrongAnswerRead",
+    "WrongAnswerReviewedResponse",
+    "WrongAnswersResponse",
+    "WrongReviewSessionRequest",
+    "WrongReviewSessionResponse",
 ]

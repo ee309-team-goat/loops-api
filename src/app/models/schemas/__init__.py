@@ -31,6 +31,10 @@ from app.models.schemas.study import (
     ClozeQuestion,
     DailyGoalStatus,
     DueCardSummary,
+    PhonemeFeedback,
+    PronunciationEvaluateRequest,
+    PronunciationEvaluateResponse,
+    PronunciationFeedback,
     SessionCompleteRequest,
     SessionCompleteResponse,
     SessionStartRequest,
@@ -122,4 +126,9 @@ __all__ = [
     # Study Overview
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Pronunciation Evaluation
+    "PhonemeFeedback",
+    "PronunciationFeedback",
+    "PronunciationEvaluateRequest",
+    "PronunciationEvaluateResponse",
 ]

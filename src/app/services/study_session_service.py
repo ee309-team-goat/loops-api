@@ -73,15 +73,13 @@ class StudySessionService:
 
         if use_profile_ratio and profile:
             # Calculate limits based on profile settings
-            new_cards_limit, review_cards_limit = (
-                StudySessionService._calculate_card_limits(profile)
+            new_cards_limit, review_cards_limit = StudySessionService._calculate_card_limits(
+                profile
             )
         else:
             # Use provided limits or defaults
             new_cards_limit = new_cards_limit if new_cards_limit is not None else 10
-            review_cards_limit = (
-                review_cards_limit if review_cards_limit is not None else 20
-            )
+            review_cards_limit = review_cards_limit if review_cards_limit is not None else 20
 
         # Get new cards
         new_cards = await StudySessionService._get_new_cards(
@@ -443,8 +441,17 @@ class StudySessionService:
         user_id: UUID,
         limit: int = 20,
     ) -> list[tuple[UserCardProgress, VocabularyCard]]:
-        """Get cards due for review (next_review_date <= now)."""
+        """
+        Get cards due for review (next_review_date <= now).
+
+        Respects profile.review_scope setting:
+        - selected_decks_only: Only review cards from selected decks
+        - all_learned: Review all learned cards regardless of deck
+        """
         now = datetime.now(UTC)
+
+        # Get profile for review_scope setting
+        profile = await session.get(Profile, user_id)
 
         query = (
             select(UserCardProgress, VocabularyCard)
@@ -453,9 +460,20 @@ class StudySessionService:
                 UserCardProgress.user_id == user_id,
                 UserCardProgress.next_review_date <= now,
             )
-            .order_by(UserCardProgress.next_review_date.asc())
-            .limit(limit)
         )
+
+        # Apply deck filtering based on review_scope setting
+        if profile and profile.review_scope == "selected_decks_only":
+            # 선택된 덱의 카드만 복습
+            if not profile.select_all_decks:
+                selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                    UserSelectedDeck.user_id == user_id
+                )
+                query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
+            # select_all_decks=True면 필터 없음 (모든 덱)
+        # review_scope == "all_learned": 덱 필터 없이 모든 학습한 카드 복습
+
+        query = query.order_by(UserCardProgress.next_review_date.asc()).limit(limit)
 
         result = await session.exec(query)
         return list(result.all())

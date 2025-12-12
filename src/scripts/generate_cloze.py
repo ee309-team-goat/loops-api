@@ -14,12 +14,12 @@ from pathlib import Path
 # 상위 디렉토리를 path에 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.services.cloze_service import ClozeService
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import async_session_maker
 from app.models.tables.vocabulary_card import VocabularyCard
+from app.services.cloze_service import ClozeService
 
 
 async def count_cards_needing_cloze(session: AsyncSession) -> dict:

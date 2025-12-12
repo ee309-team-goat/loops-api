@@ -6,6 +6,7 @@
 """
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -17,10 +18,13 @@ from app.models import (
     AnswerResponse,
     CardRequest,
     CardResponse,
+    SessionAbandonRequest,
+    SessionAbandonResponse,
     SessionCompleteRequest,
     SessionCompleteResponse,
     SessionStartRequest,
     SessionStartResponse,
+    SessionStatusResponse,
     StudyOverviewResponse,
     UserCardProgressRead,
     WrongAnswerReviewedResponse,
@@ -279,6 +283,107 @@ async def complete_study_session(
         user_id=current_profile.id,
         session_id=request.session_id,
         duration_seconds=request.duration_seconds,
+    )
+
+
+# ============================================================
+# Session Status & Abandon (Issue #54)
+# ============================================================
+
+
+@router.get(
+    "/session/{session_id}/status",
+    response_model=SessionStatusResponse,
+    summary="세션 상태 조회",
+    description="현재 세션의 진행 상황과 일일 목표 정보를 조회합니다.",
+    responses={
+        200: {"description": "세션 상태 조회 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "세션을 찾을 수 없음"},
+    },
+)
+async def get_session_status(
+    session_id: UUID = Path(description="세션 ID"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> SessionStatusResponse:
+    """
+    현재 세션의 상태를 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **파라미터:**
+    - `session_id`: 세션 UUID
+
+    **반환 정보:**
+    - `session_id`: 세션 ID
+    - `status`: 세션 상태 (active/completed/abandoned)
+    - `total_cards`: 총 카드 수
+    - `completed_cards`: 완료한 카드 수
+    - `remaining_cards`: 남은 카드 수
+    - `correct_count`: 정답 수
+    - `wrong_count`: 오답 수
+    - `started_at`: 시작 시간
+    - `elapsed_seconds`: 경과 시간 (초)
+    - `daily_goal`: 일일 목표 정보
+      - `goal`: 목표 카드 수
+      - `completed_today`: 오늘 완료한 카드 수
+      - `remaining_for_goal`: 목표까지 남은 카드 수
+      - `will_complete_goal`: 현재 세션 완료 시 목표 달성 여부
+    """
+    return await StudySessionService.get_session_status(
+        session=session,
+        user_id=current_profile.id,
+        session_id=session_id,
+    )
+
+
+@router.post(
+    "/session/{session_id}/abandon",
+    response_model=SessionAbandonResponse,
+    summary="세션 중단",
+    description="학습 세션을 중단합니다. 지금까지의 진행 상황은 저장됩니다.",
+    responses={
+        200: {"description": "세션 중단 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "세션을 찾을 수 없음"},
+        422: {"description": "유효성 검사 실패 - 이미 완료된 세션"},
+    },
+)
+async def abandon_session(
+    request: SessionAbandonRequest,
+    session_id: UUID = Path(description="세션 ID"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> SessionAbandonResponse:
+    """
+    학습 세션을 중단합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **파라미터:**
+    - `session_id`: 세션 UUID
+
+    **요청 본문:**
+    - `save_progress`: 진행 상황 저장 여부 (기본값: true, 항상 true 권장)
+
+    **반환 정보:**
+    - `session_id`: 세션 ID
+    - `status`: 세션 상태 (abandoned)
+    - `summary`: 세션 요약
+      - `total_cards`: 총 카드 수
+      - `completed_cards`: 완료한 카드 수
+      - `correct_count`: 정답 수
+      - `wrong_count`: 오답 수
+      - `duration_seconds`: 학습 시간 (초)
+    - `progress_saved`: 진행 상황 저장 여부
+    - `message`: 안내 메시지
+    """
+    return await StudySessionService.abandon_session(
+        session=session,
+        user_id=current_profile.id,
+        session_id=session_id,
+        save_progress=request.save_progress,
     )
 
 

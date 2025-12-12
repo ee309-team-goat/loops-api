@@ -37,10 +37,15 @@ from app.models.schemas.study import (
     ClozeQuestion,
     DailyGoalStatus,
     DueCardSummary,
+    SessionAbandonRequest,
+    SessionAbandonResponse,
+    SessionAbandonSummary,
     SessionCompleteRequest,
     SessionCompleteResponse,
+    SessionDailyGoalInfo,
     SessionStartRequest,
     SessionStartResponse,
+    SessionStatusResponse,
     SessionSummary,
     StreakInfo,
     StudyCard,
@@ -155,6 +160,12 @@ __all__ = [
     # Study Overview
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Session Status & Abandon
+    "SessionDailyGoalInfo",
+    "SessionStatusResponse",
+    "SessionAbandonRequest",
+    "SessionAbandonSummary",
+    "SessionAbandonResponse",
     # Wrong Answer
     "WrongAnswerCardInfo",
     "WrongAnswerRead",

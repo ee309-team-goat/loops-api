@@ -21,9 +21,13 @@ from app.models import (
     DueCardSummary,
     Profile,
     QuizType,
+    SessionAbandonResponse,
+    SessionAbandonSummary,
     SessionCompleteResponse,
+    SessionDailyGoalInfo,
     SessionStartResponse,
     SessionStatus,
+    SessionStatusResponse,
     SessionSummary,
     StreakInfo,
     StudyCard,
@@ -511,6 +515,133 @@ class StudySessionService:
             streak=streak_info,
             daily_goal=daily_goal_status,
             xp=xp_info,
+        )
+
+    # ============================================================
+    # Session Status & Abandon (Issue #54)
+    # ============================================================
+
+    @staticmethod
+    async def get_session_status(
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+    ) -> SessionStatusResponse:
+        """
+        Get current session status with progress info.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            session_id: Study session ID
+
+        Returns:
+            SessionStatusResponse with progress and daily goal info
+        """
+        # Get study session
+        study_session = await session.get(StudySession, session_id)
+        if not study_session:
+            raise NotFoundError(f"Session {session_id} not found")
+
+        if study_session.user_id != user_id:
+            raise ValidationError("Session does not belong to this user")
+
+        # Get profile for daily goal
+        profile = await session.get(Profile, user_id)
+        if not profile:
+            raise NotFoundError(f"Profile {user_id} not found")
+
+        # Calculate progress
+        total_cards = len(study_session.card_ids)
+        completed_cards = study_session.correct_count + study_session.wrong_count
+        remaining_cards = total_cards - completed_cards
+
+        # Calculate elapsed time
+        now = datetime.now(UTC)
+        elapsed_seconds = int((now - study_session.started_at).total_seconds())
+
+        # Get daily goal info
+        daily_goal_data = await ProfileService.get_daily_goal(session, profile.id)
+        goal = daily_goal_data["daily_goal"]
+        completed_today = daily_goal_data["completed_today"]
+        remaining_for_goal = max(0, goal - completed_today)
+        will_complete_goal = (completed_today + remaining_cards) >= goal
+
+        return SessionStatusResponse(
+            session_id=study_session.id,
+            status=study_session.status.value,
+            total_cards=total_cards,
+            completed_cards=completed_cards,
+            remaining_cards=remaining_cards,
+            correct_count=study_session.correct_count,
+            wrong_count=study_session.wrong_count,
+            started_at=study_session.started_at,
+            elapsed_seconds=elapsed_seconds,
+            daily_goal=SessionDailyGoalInfo(
+                goal=goal,
+                completed_today=completed_today,
+                remaining_for_goal=remaining_for_goal,
+                will_complete_goal=will_complete_goal,
+            ),
+        )
+
+    @staticmethod
+    async def abandon_session(
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+        save_progress: bool = True,
+    ) -> SessionAbandonResponse:
+        """
+        Abandon a study session.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            session_id: Study session ID
+            save_progress: Whether to save progress (always True recommended)
+
+        Returns:
+            SessionAbandonResponse with summary
+        """
+        # Get study session
+        study_session = await session.get(StudySession, session_id)
+        if not study_session:
+            raise NotFoundError(f"Session {session_id} not found")
+
+        if study_session.user_id != user_id:
+            raise ValidationError("Session does not belong to this user")
+
+        if study_session.status != SessionStatus.ACTIVE:
+            raise ValidationError(f"Session is {study_session.status.value}, not active")
+
+        # Calculate duration
+        now = datetime.now(UTC)
+        duration_seconds = int((now - study_session.started_at).total_seconds())
+
+        # Calculate summary
+        completed_cards = study_session.correct_count + study_session.wrong_count
+
+        # Update session status
+        study_session.status = SessionStatus.ABANDONED
+        study_session.completed_at = now
+        session.add(study_session)
+        await session.commit()
+
+        message = "학습 진행 상황이 저장되었습니다." if save_progress else "세션이 종료되었습니다."
+
+        return SessionAbandonResponse(
+            session_id=study_session.id,
+            status="abandoned",
+            summary=SessionAbandonSummary(
+                total_cards=len(study_session.card_ids),
+                completed_cards=completed_cards,
+                correct_count=study_session.correct_count,
+                wrong_count=study_session.wrong_count,
+                duration_seconds=duration_seconds,
+            ),
+            progress_saved=save_progress,
+            message=message,
         )
 
     # ============================================================

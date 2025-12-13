@@ -8,6 +8,8 @@ from app.config import settings
 
 # Supabase client with publishable key (for auth operations)
 _supabase_client: Client | None = None
+# Supabase client with secret key (for admin/storage operations)
+_supabase_admin_client: Client | None = None
 
 
 def get_supabase_client() -> Client:
@@ -19,6 +21,19 @@ def get_supabase_client() -> Client:
             settings.supabase_publishable_key,
         )
     return _supabase_client
+
+
+def get_supabase_admin_client() -> Client:
+    """Get Supabase client with secret key for admin/storage operations."""
+    global _supabase_admin_client
+    if _supabase_admin_client is None:
+        if not settings.supabase_secret_key:
+            raise RuntimeError("Missing SUPABASE_SECRET_KEY (settings.supabase_secret_key)")
+        _supabase_admin_client = create_client(
+            settings.supabase_url,
+            settings.supabase_secret_key,
+        )
+    return _supabase_admin_client
 
 
 def verify_supabase_token(token: str) -> str | None:

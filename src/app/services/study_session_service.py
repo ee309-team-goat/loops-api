@@ -5,16 +5,17 @@ Quiz 기능이 통합되어 세션 시작, 카드 요청, 정답 제출, 세션 
 """
 
 import random
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import NotFoundError, UnprocessableEntityError, ValidationError
 from app.models import (
     AnswerResponse,
     CardResponse,
+    CardState,
     ClozeQuestion,
     DailyGoalStatus,
     Deck,
@@ -25,6 +26,9 @@ from app.models import (
     SessionAbandonSummary,
     SessionCompleteResponse,
     SessionDailyGoalInfo,
+    SessionPreviewAllocation,
+    SessionPreviewAvailable,
+    SessionPreviewResponse,
     SessionStartResponse,
     SessionStatus,
     SessionStatusResponse,
@@ -48,6 +52,151 @@ CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 class StudySessionService:
     """Service for study session operations."""
+
+    # ============================================================
+    # Session Preview
+    # ============================================================
+
+    @staticmethod
+    async def preview_session(
+        session: AsyncSession,
+        user_id: UUID,
+        total_cards: int,
+        review_ratio: float,
+    ) -> SessionPreviewResponse:
+        """
+        Preview card allocation for a session configuration.
+
+        Returns current availability (new/review/relearning) and an allocation plan
+        based on requested total_cards and review_ratio.
+        """
+        if total_cards < 1 or total_cards > 150:
+            raise ValidationError("total_cards must be between 1 and 150")
+        if review_ratio < 0.0 or review_ratio > 1.0:
+            raise ValidationError("review_ratio must be between 0.0 and 1.0")
+
+        profile = await session.get(Profile, user_id)
+        if not profile:
+            return SessionPreviewResponse(
+                available=SessionPreviewAvailable(
+                    new_cards=0,
+                    review_cards=0,
+                    relearning_cards=0,
+                ),
+                allocation=SessionPreviewAllocation(new_cards=0, review_cards=0, total=0),
+                message="프로필을 찾을 수 없습니다.",
+            )
+
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
+
+        # ------------------------------------------------------------
+        # Availability: new cards
+        # ------------------------------------------------------------
+        seen_subquery = select(UserCardProgress.card_id).where(UserCardProgress.user_id == user_id)
+        new_cards_query = select(func.count(VocabularyCard.id)).where(
+            VocabularyCard.id.not_in(seen_subquery)
+        )
+
+        if profile.select_all_decks:
+            new_cards_query = new_cards_query.join(
+                Deck, VocabularyCard.deck_id == Deck.id, isouter=True
+            ).where((Deck.is_public == True) | (VocabularyCard.deck_id == None))  # noqa: E712, E711
+        else:
+            selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                UserSelectedDeck.user_id == user_id
+            )
+            new_cards_query = new_cards_query.where(
+                VocabularyCard.deck_id.in_(selected_deck_ids_subquery)
+            )
+
+        result = await session.exec(new_cards_query)
+        available_new = int(result.one() or 0)
+
+        # ------------------------------------------------------------
+        # Availability: due review/relearning cards (respect review_scope)
+        # ------------------------------------------------------------
+        base_due_query = (
+            select(func.count(UserCardProgress.id))
+            .select_from(UserCardProgress)
+            .join(VocabularyCard, VocabularyCard.id == UserCardProgress.card_id)
+            .where(
+                UserCardProgress.user_id == user_id,
+                UserCardProgress.next_review_date <= now,
+            )
+        )
+
+        if profile.review_scope == "selected_decks_only" and not profile.select_all_decks:
+            selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                UserSelectedDeck.user_id == user_id
+            )
+            base_due_query = base_due_query.where(
+                VocabularyCard.deck_id.in_(selected_deck_ids_subquery)
+            )
+
+        # Split due cards by state: REVIEW vs RELEARNING
+        relearning_query = base_due_query.where(UserCardProgress.card_state == CardState.RELEARNING)
+        review_query = base_due_query.where(UserCardProgress.card_state != CardState.RELEARNING)
+
+        result = await session.exec(relearning_query)
+        available_relearning = int(result.one() or 0)
+
+        result = await session.exec(review_query)
+        available_review = int(result.one() or 0)
+
+        available_total_due = available_review + available_relearning
+
+        # ------------------------------------------------------------
+        # Allocation
+        # ------------------------------------------------------------
+        desired_review = int(round(total_cards * review_ratio))
+        desired_review = max(0, min(total_cards, desired_review))
+        desired_new = total_cards - desired_review
+
+        alloc_review = min(desired_review, available_total_due)
+        alloc_new = min(desired_new, available_new)
+
+        # Fill remainder from the other pool if possible
+        allocated_total = alloc_review + alloc_new
+        if allocated_total < total_cards:
+            remaining = total_cards - allocated_total
+
+            # Prefer filling with due cards first (tends to be safer for retention),
+            # then new cards.
+            extra_due = max(0, available_total_due - alloc_review)
+            take_due = min(remaining, extra_due)
+            alloc_review += take_due
+            remaining -= take_due
+
+            if remaining > 0:
+                extra_new = max(0, available_new - alloc_new)
+                take_new = min(remaining, extra_new)
+                alloc_new += take_new
+                remaining -= take_new
+
+        allocated_total = alloc_review + alloc_new
+
+        message: str | None = None
+        if available_new + available_total_due == 0:
+            message = "현재 학습 가능한 카드가 없습니다."
+        elif allocated_total < total_cards:
+            message = (
+                f"카드가 부족합니다. 요청 {total_cards}개 중 {allocated_total}개만 배정 가능합니다."
+            )
+
+        return SessionPreviewResponse(
+            available=SessionPreviewAvailable(
+                new_cards=available_new,
+                review_cards=available_review,
+                relearning_cards=available_relearning,
+            ),
+            allocation=SessionPreviewAllocation(
+                new_cards=alloc_new,
+                review_cards=alloc_review,  # includes relearning
+                total=allocated_total,
+            ),
+            message=message,
+        )
 
     # ============================================================
     # Session Start
@@ -74,7 +223,8 @@ class StudySessionService:
             review_cards_limit: Max review cards (ignored if use_profile_ratio=True)
             use_profile_ratio: If True, calculate limits from profile settings
         """
-        started_at = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        started_at = datetime.utcnow()
 
         # Get profile for ratio calculation
         profile = await session.get(Profile, user_id)
@@ -147,7 +297,8 @@ class StudySessionService:
             user_id: User ID
             card_ids: List of card IDs to include in session
         """
-        started_at = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        started_at = datetime.utcnow()
 
         # Shuffle for variety
         random.shuffle(card_ids)
@@ -449,7 +600,8 @@ class StudySessionService:
             raise NotFoundError(f"Profile {user_id} not found")
 
         # Calculate duration (use provided or calculate from timestamps)
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         if duration_seconds is None:
             duration_seconds = int((now - study_session.started_at).total_seconds())
 
@@ -560,7 +712,8 @@ class StudySessionService:
         remaining_cards = total_cards - completed_cards
 
         # Calculate elapsed time
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         elapsed_seconds = int((now - study_session.started_at).total_seconds())
 
         # Get daily goal info
@@ -619,7 +772,8 @@ class StudySessionService:
             raise ValidationError(f"Session is {study_session.status.value}, not active")
 
         # Calculate duration
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         duration_seconds = int((now - study_session.started_at).total_seconds())
 
         # Calculate summary
@@ -700,7 +854,8 @@ class StudySessionService:
         - selected_decks_only: Only review cards from selected decks
         - all_learned: Review all learned cards regardless of deck
         """
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
 
         # Get profile for review_scope setting
         profile = await session.get(Profile, user_id)
@@ -783,6 +938,18 @@ class StudySessionService:
                 session, correct_answer, quiz_type, card
             )
 
+        elif quiz_type == QuizType.IMAGE_TO_WORD:
+            if not card.image_url:
+                raise UnprocessableEntityError(
+                    "Image is not available for this card",
+                    details={"card_id": card.id, "quiz_type": quiz_type.value},
+                )
+            question = "🖼️ Look at the image and choose the correct word"
+            correct_answer = card.english_word
+            options = await StudySessionService._generate_options(
+                session, correct_answer, quiz_type, card
+            )
+
         else:
             # Default
             question = card.english_word
@@ -797,6 +964,7 @@ class StudySessionService:
             definition_en=card.definition_en,
             example_sentences=card.example_sentences,
             audio_url=card.audio_url,
+            image_url=card.image_url,
             is_new=is_new,
             quiz_type=quiz_type,
             question=question,

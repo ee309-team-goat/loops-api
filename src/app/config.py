@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,9 +29,16 @@ class Settings(BaseSettings):
     # OpenAI / LLM settings
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    # Gemini image generation (Google GenAI SDK)
+    gemini_api_key: str = ""  # GEMINI_API_KEY
+    gemini_image_model: str = "gemini-3-pro-image-preview"
+
+    # Supabase Storage
+    supabase_storage_bucket: str = "card-images"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Load repo-root .env regardless of current working directory.
+        env_file=str(Path(__file__).resolve().parents[2] / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",  # Ignore extra fields in .env

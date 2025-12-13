@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from sqlmodel import JSON, Column, Field, SQLModel
@@ -72,3 +73,12 @@ class VocabularyCard(VocabularyCardBase, TimestampMixin, table=True):
     # Related words for association network (Issue #51)
     # Format: [{"word": "renovate", "meaning": "혁신하다", "relation_type": "etymology", "reason": "같은 어원 nov-"}, ...]
     related_words: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))
+
+    # Image association learning (Gemini-generated)
+    image_url: str | None = Field(default=None, max_length=500)
+    image_storage_path: str | None = Field(default=None, max_length=500)
+    image_prompt: str | None = Field(default=None)
+    image_model: str | None = Field(default=None, max_length=100)
+    image_status: str | None = Field(default=None, max_length=20)  # pending|ready|failed
+    image_error: str | None = Field(default=None)
+    image_generated_at: datetime | None = Field(default=None)

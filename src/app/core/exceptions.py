@@ -32,6 +32,18 @@ class ValidationError(LoopsAPIException):
         )
 
 
+class UnprocessableEntityError(LoopsAPIException):
+    """Raised when request is well-formed but cannot be processed (HTTP 422)."""
+
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
+        super().__init__(
+            message=message,
+            error_type="unprocessable_entity",
+            status_code=422,
+            details=details,
+        )
+
+
 class AuthenticationError(LoopsAPIException):
     """Raised when authentication fails."""
 

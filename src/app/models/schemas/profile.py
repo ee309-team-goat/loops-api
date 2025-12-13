@@ -27,6 +27,7 @@ class ProfileRead(ProfileBase):
     timezone: str = Field(description="사용자 타임존 (예: Asia/Seoul)")
     theme: str = Field(description="앱 테마 (light, dark, auto)")
     notification_enabled: bool = Field(description="알림 활성화 여부")
+    highlight_color: str = Field(description="Clue 하이라이트 색상 (HEX 코드)")
     total_study_time_minutes: int = Field(default=0, description="총 학습 시간 (분)")
     created_at: datetime = Field(description="계정 생성 시간 (UTC)")
     updated_at: datetime | None = Field(default=None, description="계정 정보 최종 수정 시간 (UTC)")
@@ -64,6 +65,9 @@ class ProfileUpdate(SQLModel):
     timezone: str | None = Field(default=None, max_length=50, description="타임존 (예: Asia/Seoul)")
     theme: str | None = Field(default=None, max_length=20, description="테마 (light, dark, auto)")
     notification_enabled: bool | None = Field(default=None, description="알림 활성화 여부")
+    highlight_color: str | None = Field(
+        default=None, max_length=20, description="Clue 하이라이트 색상 (HEX 코드)"
+    )
 
     @field_validator("theme")
     @classmethod
@@ -131,6 +135,7 @@ class ProfileConfigRead(SQLModel):
     timezone: str = Field(description="사용자 타임존")
     theme: str = Field(description="앱 테마 (light, dark, auto)")
     notification_enabled: bool = Field(description="알림 활성화 여부")
+    highlight_color: str = Field(description="Clue 하이라이트 색상 (HEX 코드)")
 
 
 class ProfileConfigUpdate(SQLModel):
@@ -165,6 +170,9 @@ class ProfileConfigUpdate(SQLModel):
     timezone: str | None = Field(default=None, max_length=50, description="타임존 (예: Asia/Seoul)")
     theme: str | None = Field(default=None, max_length=20, description="테마 (light, dark, auto)")
     notification_enabled: bool | None = Field(default=None, description="알림 활성화 여부")
+    highlight_color: str | None = Field(
+        default=None, max_length=20, description="Clue 하이라이트 색상 (HEX 코드)"
+    )
 
     @field_validator("theme")
     @classmethod

@@ -120,3 +120,60 @@ class DeckDetailRead(SQLModel):
     learning_cards: int = Field(description="학습 중인 카드 수 (LEARNING/RELEARNING 상태)")
     new_cards: int = Field(description="미학습 카드 수 (NEW 상태)")
     progress_percent: float = Field(description="학습 진행률 (%)")
+
+
+# ============================================================
+# Category Schemas
+# ============================================================
+
+
+class CategoryInfo(SQLModel):
+    """카테고리 기본 정보 스키마."""
+
+    id: str = Field(description="카테고리 ID (예: exam, textbook)")
+    name: str = Field(description="카테고리 이름 (예: 시험, 교과서)")
+    description: str = Field(description="카테고리 설명")
+    icon: str = Field(description="카테고리 아이콘 (이모지)")
+
+
+class CategoryWithStats(CategoryInfo):
+    """카테고리 정보 + 통계 스키마."""
+
+    total_decks: int = Field(description="해당 카테고리의 전체 덱 수")
+    selected_decks: int = Field(description="해당 카테고리에서 선택된 덱 수")
+    selection_state: str = Field(
+        description="선택 상태: all(전체 선택), partial(일부 선택), none(미선택)"
+    )
+
+
+class CategoriesResponse(SQLModel):
+    """카테고리 목록 응답 스키마."""
+
+    categories: list[CategoryWithStats] = Field(description="카테고리 목록")
+
+
+class CategoryDetail(SQLModel):
+    """카테고리 상세 정보 스키마 (통계 제외)."""
+
+    id: str = Field(description="카테고리 ID")
+    name: str = Field(description="카테고리 이름")
+    description: str = Field(description="카테고리 설명")
+
+
+class DeckInCategory(SQLModel):
+    """카테고리 내 덱 정보 스키마."""
+
+    id: int = Field(description="덱 고유 ID")
+    name: str = Field(description="덱 이름")
+    description: str | None = Field(default=None, description="덱 설명")
+    total_cards: int = Field(description="덱 내 총 카드 수")
+    is_selected: bool = Field(description="해당 덱이 사용자에게 선택되었는지 여부")
+
+
+class CategoryDecksResponse(SQLModel):
+    """카테고리별 덱 목록 응답 스키마."""
+
+    category: CategoryDetail = Field(description="카테고리 정보")
+    decks: list[DeckInCategory] = Field(description="해당 카테고리의 덱 목록")
+    total_decks: int = Field(description="해당 카테고리의 전체 덱 수")
+    selected_decks: int = Field(description="해당 카테고리에서 선택된 덱 수")

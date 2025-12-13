@@ -27,11 +27,21 @@ class ClozeQuestion(SQLModel):
 class SessionStartRequest(SQLModel):
     """학습 세션 시작 요청 스키마."""
 
-    new_cards_limit: int = Field(
-        default=30, ge=0, le=50, description="포함할 최대 신규 카드 수 (0~50)"
+    new_cards_limit: int | None = Field(
+        default=None,
+        ge=0,
+        le=50,
+        description="포함할 최대 신규 카드 수 (0~50). use_profile_ratio=True면 무시됨",
     )
-    review_cards_limit: int = Field(
-        default=30, ge=0, le=100, description="포함할 최대 복습 카드 수 (0~100)"
+    review_cards_limit: int | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description="포함할 최대 복습 카드 수 (0~100). use_profile_ratio=True면 무시됨",
+    )
+    use_profile_ratio: bool = Field(
+        default=True,
+        description="프로필의 복습 비율 설정 사용 여부. True면 daily_goal과 review_ratio_mode 기반으로 자동 계산",
     )
 
 

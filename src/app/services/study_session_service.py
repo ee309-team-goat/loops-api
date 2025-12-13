@@ -53,16 +53,39 @@ class StudySessionService:
     async def start_session(
         session: AsyncSession,
         user_id: UUID,
-        new_cards_limit: int = 10,
-        review_cards_limit: int = 20,
+        new_cards_limit: int | None = None,
+        review_cards_limit: int | None = None,
+        use_profile_ratio: bool = True,
     ) -> SessionStartResponse:
         """
         Start a new study session.
 
         Creates a StudySession record in DB and returns session info.
         Cards are NOT returned here - use get_next_card() to get each card.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            new_cards_limit: Max new cards (ignored if use_profile_ratio=True)
+            review_cards_limit: Max review cards (ignored if use_profile_ratio=True)
+            use_profile_ratio: If True, calculate limits from profile settings
         """
         started_at = datetime.now(UTC)
+
+        # Get profile for ratio calculation
+        profile = await session.get(Profile, user_id)
+
+        if use_profile_ratio and profile:
+            # Calculate limits based on profile settings
+            new_cards_limit, review_cards_limit = (
+                StudySessionService._calculate_card_limits(profile)
+            )
+        else:
+            # Use provided limits or defaults
+            new_cards_limit = new_cards_limit if new_cards_limit is not None else 10
+            review_cards_limit = (
+                review_cards_limit if review_cards_limit is not None else 20
+            )
 
         # Get new cards
         new_cards = await StudySessionService._get_new_cards(
@@ -634,6 +657,51 @@ class StudySessionService:
                     )
 
         return None
+
+    # ============================================================
+    # Helper Methods: Card Limits Calculation
+    # ============================================================
+
+    @staticmethod
+    def _calculate_card_limits(profile: Profile) -> tuple[int, int]:
+        """
+        Calculate new_cards_limit and review_cards_limit based on profile settings.
+
+        Args:
+            profile: User profile with review ratio settings
+
+        Returns:
+            Tuple of (new_cards_limit, review_cards_limit)
+
+        Modes:
+        - normal: 새 단어 최소 min_new_ratio(25%) 보장
+        - custom: 복습 비율 custom_review_ratio 그대로 적용
+
+        Examples:
+        - normal mode, daily_goal=20, min_new_ratio=0.25:
+          -> new=5 (25%), review=15 (75%)
+        - custom mode, daily_goal=20, custom_review_ratio=0.6:
+          -> new=8 (40%), review=12 (60%)
+        """
+        daily_goal = profile.daily_goal
+
+        if profile.review_ratio_mode == "custom":
+            # Custom mode: use custom_review_ratio directly
+            review_ratio = profile.custom_review_ratio
+            new_ratio = 1.0 - review_ratio
+        else:
+            # Normal mode: guarantee minimum new ratio
+            new_ratio = profile.min_new_ratio
+            review_ratio = 1.0 - new_ratio
+
+        new_cards_limit = max(1, int(daily_goal * new_ratio))
+        review_cards_limit = max(1, int(daily_goal * review_ratio))
+
+        # Ensure limits don't exceed maximums
+        new_cards_limit = min(new_cards_limit, 50)
+        review_cards_limit = min(review_cards_limit, 100)
+
+        return new_cards_limit, review_cards_limit
 
     # ============================================================
     # Helper Methods: Messages

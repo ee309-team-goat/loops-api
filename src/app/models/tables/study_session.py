@@ -34,7 +34,11 @@ class StudySession(StudySessionBase, TimestampMixin, table=True):
     # 세션 상태
     status: SessionStatus = Field(
         default=SessionStatus.ACTIVE,
-        sa_column=Column(Enum(SessionStatus), nullable=False, index=True),
+        sa_column=Column(
+            Enum(SessionStatus, values_callable=lambda x: [e.value for e in x]),
+            nullable=False,
+            index=True,
+        ),
     )
 
     # 카드 목록 (학습할 카드 ID 목록)

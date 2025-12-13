@@ -46,7 +46,11 @@ class UserCardProgress(UserCardProgressBase, TimestampMixin, table=True):
 
     card_state: CardState = Field(
         default=CardState.NEW,
-        sa_column=Column(Enum(CardState), nullable=False, index=True),
+        sa_column=Column(
+            Enum(CardState, values_callable=lambda x: [e.value for e in x]),
+            nullable=False,
+            index=True,
+        ),
     )
 
     quality_history: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))

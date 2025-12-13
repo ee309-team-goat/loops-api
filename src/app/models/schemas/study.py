@@ -33,6 +33,10 @@ class SessionStartRequest(SQLModel):
     review_cards_limit: int = Field(
         default=30, ge=0, le=100, description="포함할 최대 복습 카드 수 (0~100)"
     )
+    use_profile_ratio: bool = Field(
+        default=True,
+        description="true면 프로필의 학습 비율/목표로 카드 구성을 계산합니다. false면 new_cards_limit/review_cards_limit를 그대로 사용합니다.",
+    )
 
 
 class SessionStartResponse(SQLModel):
@@ -43,6 +47,42 @@ class SessionStartResponse(SQLModel):
     new_cards_count: int = Field(description="신규 카드 수")
     review_cards_count: int = Field(description="복습 카드 수")
     started_at: datetime = Field(description="세션 시작 시간 (UTC)")
+
+
+# ============================================================
+# Session Preview
+# ============================================================
+
+
+class SessionPreviewRequest(SQLModel):
+    """학습 세션 프리뷰 요청 스키마."""
+
+    total_cards: int = Field(ge=1, le=150, description="총 학습할 카드 수 (1~150)")
+    review_ratio: float = Field(ge=0.0, le=1.0, description="복습 카드 비율 (0.0~1.0)")
+
+
+class SessionPreviewAvailable(SQLModel):
+    """현재 사용 가능한 카드 수."""
+
+    new_cards: int = Field(ge=0, description="사용 가능한 신규 카드 수")
+    review_cards: int = Field(ge=0, description="사용 가능한 복습 예정 카드 수 (재학습 제외)")
+    relearning_cards: int = Field(ge=0, description="사용 가능한 재학습 카드 수")
+
+
+class SessionPreviewAllocation(SQLModel):
+    """요청 설정에 따른 카드 배정 결과."""
+
+    new_cards: int = Field(ge=0, description="배정될 신규 카드 수")
+    review_cards: int = Field(ge=0, description="배정될 복습 카드 수 (재학습 포함)")
+    total: int = Field(ge=0, description="총 배정 카드 수")
+
+
+class SessionPreviewResponse(SQLModel):
+    """학습 세션 프리뷰 응답 스키마."""
+
+    available: SessionPreviewAvailable = Field(description="현재 사용 가능한 카드 수")
+    allocation: SessionPreviewAllocation = Field(description="카드 배정 결과")
+    message: str | None = Field(default=None, description="경고/안내 메시지 (카드 부족 등)")
 
 
 # ============================================================
@@ -105,7 +145,8 @@ class AnswerRequest(SQLModel):
 
     # 퀴즈 유형 (Issue #53 - 오답 노트용)
     quiz_type: str | None = Field(
-        default=None, description="퀴즈 유형 (word_to_meaning/meaning_to_word/cloze/listening)"
+        default=None,
+        description="퀴즈 유형 (word_to_meaning/meaning_to_word/cloze/listening)",
     )
 
 

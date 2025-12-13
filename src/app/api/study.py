@@ -228,32 +228,40 @@ async def submit_answer(
     - `card_id`: 카드 ID
     - `answer`: 사용자 답변
     - `response_time_ms`: 응답 시간 (밀리초, 선택)
+    - `hint_count`: 사용한 힌트 횟수 (0=미사용, 선택)
+    - `revealed_answer`: 정답 공개 여부 (선택)
 
     **처리 내용:**
     1. 정답 확인
-    2. FSRS 알고리즘으로 다음 복습 일정 계산
-    3. 세션 통계 업데이트 (정답/오답 수)
+    2. 힌트 사용에 따른 점수 계산 (기본 100점, 힌트당 -20점)
+    3. FSRS 알고리즘으로 다음 복습 일정 계산 (힌트 사용 시 Hard로 처리)
+    4. 세션 통계 업데이트 (정답/오답 수)
 
     **반환 정보:**
     - `card_id`: 카드 ID
     - `is_correct`: 정답 여부
     - `correct_answer`: 정답
     - `user_answer`: 사용자 답변
-    - `feedback`: 피드백 메시지 (오답 시)
+    - `feedback`: 피드백 메시지
+    - `score`: 획득 점수 (0~100)
+    - `hint_penalty`: 힌트로 인한 감점
     - `next_review_date`: 다음 복습 예정일 (FSRS 계산)
     - `card_state`: 카드 상태 (NEW/LEARNING/REVIEW/RELEARNING)
 
     **FSRS 업데이트:**
-    - 정답 시: Rating 3 (Good) 적용
-    - 오답 시: Rating 1 (Again) 적용
+    - 정답 (힌트 미사용): Rating 3 (Good) 적용
+    - 정답 (힌트 사용): Rating 2 (Hard) 적용
+    - 오답 또는 정답 공개: Rating 1 (Again) 적용
     """
     return await StudySessionService.submit_answer(
         session=session,
         user_id=current_profile.id,
         session_id=request.session_id,
         card_id=request.card_id,
-        answer=request.answer,
+        user_answer=request.answer,
         response_time_ms=request.response_time_ms,
+        hint_count=request.hint_count,
+        revealed_answer=request.revealed_answer,
     )
 
 

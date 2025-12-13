@@ -110,6 +110,7 @@ class StudyCard(SQLModel):
         default=None, description="예문 목록 [{sentence, translation}]"
     )
     audio_url: str | None = Field(default=None, description="오디오 URL")
+    image_url: str | None = Field(default=None, description="연상 이미지 URL")
     is_new: bool = Field(description="신규 카드 여부. true=처음 학습, false=복습 카드")
 
     # 퀴즈 포맷팅 필드
@@ -249,6 +250,42 @@ class StudyOverviewResponse(SQLModel):
     review_cards_count: int = Field(description="복습 예정 카드 수")
     total_available: int = Field(description="총 학습 가능 카드 수")
     due_cards: list[DueCardSummary] = Field(description="복습 예정 카드 목록")
+
+
+# ============================================================
+# Session Preview
+# ============================================================
+
+
+class AvailableCards(SQLModel):
+    """세션에 사용할 수 있는 카드 수."""
+
+    new_cards: int = Field(description="가능한 신규 카드 수")
+    review_cards: int = Field(description="가능한 복습 카드 수")
+    relearning_cards: int = Field(description="가능한 재학습(RELEARNING) 카드 수")
+
+
+class CardAllocation(SQLModel):
+    """세션에 배정된 카드 수."""
+
+    new_cards: int = Field(description="배정된 신규 카드 수")
+    review_cards: int = Field(description="배정된 복습 카드 수")
+    total: int = Field(description="총 배정 카드 수")
+
+
+class SessionPreviewRequest(SQLModel):
+    """학습 세션 미리보기 요청 스키마."""
+
+    total_cards: int = Field(ge=1, le=200, description="이번 세션 총 카드 수")
+    review_ratio: float = Field(ge=0.0, le=1.0, description="복습 카드 비율 (0.0~1.0)")
+
+
+class SessionPreviewResponse(SQLModel):
+    """학습 세션 미리보기 응답 스키마."""
+
+    available: AvailableCards = Field(description="사용 가능한 카드 수")
+    allocation: CardAllocation = Field(description="배정된 카드 수")
+    message: str | None = Field(default=None, description="조정/부족 안내 메시지")
 
 
 # ============================================================

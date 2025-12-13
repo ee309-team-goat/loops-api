@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import NotFoundError, UnprocessableEntityError, ValidationError
 from app.models import (
     AnswerResponse,
     CardResponse,
@@ -938,6 +938,18 @@ class StudySessionService:
                 session, correct_answer, quiz_type, card
             )
 
+        elif quiz_type == QuizType.IMAGE_TO_WORD:
+            if not card.image_url:
+                raise UnprocessableEntityError(
+                    "Image is not available for this card",
+                    details={"card_id": card.id, "quiz_type": quiz_type.value},
+                )
+            question = "🖼️ Look at the image and choose the correct word"
+            correct_answer = card.english_word
+            options = await StudySessionService._generate_options(
+                session, correct_answer, quiz_type, card
+            )
+
         else:
             # Default
             question = card.english_word
@@ -952,6 +964,7 @@ class StudySessionService:
             definition_en=card.definition_en,
             example_sentences=card.example_sentences,
             audio_url=card.audio_url,
+            image_url=card.image_url,
             is_new=is_new,
             quiz_type=quiz_type,
             question=question,

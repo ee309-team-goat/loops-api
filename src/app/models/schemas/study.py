@@ -213,3 +213,44 @@ class StudyOverviewResponse(SQLModel):
     review_cards_count: int = Field(description="복습 예정 카드 수")
     total_available: int = Field(description="총 학습 가능 카드 수")
     due_cards: list[DueCardSummary] = Field(description="복습 예정 카드 목록")
+    daily_goal: DailyGoalStatus = Field(description="일일 목표 진행 상황")
+
+
+# ============================================================
+# Session Preview
+# ============================================================
+
+
+class AvailableCards(SQLModel):
+    """현재 학습 가능한 카드 수 스키마."""
+
+    new_cards: int = Field(description="사용 가능한 신규 카드 수")
+    review_cards: int = Field(description="복습 예정 카드 수")
+    relearning_cards: int = Field(description="재학습 카드 수 (RELEARNING 상태)")
+
+
+class CardAllocation(SQLModel):
+    """세션 설정에 따른 카드 배정 수 스키마."""
+
+    new_cards: int = Field(description="이 세션에 배정될 신규 카드 수")
+    review_cards: int = Field(description="이 세션에 배정될 복습 카드 수 (재학습 포함)")
+    total: int = Field(description="총 배정 카드 수")
+
+
+class SessionPreviewRequest(SQLModel):
+    """학습 세션 프리뷰 요청 스키마."""
+
+    total_cards: int = Field(ge=1, le=150, description="총 카드 수 (1~150)")
+    review_ratio: float = Field(
+        ge=0.0, le=1.0, description="복습 카드 비율 (0.0~1.0). 예: 0.6 = 60% 복습"
+    )
+
+
+class SessionPreviewResponse(SQLModel):
+    """학습 세션 프리뷰 응답 스키마."""
+
+    available: AvailableCards = Field(description="현재 사용 가능한 카드 수")
+    allocation: CardAllocation = Field(description="설정에 따른 카드 배정")
+    message: str | None = Field(
+        default=None, description="경고 메시지 (예: 사용 가능한 카드가 부족할 때)"
+    )

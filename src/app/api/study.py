@@ -19,6 +19,8 @@ from app.models import (
     CardResponse,
     SessionCompleteRequest,
     SessionCompleteResponse,
+    SessionPreviewRequest,
+    SessionPreviewResponse,
     SessionStartRequest,
     SessionStartResponse,
     StudyOverviewResponse,
@@ -46,6 +48,55 @@ TAG_METADATA = {
 }
 
 router = APIRouter(prefix="/study", tags=[TAG])
+
+
+@router.post(
+    "/session/preview",
+    response_model=SessionPreviewResponse,
+    summary="학습 세션 프리뷰",
+    description="세션 설정에 따른 카드 배정을 미리 확인합니다. 총 카드 수와 복습 비율을 입력하면 실제 배정될 카드 구성을 반환합니다.",
+    responses={
+        200: {"description": "프리뷰 조회 성공. 사용 가능한 카드와 배정 결과 반환"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        422: {"description": "유효성 검사 실패 - 잘못된 파라미터 값"},
+    },
+)
+async def preview_study_session(
+    request: SessionPreviewRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
+) -> SessionPreviewResponse:
+    """
+    학습 세션 프리뷰를 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **요청 본문:**
+    - `total_cards`: 총 학습할 카드 수 (1~150)
+    - `review_ratio`: 복습 카드 비율 (0.0~1.0)
+      - 예: 0.6 = 60% 복습, 40% 신규
+
+    **반환 정보:**
+    - `available`: 현재 사용 가능한 카드 수
+      - `new_cards`: 사용 가능한 신규 카드 수
+      - `review_cards`: 복습 예정 카드 수
+      - `relearning_cards`: 재학습 카드 수
+    - `allocation`: 설정에 따른 카드 배정
+      - `new_cards`: 배정될 신규 카드 수
+      - `review_cards`: 배정될 복습 카드 수 (재학습 포함)
+      - `total`: 총 배정 카드 수
+    - `message`: 경고 메시지 (카드 부족 시)
+
+    **사용 시나리오:**
+    - 모달에서 사용자가 단어 개수/복습 비율 조정 시 실시간 프리뷰
+    - "새로운 단어 8개 + 복습할 단어 12개" 미리보기
+    """
+    return await StudySessionService.preview_session(
+        session=session,
+        user_id=current_profile.id,
+        total_cards=request.total_cards,
+        review_ratio=request.review_ratio,
+    )
 
 
 @router.post(
@@ -285,7 +336,7 @@ async def complete_study_session(
     "/overview",
     response_model=StudyOverviewResponse,
     summary="학습 현황 개요",
-    description="신규/복습 카드 수와 복습 예정 카드 목록을 반환합니다.",
+    description="신규/복습 카드 수와 복습 예정 카드 목록, 일일 목표 진행 상황을 반환합니다.",
     responses={
         200: {"description": "학습 현황 조회 성공"},
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
@@ -314,10 +365,16 @@ async def get_study_overview(
       - `korean_meaning`: 한국어 뜻
       - `next_review_date`: 다음 복습 예정일
       - `card_state`: 카드 상태
+    - `daily_goal`: 일일 목표 진행 상황
+      - `goal`: 설정된 일일 목표 카드 수
+      - `completed`: 오늘 완료한 카드 수
+      - `progress`: 진행률 (%)
+      - `is_completed`: 목표 달성 여부
 
     **사용 시나리오:**
     - 대시보드에서 "오늘 학습할 카드: 신규 15개 + 복습 8개" 표시
     - 세션 시작 전 학습 가능한 카드 미리보기
+    - "오늘의 학습 미완료" 여부 판단
     """
     return await StudySessionService.get_overview(
         session=session,

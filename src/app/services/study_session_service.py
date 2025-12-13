@@ -42,6 +42,9 @@ from app.services.profile_service import ProfileService
 from app.services.user_card_progress_service import UserCardProgressService
 from app.services.wrong_answer_service import WrongAnswerService
 
+# CEFR level order for i+1 calculation
+CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
+
 
 class StudySessionService:
     """Service for study session operations."""

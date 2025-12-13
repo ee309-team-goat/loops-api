@@ -68,3 +68,7 @@ class VocabularyCard(VocabularyCardBase, TimestampMixin, table=True):
     # Pre-generated cloze sentences for quiz mode
     # Format: [{"sentence": "The company signed a _____ with...", "answer": "contract", "hint": "계약"}, ...]
     cloze_sentences: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))
+
+    # Related words for association network (Issue #51)
+    # Format: [{"word": "renovate", "meaning": "혁신하다", "relation_type": "etymology", "reason": "같은 어원 nov-"}, ...]
+    related_words: dict[str, Any] | list[Any] | None = Field(default=None, sa_column=Column(JSON))

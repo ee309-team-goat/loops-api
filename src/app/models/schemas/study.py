@@ -248,6 +248,61 @@ class SessionPreviewResponse(SQLModel):
 
 
 # ============================================================
+# Session Status & Abandon (Issue #54)
+# ============================================================
+
+
+class SessionDailyGoalInfo(SQLModel):
+    """세션 상태 조회 시 일일 목표 정보."""
+
+    goal: int = Field(description="일일 목표 카드 수")
+    completed_today: int = Field(description="오늘 완료한 카드 수")
+    remaining_for_goal: int = Field(description="목표까지 남은 카드 수")
+    will_complete_goal: bool = Field(description="현재 세션 완료 시 목표 달성 여부")
+
+
+class SessionStatusResponse(SQLModel):
+    """세션 상태 조회 응답 스키마."""
+
+    session_id: UUID = Field(description="세션 ID")
+    status: str = Field(description="세션 상태 (active/completed/abandoned)")
+    total_cards: int = Field(description="총 카드 수")
+    completed_cards: int = Field(description="완료한 카드 수")
+    remaining_cards: int = Field(description="남은 카드 수")
+    correct_count: int = Field(description="정답 수")
+    wrong_count: int = Field(description="오답 수")
+    started_at: datetime = Field(description="세션 시작 시간")
+    elapsed_seconds: int = Field(description="경과 시간 (초)")
+    daily_goal: SessionDailyGoalInfo = Field(description="일일 목표 정보")
+
+
+class SessionAbandonRequest(SQLModel):
+    """세션 중단 요청 스키마."""
+
+    save_progress: bool = Field(default=True, description="진행 상황 저장 여부 (항상 true 권장)")
+
+
+class SessionAbandonSummary(SQLModel):
+    """세션 중단 시 요약 정보."""
+
+    total_cards: int = Field(description="총 카드 수")
+    completed_cards: int = Field(description="완료한 카드 수")
+    correct_count: int = Field(description="정답 수")
+    wrong_count: int = Field(description="오답 수")
+    duration_seconds: int = Field(description="학습 시간 (초)")
+
+
+class SessionAbandonResponse(SQLModel):
+    """세션 중단 응답 스키마."""
+
+    session_id: UUID = Field(description="세션 ID")
+    status: str = Field(description="세션 상태 (abandoned)")
+    summary: SessionAbandonSummary = Field(description="세션 요약")
+    progress_saved: bool = Field(description="진행 상황 저장 여부")
+    message: str = Field(description="안내 메시지")
+
+
+# ============================================================
 # Pronunciation Evaluation (Issue #56)
 # ============================================================
 

@@ -40,10 +40,15 @@ from app.models.schemas import (
     SelectDecksResponse,
     SelectedDeckInfo,
     SelectedDecksSummary,
+    SessionAbandonRequest,
+    SessionAbandonResponse,
+    SessionAbandonSummary,
     SessionCompleteRequest,
     SessionCompleteResponse,
+    SessionDailyGoalInfo,
     SessionStartRequest,
     SessionStartResponse,
+    SessionStatusResponse,
     SessionSummary,
     StatsAccuracyRead,
     StatsHistoryItem,
@@ -174,6 +179,12 @@ __all__ = [
     # Study Overview Schemas
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Session Status & Abandon Schemas
+    "SessionDailyGoalInfo",
+    "SessionStatusResponse",
+    "SessionAbandonRequest",
+    "SessionAbandonSummary",
+    "SessionAbandonResponse",
     # Wrong Answer Schemas
     "WrongAnswerCardInfo",
     "WrongAnswerRead",

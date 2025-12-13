@@ -25,3 +25,11 @@ class QuizType(str, enum.Enum):
     MEANING_TO_WORD = "meaning_to_word"  # 뜻 보고 영어 단어 맞추기
     CLOZE = "cloze"  # 빈칸 채우기
     LISTENING = "listening"  # 발음 듣고 단어 맞추기
+
+
+class ChatRole(str, enum.Enum):
+    """Chat message role enum for word tutor chat."""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"

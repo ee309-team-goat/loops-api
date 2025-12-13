@@ -63,6 +63,13 @@ from app.models.schemas.vocabulary_card import (
     VocabularyCardRead,
     VocabularyCardUpdate,
 )
+from app.models.schemas.word_tutor import (
+    TutorHistoryResponse,
+    TutorMessageRead,
+    TutorMessageRequest,
+    TutorMessageResponse,
+    TutorStartResponse,
+)
 
 __all__ = [
     # Profile
@@ -126,4 +133,10 @@ __all__ = [
     # Study Overview
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Tutor
+    "TutorMessageRequest",
+    "TutorStartResponse",
+    "TutorMessageResponse",
+    "TutorMessageRead",
+    "TutorHistoryResponse",
 ]

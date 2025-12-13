@@ -1,5 +1,9 @@
+import os
+import ssl
 from collections.abc import AsyncGenerator
 
+import certifi
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -11,6 +15,24 @@ from app.config import settings
 from app.models import *  # noqa: F401, F403
 
 # Create async engine
+_db_url = make_url(settings.database_url)
+_connect_args = {}
+# Supabase Postgres requires SSL. For asyncpg, pass ssl=True via connect_args.
+if (
+    _db_url.host and (_db_url.host.endswith("supabase.co") or _db_url.host.endswith("supabase.com"))
+) or ("sslmode" in _db_url.query or "ssl" in _db_url.query):
+    ca_file = os.getenv("DB_SSL_CA_FILE")
+    no_verify = os.getenv("DB_SSL_NO_VERIFY") in {"1", "true", "TRUE", "yes", "YES"}
+
+    if no_verify:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    else:
+        ctx = ssl.create_default_context(cafile=ca_file or certifi.where())
+
+    _connect_args = {"ssl": ctx}
+
 engine = create_async_engine(
     settings.database_url,
     echo=settings.database_echo,
@@ -18,6 +40,7 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
+    connect_args=_connect_args,
 )
 
 # Create async session factory using SQLModel's AsyncSession

@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from sqlmodel import func, select
@@ -66,7 +66,8 @@ class ProfileService:
             return None
 
         # Count today's reviews from UserCardProgress
-        today = datetime.now(UTC).date()
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        today = datetime.utcnow().date()
         statement = select(func.count(UserCardProgress.id)).where(
             UserCardProgress.user_id == profile_id,
             func.date(UserCardProgress.last_review_date) == today,

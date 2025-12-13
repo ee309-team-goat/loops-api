@@ -5,7 +5,7 @@ Quiz 기능이 통합되어 세션 시작, 카드 요청, 정답 제출, 세션 
 """
 
 import random
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from sqlmodel import func, select
@@ -87,7 +87,8 @@ class StudySessionService:
                 message="프로필을 찾을 수 없습니다.",
             )
 
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
 
         # ------------------------------------------------------------
         # Availability: new cards
@@ -222,7 +223,8 @@ class StudySessionService:
             review_cards_limit: Max review cards (ignored if use_profile_ratio=True)
             use_profile_ratio: If True, calculate limits from profile settings
         """
-        started_at = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        started_at = datetime.utcnow()
 
         # Get profile for ratio calculation
         profile = await session.get(Profile, user_id)
@@ -295,7 +297,8 @@ class StudySessionService:
             user_id: User ID
             card_ids: List of card IDs to include in session
         """
-        started_at = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        started_at = datetime.utcnow()
 
         # Shuffle for variety
         random.shuffle(card_ids)
@@ -597,7 +600,8 @@ class StudySessionService:
             raise NotFoundError(f"Profile {user_id} not found")
 
         # Calculate duration (use provided or calculate from timestamps)
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         if duration_seconds is None:
             duration_seconds = int((now - study_session.started_at).total_seconds())
 
@@ -708,7 +712,8 @@ class StudySessionService:
         remaining_cards = total_cards - completed_cards
 
         # Calculate elapsed time
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         elapsed_seconds = int((now - study_session.started_at).total_seconds())
 
         # Get daily goal info
@@ -767,7 +772,8 @@ class StudySessionService:
             raise ValidationError(f"Session is {study_session.status.value}, not active")
 
         # Calculate duration
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         duration_seconds = int((now - study_session.started_at).total_seconds())
 
         # Calculate summary
@@ -848,7 +854,8 @@ class StudySessionService:
         - selected_decks_only: Only review cards from selected decks
         - all_learned: Review all learned cards regardless of deck
         """
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
 
         # Get profile for review_scope setting
         profile = await session.get(Profile, user_id)

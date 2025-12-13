@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from fsrs import Card, Rating, Scheduler
@@ -34,7 +34,8 @@ class UserCardProgressService:
 
         card = Card()
         card.state = state_map.get(progress.card_state, FSRSState.Learning)
-        card.due = progress.next_review_date or datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        card.due = progress.next_review_date or datetime.utcnow()
         card.last_review = progress.last_review_date
 
         # Only set stability/difficulty if card has been reviewed before
@@ -160,7 +161,8 @@ class UserCardProgressService:
         session: AsyncSession, user_id: UUID, limit: int = 20
     ) -> list[UserCardProgress]:
         """Get cards that are due for review."""
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         statement = (
             select(UserCardProgress)
             .where(
@@ -200,7 +202,8 @@ class UserCardProgressService:
             fsrs_rating = rating_map.get(rating_hint, Rating.Good if is_correct else Rating.Again)
         else:
             fsrs_rating = Rating.Good if is_correct else Rating.Again
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
 
         progress = await UserCardProgressService.get_user_card_progress(session, user_id, card_id)
 
@@ -241,16 +244,17 @@ class UserCardProgressService:
             dict with total_reviews, correct_count, wrong_count, accuracy_rate,
             daily_goal, and goal_progress
         """
-        now = datetime.now(UTC)
-        today = now.date()  # Use UTC date for consistency
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
+        today = now.date()
 
         # Get all progress records for user where last_review_date is today
+        today_start = datetime.combine(today, datetime.min.time())
+        today_end = datetime.combine(today, datetime.max.time())
         statement = select(UserCardProgress).where(
             UserCardProgress.user_id == user_id,
-            UserCardProgress.last_review_date
-            >= datetime.combine(today, datetime.min.time()).replace(tzinfo=UTC),
-            UserCardProgress.last_review_date
-            < datetime.combine(today, datetime.max.time()).replace(tzinfo=UTC),
+            UserCardProgress.last_review_date >= today_start,
+            UserCardProgress.last_review_date < today_end,
         )
         result = await session.exec(statement)
         progress_records = list(result.all())
@@ -332,7 +336,8 @@ class UserCardProgressService:
         new_cards_count = result.one()
 
         # Count review cards (due for review)
-        now = datetime.now(UTC)
+        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        now = datetime.utcnow()
         review_cards_query = select(func.count(UserCardProgress.id)).where(
             UserCardProgress.user_id == user_id,
             UserCardProgress.next_review_date <= now,

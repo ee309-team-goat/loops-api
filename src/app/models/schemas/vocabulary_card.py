@@ -81,6 +81,13 @@ class VocabularyCardRead(VocabularyCardBase):
         default=None, description="사용 빈도 순위 (낮을수록 자주 사용)"
     )
     audio_url: str | None = Field(default=None, description="발음 오디오 파일 URL")
+    image_url: str | None = Field(default=None, description="연상 이미지 URL")
+    image_status: str | None = Field(
+        default=None, description="이미지 생성 상태 (pending/ready/failed)"
+    )
+    image_model: str | None = Field(default=None, description="이미지 생성 모델 ID")
+    image_generated_at: Any | None = Field(default=None, description="이미지 생성 시간 (UTC)")
+    image_error: str | None = Field(default=None, description="이미지 생성 실패 메시지")
     example_sentences: list[dict[str, str]] | None = Field(
         default=None, description="예문 목록 [{sentence, translation}]"
     )
@@ -116,6 +123,14 @@ class VocabularyCardUpdate(SQLModel):
     category: str | None = Field(default=None, max_length=50, description="카테고리")
     frequency_rank: int | None = Field(default=None, ge=0, description="사용 빈도 순위")
     audio_url: str | None = Field(default=None, max_length=500, description="발음 오디오 URL")
+    image_url: str | None = Field(default=None, max_length=500, description="연상 이미지 URL")
+    image_status: str | None = Field(default=None, max_length=20, description="이미지 생성 상태")
+    image_model: str | None = Field(default=None, max_length=100, description="이미지 생성 모델 ID")
+    image_prompt: str | None = Field(default=None, description="이미지 생성 프롬프트")
+    image_storage_path: str | None = Field(
+        default=None, max_length=500, description="스토리지 경로"
+    )
+    image_error: str | None = Field(default=None, description="이미지 생성 실패 메시지")
     tags: list[str] | None = Field(default=None, description="태그 목록")
     deck_id: int | None = Field(default=None, gt=0, description="소속 덱 ID")
     is_verified: bool | None = Field(default=None, description="검증 완료 여부")

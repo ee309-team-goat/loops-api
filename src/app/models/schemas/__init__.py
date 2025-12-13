@@ -21,11 +21,16 @@ from app.models.schemas.stats import (
     StatsAccuracyRead,
     StatsHistoryItem,
     StatsHistoryRead,
+    StatsHistorySummary,
+    TodayStatsRead,
+    TodayVocabularyStats,
     TotalLearnedRead,
 )
 from app.models.schemas.study import (
     AnswerRequest,
     AnswerResponse,
+    AvailableCards,
+    CardAllocation,
     CardRequest,
     CardResponse,
     ClozeQuestion,
@@ -37,6 +42,8 @@ from app.models.schemas.study import (
     PronunciationFeedback,
     SessionCompleteRequest,
     SessionCompleteResponse,
+    SessionPreviewRequest,
+    SessionPreviewResponse,
     SessionStartRequest,
     SessionStartResponse,
     SessionSummary,
@@ -118,8 +125,11 @@ __all__ = [
     "TotalLearnedRead",
     "StatsHistoryRead",
     "StatsHistoryItem",
+    "StatsHistorySummary",
     "StatsAccuracyRead",
     "AccuracyByPeriod",
+    "TodayStatsRead",
+    "TodayVocabularyStats",
     # Study Session
     "SessionStartRequest",
     "SessionStartResponse",
@@ -138,6 +148,11 @@ __all__ = [
     # Study Overview
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Session Preview
+    "AvailableCards",
+    "CardAllocation",
+    "SessionPreviewRequest",
+    "SessionPreviewResponse",
     # Pronunciation Evaluation
     "PhonemeFeedback",
     "PronunciationFeedback",

@@ -27,21 +27,11 @@ class ClozeQuestion(SQLModel):
 class SessionStartRequest(SQLModel):
     """학습 세션 시작 요청 스키마."""
 
-    new_cards_limit: int | None = Field(
-        default=None,
-        ge=0,
-        le=50,
-        description="포함할 최대 신규 카드 수 (0~50). use_profile_ratio=True면 무시됨",
+    new_cards_limit: int = Field(
+        default=30, ge=0, le=50, description="포함할 최대 신규 카드 수 (0~50)"
     )
-    review_cards_limit: int | None = Field(
-        default=None,
-        ge=0,
-        le=100,
-        description="포함할 최대 복습 카드 수 (0~100). use_profile_ratio=True면 무시됨",
-    )
-    use_profile_ratio: bool = Field(
-        default=True,
-        description="프로필의 복습 비율 설정 사용 여부. True면 daily_goal과 review_ratio_mode 기반으로 자동 계산",
+    review_cards_limit: int = Field(
+        default=30, ge=0, le=100, description="포함할 최대 복습 카드 수 (0~100)"
     )
 
 
@@ -218,44 +208,47 @@ class StudyOverviewResponse(SQLModel):
     review_cards_count: int = Field(description="복습 예정 카드 수")
     total_available: int = Field(description="총 학습 가능 카드 수")
     due_cards: list[DueCardSummary] = Field(description="복습 예정 카드 목록")
-    daily_goal: DailyGoalStatus = Field(description="일일 목표 진행 상황")
 
 
 # ============================================================
-# Session Preview
+# Pronunciation Evaluation (Issue #56)
 # ============================================================
 
 
-class AvailableCards(SQLModel):
-    """현재 학습 가능한 카드 수 스키마."""
+class PhonemeFeedback(SQLModel):
+    """개별 음소 피드백 스키마."""
 
-    new_cards: int = Field(description="사용 가능한 신규 카드 수")
-    review_cards: int = Field(description="복습 예정 카드 수")
-    relearning_cards: int = Field(description="재학습 카드 수 (RELEARNING 상태)")
-
-
-class CardAllocation(SQLModel):
-    """세션 설정에 따른 카드 배정 수 스키마."""
-
-    new_cards: int = Field(description="이 세션에 배정될 신규 카드 수")
-    review_cards: int = Field(description="이 세션에 배정될 복습 카드 수 (재학습 포함)")
-    total: int = Field(description="총 배정 카드 수")
+    phoneme: str = Field(description="음소 (예: 'ʃ')")
+    score: int = Field(description="해당 음소 점수 (0~100)")
+    tip: str = Field(description="개선 팁")
 
 
-class SessionPreviewRequest(SQLModel):
-    """학습 세션 프리뷰 요청 스키마."""
+class PronunciationFeedback(SQLModel):
+    """발음 피드백 스키마."""
 
-    total_cards: int = Field(ge=1, le=150, description="총 카드 수 (1~150)")
-    review_ratio: float = Field(
-        ge=0.0, le=1.0, description="복습 카드 비율 (0.0~1.0). 예: 0.6 = 60% 복습"
-    )
+    overall: str = Field(description="전체 피드백 메시지")
+    stress: str | None = Field(default=None, description="강세 관련 피드백")
+    sounds: list[PhonemeFeedback] | None = Field(default=None, description="개별 음소 피드백 목록")
 
 
-class SessionPreviewResponse(SQLModel):
-    """학습 세션 프리뷰 응답 스키마."""
+class PronunciationEvaluateRequest(SQLModel):
+    """발음 평가 요청 스키마."""
 
-    available: AvailableCards = Field(description="현재 사용 가능한 카드 수")
-    allocation: CardAllocation = Field(description="설정에 따른 카드 배정")
-    message: str | None = Field(
-        default=None, description="경고 메시지 (예: 사용 가능한 카드가 부족할 때)"
-    )
+    card_id: int | None = Field(default=None, description="평가할 단어의 카드 ID")
+    word: str | None = Field(default=None, description="평가할 단어 (card_id 없을 경우)")
+
+
+class PronunciationEvaluateResponse(SQLModel):
+    """발음 평가 응답 스키마."""
+
+    card_id: int | None = Field(default=None, description="카드 ID")
+    word: str = Field(description="평가한 단어")
+    pronunciation_ipa: str | None = Field(default=None, description="IPA 발음 기호")
+
+    score: int = Field(description="발음 점수 (0~100)")
+    grade: str = Field(description="등급 (excellent/good/fair/needs_practice)")
+
+    feedback: PronunciationFeedback = Field(description="피드백 정보")
+
+    native_audio_url: str | None = Field(default=None, description="네이티브 발음 오디오 URL")
+    user_audio_url: str | None = Field(default=None, description="사용자 녹음 URL (저장된 경우)")

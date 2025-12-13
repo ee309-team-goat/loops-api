@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlmodel import func, select
@@ -101,7 +101,8 @@ class ProfileService:
         if not profile:
             return None
 
-        today = date.today()
+        # Use UTC date for consistency
+        today = datetime.utcnow().date()
 
         # 1. Check if already studied today (same day multiple sessions)
         if profile.last_study_date == today:

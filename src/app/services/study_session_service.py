@@ -4,6 +4,7 @@ Study session service for managing study sessions and card selection.
 Quiz 기능이 통합되어 세션 시작, 카드 요청, 정답 제출, 세션 완료를 모두 처리합니다.
 """
 
+import math
 import random
 from datetime import UTC, datetime
 from uuid import UUID
@@ -40,6 +41,9 @@ from app.models import (
 )
 from app.services.profile_service import ProfileService
 from app.services.user_card_progress_service import UserCardProgressService
+
+# CEFR level order for i+1 calculation
+CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
 class StudySessionService:
@@ -406,40 +410,112 @@ class StudySessionService:
     # ============================================================
 
     @staticmethod
+    def _get_next_cefr_level(current_cefr: str) -> str:
+        """Get the next CEFR level (i+1). C2 stays at C2."""
+        try:
+            idx = CEFR_ORDER.index(current_cefr)
+            if idx < len(CEFR_ORDER) - 1:
+                return CEFR_ORDER[idx + 1]
+            return current_cefr  # C2 stays at C2
+        except ValueError:
+            return "A1"  # Default fallback
+
+    @staticmethod
     async def _get_new_cards(
         session: AsyncSession,
         user_id: UUID,
         limit: int = 10,
     ) -> list[VocabularyCard]:
-        """Get new cards user hasn't seen, ordered by frequency rank."""
+        """
+        Get new cards user hasn't seen with i+1 CEFR logic.
+
+        Cards are selected with 50/50 mix of current level (i) and next level (i+1).
+        Fallback: if not enough cards, fill from other levels.
+        """
         profile = await session.get(Profile, user_id)
         if not profile:
             return []
+
+        # Get user's current CEFR level
+        level_info = await ProfileService.calculate_profile_level(session, user_id)
+        current_cefr = level_info["cefr_equivalent"]
+        next_cefr = StudySessionService._get_next_cefr_level(current_cefr)
+
+        # Calculate 50/50 split
+        i_limit = math.ceil(limit / 2)
+        i_plus_1_limit = math.floor(limit / 2)
 
         # Subquery for cards user has already seen
         seen_cards_subquery = select(UserCardProgress.card_id).where(
             UserCardProgress.user_id == user_id
         )
 
-        # Build query for unseen cards
-        query = select(VocabularyCard).where(VocabularyCard.id.not_in(seen_cards_subquery))
+        # Helper to build base query with deck filtering
+        def build_base_query():
+            query = select(VocabularyCard).where(VocabularyCard.id.not_in(seen_cards_subquery))
+            if profile.select_all_decks:
+                query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
+                    (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
+                )
+            else:
+                selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                    UserSelectedDeck.user_id == user_id
+                )
+                query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
+            return query
 
-        # Apply deck filtering based on user preference
-        if profile.select_all_decks:
-            query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
-                (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
+        # Get cards from current level (i)
+        i_query = build_base_query().where(VocabularyCard.cefr_level == current_cefr)
+        i_query = i_query.order_by(VocabularyCard.frequency_rank.asc().nullslast()).limit(i_limit)
+        result = await session.exec(i_query)
+        i_cards = list(result.all())
+
+        # Get cards from next level (i+1)
+        i_plus_1_cards = []
+        if current_cefr != next_cefr:  # Only if not already at C2
+            i_plus_1_query = build_base_query().where(VocabularyCard.cefr_level == next_cefr)
+            i_plus_1_query = i_plus_1_query.order_by(
+                VocabularyCard.frequency_rank.asc().nullslast()
+            ).limit(i_plus_1_limit)
+            result = await session.exec(i_plus_1_query)
+            i_plus_1_cards = list(result.all())
+
+        # Combine cards
+        cards = i_cards + i_plus_1_cards
+
+        # Fallback: if not enough cards, fill from current level first
+        if len(cards) < limit:
+            remaining = limit - len(cards)
+            existing_ids = [c.id for c in cards]
+
+            # Try to get more from current level
+            fallback_i_query = (
+                build_base_query()
+                .where(VocabularyCard.cefr_level == current_cefr)
+                .where(VocabularyCard.id.not_in(existing_ids))
             )
-        else:
-            selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
-                UserSelectedDeck.user_id == user_id
-            )
-            query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
+            fallback_i_query = fallback_i_query.order_by(
+                VocabularyCard.frequency_rank.asc().nullslast()
+            ).limit(remaining)
+            result = await session.exec(fallback_i_query)
+            fallback_i_cards = list(result.all())
+            cards.extend(fallback_i_cards)
+            existing_ids.extend([c.id for c in fallback_i_cards])
 
-        # Order by frequency rank
-        query = query.order_by(VocabularyCard.frequency_rank.asc().nullslast()).limit(limit)
+        # Fallback: if still not enough, get any unseen cards
+        if len(cards) < limit:
+            remaining = limit - len(cards)
+            existing_ids = [c.id for c in cards]
 
-        result = await session.exec(query)
-        return list(result.all())
+            fallback_query = build_base_query().where(VocabularyCard.id.not_in(existing_ids))
+            fallback_query = fallback_query.order_by(
+                VocabularyCard.frequency_rank.asc().nullslast()
+            ).limit(remaining)
+            result = await session.exec(fallback_query)
+            fallback_cards = list(result.all())
+            cards.extend(fallback_cards)
+
+        return cards
 
     @staticmethod
     async def _get_due_review_cards(

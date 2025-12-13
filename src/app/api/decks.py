@@ -17,6 +17,7 @@ from app.models import (
     CategoriesResponse,
     CategoryDecksResponse,
     CategoryDetail,
+    CategorySelectionState,
     CategoryWithStats,
     Deck,
     DeckDetailRead,
@@ -24,10 +25,12 @@ from app.models import (
     DeckRead,
     DecksListResponse,
     DeckWithProgressRead,
+    DisplayItem,
     GetSelectedDecksResponse,
     SelectDecksRequest,
     SelectDecksResponse,
     SelectedDeckInfo,
+    SelectedDecksSummary,
     UserSelectedDeck,
     VocabularyCard,
 )
@@ -288,13 +291,15 @@ async def get_selected_decks(
     - `select_all`: 전체 덱 선택 여부
     - `deck_ids`: 선택된 덱 ID 목록 (select_all=false일 때만 의미있음)
     - `decks`: 선택된 덱의 상세 정보 (ID, 이름, 총 카드 수, 진행률)
+    - `summary`: 선택된 덱 요약 정보 (코스명, 카테고리별 상태 등)
 
     **참고:**
-    - `select_all: true`인 경우 `deck_ids`와 `decks`는 빈 배열
+    - `select_all: true`인 경우 `deck_ids`, `decks`, `summary`는 빈 배열/null
     """
     select_all = current_profile.select_all_decks
-    deck_ids = []
-    decks = []
+    deck_ids: list[int] = []
+    decks: list[SelectedDeckInfo] = []
+    summary: SelectedDecksSummary | None = None
 
     # If select_all=false, get selected deck IDs from user_selected_decks table
     if not select_all:
@@ -302,21 +307,25 @@ async def get_selected_decks(
             UserSelectedDeck.user_id == current_profile.id
         )
         result = await session.exec(selected_query)
-        selected_decks = list(result.all())
-        deck_ids = [sd.deck_id for sd in selected_decks]
+        selected_decks_records = list(result.all())
+        deck_ids = [sd.deck_id for sd in selected_decks_records]
+        selected_deck_ids_set = set(deck_ids)
 
         # Get deck details with progress for each selected deck
+        total_selected_cards = 0
+        deck_objects: list[Deck] = []
+
         for deck_id in deck_ids:
-            # Get deck
             deck_query = select(Deck).where(Deck.id == deck_id)
             result = await session.exec(deck_query)
             deck = result.one_or_none()
 
             if deck:
-                # Calculate progress
+                deck_objects.append(deck)
                 progress = await DeckService.calculate_deck_progress(
                     session, current_profile.id, deck_id
                 )
+                total_selected_cards += progress["total_cards"]
 
                 deck_info = SelectedDeckInfo(
                     id=deck.id,
@@ -326,11 +335,158 @@ async def get_selected_decks(
                 )
                 decks.append(deck_info)
 
+        # Build category states
+        category_states: list[CategorySelectionState] = []
+        fully_selected_categories: list[dict] = []
+
+        for category_id in get_all_category_ids():
+            metadata = get_category_metadata(category_id)
+            if not metadata:
+                continue
+
+            # Count total decks in this category
+            total_query = select(func.count(Deck.id)).where(
+                Deck.category == category_id,
+                (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
+            )
+            result = await session.exec(total_query)
+            total_decks = result.one() or 0
+
+            if total_decks == 0:
+                continue
+
+            # Get deck IDs in this category
+            decks_in_cat_query = select(Deck.id).where(
+                Deck.category == category_id,
+                (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
+            )
+            result = await session.exec(decks_in_cat_query)
+            category_deck_ids = set(result.all())
+
+            # Count selected decks in this category
+            selected_in_category = category_deck_ids & selected_deck_ids_set
+            selected_count = len(selected_in_category)
+
+            # Calculate selection_state
+            if selected_count == total_decks:
+                selection_state = "all"
+                fully_selected_categories.append(
+                    {
+                        "id": category_id,
+                        "name": metadata["name"],
+                        "count": total_decks,
+                    }
+                )
+            elif selected_count > 0:
+                selection_state = "partial"
+            else:
+                selection_state = "none"
+
+            category_states.append(
+                CategorySelectionState(
+                    category_id=category_id,
+                    category_name=metadata["name"],
+                    total_decks=total_decks,
+                    selected_decks=selected_count,
+                    selection_state=selection_state,
+                )
+            )
+
+        # Generate course name and display items
+        course_name, display_items = _generate_course_name(deck_objects, fully_selected_categories)
+
+        summary = SelectedDecksSummary(
+            course_name=course_name,
+            total_selected_decks=len(deck_ids),
+            total_selected_cards=total_selected_cards,
+            display_items=display_items,
+            category_states=category_states,
+        )
+
     return GetSelectedDecksResponse(
         select_all=select_all,
         deck_ids=deck_ids,
         decks=decks,
+        summary=summary,
     )
+
+
+def _generate_course_name(
+    selected_decks: list[Deck],
+    fully_selected_categories: list[dict],
+) -> tuple[str, list[DisplayItem]]:
+    """
+    코스명 생성 로직.
+
+    규칙:
+    1. 카테고리 전체 선택만 있는 경우:
+       - 1~3개: 카테고리명 나열 (예: "시험, 교과서")
+       - 4개 이상: "첫 번째 카테고리 외 N개"
+    2. 단어장 1개 선택: 해당 단어장명
+    3. 단어장 2개 이상 선택: "첫 번째 단어장명 외 N개"
+    """
+    display_items: list[DisplayItem] = []
+
+    # 부분 선택된 덱 (전체 선택된 카테고리에 속하지 않는 덱)
+    fully_selected_cat_ids = {cat["id"] for cat in fully_selected_categories}
+    partial_decks = [deck for deck in selected_decks if deck.category not in fully_selected_cat_ids]
+
+    # 카테고리 전체 선택만 있는 경우
+    if len(fully_selected_categories) > 0 and len(partial_decks) == 0:
+        for cat in fully_selected_categories:
+            display_items.append(
+                DisplayItem(
+                    type="category",
+                    name=cat["name"],
+                    count=cat["count"],
+                )
+            )
+
+        if len(fully_selected_categories) <= 3:
+            course_name = ", ".join([cat["name"] for cat in fully_selected_categories])
+        else:
+            first_cat = fully_selected_categories[0]["name"]
+            course_name = f"{first_cat} 외 {len(fully_selected_categories) - 1}개"
+
+    # 단어장만 선택된 경우
+    elif len(selected_decks) == 1:
+        deck = selected_decks[0]
+        display_items.append(
+            DisplayItem(
+                type="deck",
+                name=deck.name,
+                count=1,
+            )
+        )
+        course_name = deck.name
+
+    elif len(selected_decks) > 1:
+        # 전체 선택된 카테고리 + 부분 선택 덱 혼합
+        for cat in fully_selected_categories:
+            display_items.append(
+                DisplayItem(
+                    type="category",
+                    name=cat["name"],
+                    count=cat["count"],
+                )
+            )
+
+        for deck in partial_decks:
+            display_items.append(
+                DisplayItem(
+                    type="deck",
+                    name=deck.name,
+                    count=1,
+                )
+            )
+
+        first_deck = selected_decks[0]
+        course_name = f"{first_deck.name} 외 {len(selected_decks) - 1}개"
+
+    else:
+        course_name = "선택된 단어장 없음"
+
+    return course_name, display_items
 
 
 # ============================================================

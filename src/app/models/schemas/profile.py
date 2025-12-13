@@ -21,6 +21,9 @@ class ProfileRead(ProfileBase):
     review_ratio_mode: str = Field(description="복습 비율 모드: normal(일반) | custom(커스텀)")
     custom_review_ratio: float = Field(description="커스텀 모드 복습 비율 (0.0~1.0)")
     min_new_ratio: float = Field(description="일반 모드 최소 새 단어 비율 (0.0~1.0)")
+    review_scope: str = Field(
+        description="복습 범위: selected_decks_only(선택한 단어장만) | all_learned(학습한 모든 단어)"
+    )
     timezone: str = Field(description="사용자 타임존 (예: Asia/Seoul)")
     theme: str = Field(description="앱 테마 (light, dark, auto)")
     notification_enabled: bool = Field(description="알림 활성화 여부")
@@ -54,6 +57,11 @@ class ProfileUpdate(SQLModel):
         le=1.0,
         description="일반 모드 최소 새 단어 비율 (0.0~1.0)",
     )
+    review_scope: str | None = Field(
+        default=None,
+        max_length=30,
+        description="복습 범위: selected_decks_only(선택한 단어장만) | all_learned(학습한 모든 단어)",
+    )
     timezone: str | None = Field(default=None, max_length=50, description="타임존 (예: Asia/Seoul)")
     theme: str | None = Field(default=None, max_length=20, description="테마 (light, dark, auto)")
     notification_enabled: bool | None = Field(default=None, description="알림 활성화 여부")
@@ -83,6 +91,17 @@ class ProfileUpdate(SQLModel):
             raise ValueError(f"Review ratio mode must be one of: {', '.join(allowed_modes)}")
         return v
 
+    @field_validator("review_scope")
+    @classmethod
+    def review_scope_valid(cls, v: str | None) -> str | None:
+        """복습 범위가 허용된 값인지 검증합니다."""
+        if v is None:
+            return v
+        allowed_scopes = {"selected_decks_only", "all_learned"}
+        if v not in allowed_scopes:
+            raise ValueError(f"Review scope must be one of: {', '.join(allowed_scopes)}")
+        return v
+
 
 class DailyGoalRead(SQLModel):
     """일일 목표 조회 응답 스키마."""
@@ -110,6 +129,9 @@ class ProfileConfigRead(SQLModel):
     review_ratio_mode: str = Field(description="복습 비율 모드: normal(일반) | custom(커스텀)")
     custom_review_ratio: float = Field(description="커스텀 모드 복습 비율 (0.0~1.0)")
     min_new_ratio: float = Field(description="일반 모드 최소 새 단어 비율 (0.0~1.0)")
+    review_scope: str = Field(
+        description="복습 범위: selected_decks_only(선택한 단어장만) | all_learned(학습한 모든 단어)"
+    )
     timezone: str = Field(description="사용자 타임존")
     theme: str = Field(description="앱 테마 (light, dark, auto)")
     notification_enabled: bool = Field(description="알림 활성화 여부")
@@ -140,6 +162,11 @@ class ProfileConfigUpdate(SQLModel):
         le=1.0,
         description="일반 모드 최소 새 단어 비율 (0.0~1.0)",
     )
+    review_scope: str | None = Field(
+        default=None,
+        max_length=30,
+        description="복습 범위: selected_decks_only(선택한 단어장만) | all_learned(학습한 모든 단어)",
+    )
     timezone: str | None = Field(default=None, max_length=50, description="타임존 (예: Asia/Seoul)")
     theme: str | None = Field(default=None, max_length=20, description="테마 (light, dark, auto)")
     notification_enabled: bool | None = Field(default=None, description="알림 활성화 여부")
@@ -167,6 +194,17 @@ class ProfileConfigUpdate(SQLModel):
         allowed_modes = {"normal", "custom"}
         if v not in allowed_modes:
             raise ValueError(f"Review ratio mode must be one of: {', '.join(allowed_modes)}")
+        return v
+
+    @field_validator("review_scope")
+    @classmethod
+    def review_scope_valid(cls, v: str | None) -> str | None:
+        """복습 범위가 허용된 값인지 검증합니다."""
+        if v is None:
+            return v
+        allowed_scopes = {"selected_decks_only", "all_learned"}
+        if v not in allowed_scopes:
+            raise ValueError(f"Review scope must be one of: {', '.join(allowed_scopes)}")
         return v
 
 

@@ -37,6 +37,13 @@ class ProfileBase(SQLModel):
         description="일반 모드 최소 새 단어 비율 (기본 25%)",
     )
 
+    # Review scope setting (Issue #49)
+    review_scope: str = Field(
+        default="selected_decks_only",
+        max_length=30,
+        description="복습 범위: selected_decks_only(선택한 단어장만) | all_learned(학습한 모든 단어)",
+    )
+
     # User settings (DB-8)
     timezone: str = Field(default="UTC", max_length=50)
     theme: str = Field(default="auto", max_length=20)  # light/dark/auto

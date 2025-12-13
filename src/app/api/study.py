@@ -94,6 +94,7 @@ async def start_study_session(
         user_id=current_profile.id,
         new_cards_limit=request.new_cards_limit,
         review_cards_limit=request.review_cards_limit,
+        use_profile_ratio=request.use_profile_ratio,
     )
 
 

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Secret key: for admin operations (user deletion, password reset, etc.)
     supabase_secret_key: str = ""
 
+    # OpenAI / LLM settings
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

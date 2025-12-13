@@ -76,6 +76,13 @@ from app.models.schemas.vocabulary_card import (
     VocabularyCardRead,
     VocabularyCardUpdate,
 )
+from app.models.schemas.word_tutor import (
+    TutorHistoryResponse,
+    TutorMessageRead,
+    TutorMessageRequest,
+    TutorMessageResponse,
+    TutorStartResponse,
+)
 from app.models.schemas.wrong_answer import (
     WrongAnswerCardInfo,
     WrongAnswerRead,
@@ -151,6 +158,12 @@ __all__ = [
     # Study Overview
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Tutor
+    "TutorMessageRequest",
+    "TutorStartResponse",
+    "TutorMessageResponse",
+    "TutorMessageRead",
+    "TutorHistoryResponse",
     # Session Status & Abandon
     "SessionDailyGoalInfo",
     "SessionStatusResponse",

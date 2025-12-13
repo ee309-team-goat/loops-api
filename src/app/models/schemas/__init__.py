@@ -35,10 +35,15 @@ from app.models.schemas.study import (
     PronunciationEvaluateRequest,
     PronunciationEvaluateResponse,
     PronunciationFeedback,
+    SessionAbandonRequest,
+    SessionAbandonResponse,
+    SessionAbandonSummary,
     SessionCompleteRequest,
     SessionCompleteResponse,
+    SessionDailyGoalInfo,
     SessionStartRequest,
     SessionStartResponse,
+    SessionStatusResponse,
     SessionSummary,
     StreakInfo,
     StudyCard,
@@ -146,6 +151,12 @@ __all__ = [
     # Study Overview
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Session Status & Abandon
+    "SessionDailyGoalInfo",
+    "SessionStatusResponse",
+    "SessionAbandonRequest",
+    "SessionAbandonSummary",
+    "SessionAbandonResponse",
     # Wrong Answer
     "WrongAnswerCardInfo",
     "WrongAnswerRead",

@@ -4,7 +4,6 @@ Study session service for managing study sessions and card selection.
 Quiz 기능이 통합되어 세션 시작, 카드 요청, 정답 제출, 세션 완료를 모두 처리합니다.
 """
 
-import math
 import random
 from datetime import UTC, datetime
 from uuid import UUID
@@ -15,20 +14,20 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.exceptions import NotFoundError, ValidationError
 from app.models import (
     AnswerResponse,
-    AvailableCards,
-    CardAllocation,
     CardResponse,
-    CardState,
     ClozeQuestion,
     DailyGoalStatus,
     Deck,
     DueCardSummary,
     Profile,
     QuizType,
+    SessionAbandonResponse,
+    SessionAbandonSummary,
     SessionCompleteResponse,
-    SessionPreviewResponse,
+    SessionDailyGoalInfo,
     SessionStartResponse,
     SessionStatus,
+    SessionStatusResponse,
     SessionSummary,
     StreakInfo,
     StudyCard,
@@ -522,19 +521,135 @@ class StudySessionService:
         )
 
     # ============================================================
-    # Helper Methods: Card Selection
+    # Session Status & Abandon (Issue #54)
     # ============================================================
 
     @staticmethod
-    def _get_next_cefr_level(current_cefr: str) -> str:
-        """Get the next CEFR level (i+1). C2 stays at C2."""
-        try:
-            idx = CEFR_ORDER.index(current_cefr)
-            if idx < len(CEFR_ORDER) - 1:
-                return CEFR_ORDER[idx + 1]
-            return current_cefr  # C2 stays at C2
-        except ValueError:
-            return "A1"  # Default fallback
+    async def get_session_status(
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+    ) -> SessionStatusResponse:
+        """
+        Get current session status with progress info.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            session_id: Study session ID
+
+        Returns:
+            SessionStatusResponse with progress and daily goal info
+        """
+        # Get study session
+        study_session = await session.get(StudySession, session_id)
+        if not study_session:
+            raise NotFoundError(f"Session {session_id} not found")
+
+        if study_session.user_id != user_id:
+            raise ValidationError("Session does not belong to this user")
+
+        # Get profile for daily goal
+        profile = await session.get(Profile, user_id)
+        if not profile:
+            raise NotFoundError(f"Profile {user_id} not found")
+
+        # Calculate progress
+        total_cards = len(study_session.card_ids)
+        completed_cards = study_session.correct_count + study_session.wrong_count
+        remaining_cards = total_cards - completed_cards
+
+        # Calculate elapsed time
+        now = datetime.now(UTC)
+        elapsed_seconds = int((now - study_session.started_at).total_seconds())
+
+        # Get daily goal info
+        daily_goal_data = await ProfileService.get_daily_goal(session, profile.id)
+        goal = daily_goal_data["daily_goal"]
+        completed_today = daily_goal_data["completed_today"]
+        remaining_for_goal = max(0, goal - completed_today)
+        will_complete_goal = (completed_today + remaining_cards) >= goal
+
+        return SessionStatusResponse(
+            session_id=study_session.id,
+            status=study_session.status.value,
+            total_cards=total_cards,
+            completed_cards=completed_cards,
+            remaining_cards=remaining_cards,
+            correct_count=study_session.correct_count,
+            wrong_count=study_session.wrong_count,
+            started_at=study_session.started_at,
+            elapsed_seconds=elapsed_seconds,
+            daily_goal=SessionDailyGoalInfo(
+                goal=goal,
+                completed_today=completed_today,
+                remaining_for_goal=remaining_for_goal,
+                will_complete_goal=will_complete_goal,
+            ),
+        )
+
+    @staticmethod
+    async def abandon_session(
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+        save_progress: bool = True,
+    ) -> SessionAbandonResponse:
+        """
+        Abandon a study session.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            session_id: Study session ID
+            save_progress: Whether to save progress (always True recommended)
+
+        Returns:
+            SessionAbandonResponse with summary
+        """
+        # Get study session
+        study_session = await session.get(StudySession, session_id)
+        if not study_session:
+            raise NotFoundError(f"Session {session_id} not found")
+
+        if study_session.user_id != user_id:
+            raise ValidationError("Session does not belong to this user")
+
+        if study_session.status != SessionStatus.ACTIVE:
+            raise ValidationError(f"Session is {study_session.status.value}, not active")
+
+        # Calculate duration
+        now = datetime.now(UTC)
+        duration_seconds = int((now - study_session.started_at).total_seconds())
+
+        # Calculate summary
+        completed_cards = study_session.correct_count + study_session.wrong_count
+
+        # Update session status
+        study_session.status = SessionStatus.ABANDONED
+        study_session.completed_at = now
+        session.add(study_session)
+        await session.commit()
+
+        message = "학습 진행 상황이 저장되었습니다." if save_progress else "세션이 종료되었습니다."
+
+        return SessionAbandonResponse(
+            session_id=study_session.id,
+            status="abandoned",
+            summary=SessionAbandonSummary(
+                total_cards=len(study_session.card_ids),
+                completed_cards=completed_cards,
+                correct_count=study_session.correct_count,
+                wrong_count=study_session.wrong_count,
+                duration_seconds=duration_seconds,
+            ),
+            progress_saved=save_progress,
+            message=message,
+        )
+
+    # ============================================================
+    # Helper Methods: Card Selection
+    # ============================================================
 
     @staticmethod
     async def _get_new_cards(
@@ -542,96 +657,35 @@ class StudySessionService:
         user_id: UUID,
         limit: int = 10,
     ) -> list[VocabularyCard]:
-        """
-        Get new cards user hasn't seen with i+1 CEFR logic.
-
-        Cards are selected with 50/50 mix of current level (i) and next level (i+1).
-        Fallback: if not enough cards, fill from other levels.
-        """
+        """Get new cards user hasn't seen, ordered by frequency rank."""
         profile = await session.get(Profile, user_id)
         if not profile:
             return []
-
-        # Get user's current CEFR level
-        level_info = await ProfileService.calculate_profile_level(session, user_id)
-        current_cefr = level_info["cefr_equivalent"]
-        next_cefr = StudySessionService._get_next_cefr_level(current_cefr)
-
-        # Calculate 50/50 split
-        i_limit = math.ceil(limit / 2)
-        i_plus_1_limit = math.floor(limit / 2)
 
         # Subquery for cards user has already seen
         seen_cards_subquery = select(UserCardProgress.card_id).where(
             UserCardProgress.user_id == user_id
         )
 
-        # Helper to build base query with deck filtering
-        def build_base_query():
-            query = select(VocabularyCard).where(VocabularyCard.id.not_in(seen_cards_subquery))
-            if profile.select_all_decks:
-                query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
-                    (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
-                )
-            else:
-                selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
-                    UserSelectedDeck.user_id == user_id
-                )
-                query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
-            return query
+        # Build query for unseen cards
+        query = select(VocabularyCard).where(VocabularyCard.id.not_in(seen_cards_subquery))
 
-        # Get cards from current level (i)
-        i_query = build_base_query().where(VocabularyCard.cefr_level == current_cefr)
-        i_query = i_query.order_by(VocabularyCard.frequency_rank.asc().nullslast()).limit(i_limit)
-        result = await session.exec(i_query)
-        i_cards = list(result.all())
-
-        # Get cards from next level (i+1)
-        i_plus_1_cards = []
-        if current_cefr != next_cefr:  # Only if not already at C2
-            i_plus_1_query = build_base_query().where(VocabularyCard.cefr_level == next_cefr)
-            i_plus_1_query = i_plus_1_query.order_by(
-                VocabularyCard.frequency_rank.asc().nullslast()
-            ).limit(i_plus_1_limit)
-            result = await session.exec(i_plus_1_query)
-            i_plus_1_cards = list(result.all())
-
-        # Combine cards
-        cards = i_cards + i_plus_1_cards
-
-        # Fallback: if not enough cards, fill from current level first
-        if len(cards) < limit:
-            remaining = limit - len(cards)
-            existing_ids = [c.id for c in cards]
-
-            # Try to get more from current level
-            fallback_i_query = (
-                build_base_query()
-                .where(VocabularyCard.cefr_level == current_cefr)
-                .where(VocabularyCard.id.not_in(existing_ids))
+        # Apply deck filtering based on user preference
+        if profile.select_all_decks:
+            query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
+                (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
             )
-            fallback_i_query = fallback_i_query.order_by(
-                VocabularyCard.frequency_rank.asc().nullslast()
-            ).limit(remaining)
-            result = await session.exec(fallback_i_query)
-            fallback_i_cards = list(result.all())
-            cards.extend(fallback_i_cards)
-            existing_ids.extend([c.id for c in fallback_i_cards])
+        else:
+            selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                UserSelectedDeck.user_id == user_id
+            )
+            query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
 
-        # Fallback: if still not enough, get any unseen cards
-        if len(cards) < limit:
-            remaining = limit - len(cards)
-            existing_ids = [c.id for c in cards]
+        # Order by frequency rank
+        query = query.order_by(VocabularyCard.frequency_rank.asc().nullslast()).limit(limit)
 
-            fallback_query = build_base_query().where(VocabularyCard.id.not_in(existing_ids))
-            fallback_query = fallback_query.order_by(
-                VocabularyCard.frequency_rank.asc().nullslast()
-            ).limit(remaining)
-            result = await session.exec(fallback_query)
-            fallback_cards = list(result.all())
-            cards.extend(fallback_cards)
-
-        return cards
+        result = await session.exec(query)
+        return list(result.all())
 
     @staticmethod
     async def _get_due_review_cards(
@@ -951,7 +1005,7 @@ class StudySessionService:
             limit: Maximum number of due cards to return
 
         Returns:
-            StudyOverviewResponse with counts, due cards, and daily goal progress
+            StudyOverviewResponse with counts and due cards
         """
         # Get counts using existing service method
         count_data = await UserCardProgressService.get_new_cards_count(session, user_id)
@@ -979,145 +1033,9 @@ class StudySessionService:
                     )
                 )
 
-        # Get profile for daily_goal
-        profile = await session.get(Profile, user_id)
-        if not profile:
-            raise NotFoundError(f"Profile not found for user {user_id}", resource="profile")
-
-        daily_goal_value = profile.daily_goal or 30
-
-        # Calculate today's completed cards from StudySession
-        now = datetime.now(UTC)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-        # Query today's completed sessions
-        sessions_query = select(StudySession).where(
-            StudySession.user_id == user_id,
-            StudySession.started_at >= today_start,
-            StudySession.started_at <= today_end,
-            StudySession.completed_at.isnot(None),
-        )
-        result = await session.exec(sessions_query)
-        sessions = result.all()
-
-        # Sum cards from all completed sessions today
-        total_cards_today = sum(s.correct_count + s.wrong_count for s in sessions)
-
-        # Calculate progress
-        progress_value = (
-            min((total_cards_today / daily_goal_value) * 100, 100.0)
-            if daily_goal_value > 0
-            else 0.0
-        )
-        is_completed = total_cards_today >= daily_goal_value
-
-        daily_goal_status = DailyGoalStatus(
-            goal=daily_goal_value,
-            completed=total_cards_today,
-            progress=round(progress_value, 1),
-            is_completed=is_completed,
-        )
-
         return StudyOverviewResponse(
             new_cards_count=new_cards_count,
             review_cards_count=review_cards_count,
             total_available=new_cards_count + review_cards_count,
             due_cards=due_cards,
-            daily_goal=daily_goal_status,
-        )
-
-    @staticmethod
-    async def preview_session(
-        session: AsyncSession,
-        user_id: UUID,
-        total_cards: int,
-        review_ratio: float,
-    ) -> SessionPreviewResponse:
-        """
-        Preview session allocation based on total cards and review ratio.
-
-        Args:
-            session: DB session
-            user_id: User ID
-            total_cards: Total cards to study
-            review_ratio: Ratio of review cards (0.0-1.0)
-
-        Returns:
-            SessionPreviewResponse with available and allocated cards
-        """
-        # Get counts using existing service method
-        count_data = await UserCardProgressService.get_new_cards_count(session, user_id)
-        new_cards_available = count_data["new_cards_count"]
-        review_cards_available = count_data["review_cards_count"]
-
-        # Get relearning cards count (RELEARNING state)
-        relearning_query = select(func.count(UserCardProgress.id)).where(
-            UserCardProgress.user_id == user_id,
-            UserCardProgress.card_state == CardState.RELEARNING,
-        )
-        result = await session.exec(relearning_query)
-        relearning_cards_available = result.one() or 0
-
-        # Calculate allocation based on ratio
-        review_cards_requested = int(total_cards * review_ratio)
-        new_cards_requested = total_cards - review_cards_requested
-
-        # Adjust allocation based on availability
-        review_cards_allocated = min(review_cards_requested, review_cards_available)
-        new_cards_allocated = min(new_cards_requested, new_cards_available)
-
-        # Adjust if we can't meet the requested total
-        actual_total = review_cards_allocated + new_cards_allocated
-
-        # Try to fill remaining slots from the other type if available
-        if actual_total < total_cards:
-            shortage = total_cards - actual_total
-            if (
-                new_cards_allocated < new_cards_requested
-                and new_cards_available > new_cards_allocated
-            ):
-                # Try to add more new cards
-                additional_new = min(shortage, new_cards_available - new_cards_allocated)
-                new_cards_allocated += additional_new
-                actual_total += additional_new
-                shortage -= additional_new
-
-            if (
-                shortage > 0
-                and review_cards_allocated < review_cards_requested
-                and review_cards_available > review_cards_allocated
-            ):
-                # Try to add more review cards
-                additional_review = min(shortage, review_cards_available - review_cards_allocated)
-                review_cards_allocated += additional_review
-                actual_total += additional_review
-
-        # Generate warning message if we can't meet the request
-        message = None
-        if actual_total < total_cards:
-            missing = total_cards - actual_total
-            message = f"요청한 {total_cards}개의 카드 중 {missing}개가 부족합니다. {actual_total}개의 카드만 사용할 수 있습니다."
-        elif (
-            review_cards_allocated < review_cards_requested
-            or new_cards_allocated < new_cards_requested
-        ):
-            message = f"요청한 비율대로 배정할 수 없어 조정되었습니다. 신규 {new_cards_allocated}개, 복습 {review_cards_allocated}개가 배정됩니다."
-
-        available = AvailableCards(
-            new_cards=new_cards_available,
-            review_cards=review_cards_available,
-            relearning_cards=relearning_cards_available,
-        )
-
-        allocation = CardAllocation(
-            new_cards=new_cards_allocated,
-            review_cards=review_cards_allocated,
-            total=actual_total,
-        )
-
-        return SessionPreviewResponse(
-            available=available,
-            allocation=allocation,
-            message=message,
         )

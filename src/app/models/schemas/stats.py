@@ -20,12 +20,26 @@ class StatsHistoryItem(SQLModel):
     cards_studied: int = Field(description="해당 날짜에 학습한 카드 수")
     correct_count: int = Field(description="해당 날짜의 정답 수")
     accuracy_rate: float = Field(description="해당 날짜의 정확도 (%)")
+    study_time_seconds: int = Field(default=0, description="해당 날짜의 총 학습 시간 (초)")
+
+
+class StatsHistorySummary(SQLModel):
+    """학습 기록 요약 통계 스키마."""
+
+    total_study_time_seconds: int = Field(description="기간 내 총 학습 시간 (초)")
+    total_cards_studied: int = Field(description="기간 내 총 학습 카드 수")
+    avg_daily_study_time_seconds: int = Field(
+        description="하루 평균 학습 시간 (초, 활동 일수 기준)"
+    )
+    avg_daily_cards_studied: int = Field(description="하루 평균 학습 카드 수 (활동 일수 기준)")
+    days_with_activity: int = Field(description="활동이 있었던 일수")
 
 
 class StatsHistoryRead(SQLModel):
     """학습 기록 응답 스키마 (차트용 데이터)."""
 
-    period: str = Field(description="조회 기간. 7d(7일), 30d(30일), 90d(90일), 1y(1년)")
+    period: str = Field(description="조회 기간. 7d(7일), 30d(30일), 1y(1년), all(전체)")
+    summary: StatsHistorySummary = Field(description="기간 요약 통계")
     data: list[StatsHistoryItem] = Field(description="일별 학습 기록 목록")
 
 

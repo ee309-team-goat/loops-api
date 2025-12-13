@@ -11,6 +11,8 @@ from app.models.schemas import (
     AnswerResponse,
     CardRequest,
     CardResponse,
+    CardSummary,
+    CategorySelectionState,
     ClozeQuestion,
     DailyGoalRead,
     DailyGoalStatus,
@@ -20,6 +22,7 @@ from app.models.schemas import (
     DecksListResponse,
     DeckUpdate,
     DeckWithProgressRead,
+    DisplayItem,
     DueCardSummary,
     FavoriteCreate,
     FavoriteRead,
@@ -30,10 +33,13 @@ from app.models.schemas import (
     ProfileLevelRead,
     ProfileRead,
     ProfileUpdate,
+    RelatedWordInfo,
+    RelatedWordsResponse,
     ReviewRequest,
     SelectDecksRequest,
     SelectDecksResponse,
     SelectedDeckInfo,
+    SelectedDecksSummary,
     SessionCompleteRequest,
     SessionCompleteResponse,
     SessionStartRequest,
@@ -59,6 +65,12 @@ from app.models.schemas import (
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
+    WrongAnswerCardInfo,
+    WrongAnswerRead,
+    WrongAnswerReviewedResponse,
+    WrongAnswersResponse,
+    WrongReviewSessionRequest,
+    WrongReviewSessionResponse,
     XPInfo,
 )
 
@@ -80,6 +92,8 @@ from app.models.tables import (
     WordTutorMessageBase,
     WordTutorThread,
     WordTutorThreadBase,
+    WrongAnswer,
+    WrongAnswerBase,
 )
 
 __all__ = [
@@ -100,6 +114,7 @@ __all__ = [
     "StudySession",
     "WordTutorThread",
     "WordTutorMessage",
+    "WrongAnswer",
     # Base classes (from tables)
     "ProfileBase",
     "VocabularyCardBase",
@@ -108,6 +123,7 @@ __all__ = [
     "StudySessionBase",
     "WordTutorThreadBase",
     "WordTutorMessageBase",
+    "WrongAnswerBase",
     # Profile Schemas
     "ProfileRead",
     "ProfileUpdate",
@@ -120,6 +136,9 @@ __all__ = [
     "VocabularyCardCreate",
     "VocabularyCardRead",
     "VocabularyCardUpdate",
+    "RelatedWordInfo",
+    "CardSummary",
+    "RelatedWordsResponse",
     # UserCardProgress Schemas
     "UserCardProgressCreate",
     "UserCardProgressRead",
@@ -143,6 +162,9 @@ __all__ = [
     "SelectDecksResponse",
     "SelectedDeckInfo",
     "GetSelectedDecksResponse",
+    "SelectedDecksSummary",
+    "DisplayItem",
+    "CategorySelectionState",
     # Stats Schemas
     "StatsHistoryRead",
     "StatsHistoryItem",
@@ -172,4 +194,11 @@ __all__ = [
     "TutorMessageResponse",
     "TutorMessageRead",
     "TutorHistoryResponse",
+    # Wrong Answer Schemas
+    "WrongAnswerCardInfo",
+    "WrongAnswerRead",
+    "WrongAnswerReviewedResponse",
+    "WrongAnswersResponse",
+    "WrongReviewSessionRequest",
+    "WrongReviewSessionResponse",
 ]

@@ -99,6 +99,15 @@ class AnswerRequest(SQLModel):
     answer: str = Field(description="사용자 입력 정답")
     response_time_ms: int | None = Field(default=None, ge=0, description="응답 시간 (밀리초)")
 
+    # 힌트 관련 (Issue #52)
+    hint_count: int = Field(default=0, ge=0, description="사용한 힌트 횟수 (0=미사용)")
+    revealed_answer: bool = Field(default=False, description="정답보기로 정답 공개했는지 여부")
+
+    # 퀴즈 유형 (Issue #53 - 오답 노트용)
+    quiz_type: str | None = Field(
+        default=None, description="퀴즈 유형 (word_to_meaning/meaning_to_word/cloze/listening)"
+    )
+
 
 class AnswerResponse(SQLModel):
     """정답 제출 응답 스키마."""
@@ -108,6 +117,10 @@ class AnswerResponse(SQLModel):
     correct_answer: str = Field(description="정답")
     user_answer: str = Field(description="사용자 입력 답")
     feedback: str | None = Field(default=None, description="피드백 메시지")
+
+    # 점수 정보 (Issue #52)
+    score: int = Field(default=100, description="획득 점수 (힌트 사용 시 감점, 0~100)")
+    hint_penalty: int = Field(default=0, description="힌트 사용으로 인한 감점")
 
     # FSRS 업데이트 정보
     next_review_date: datetime | None = Field(description="다음 복습 예정일")
@@ -195,3 +208,47 @@ class StudyOverviewResponse(SQLModel):
     review_cards_count: int = Field(description="복습 예정 카드 수")
     total_available: int = Field(description="총 학습 가능 카드 수")
     due_cards: list[DueCardSummary] = Field(description="복습 예정 카드 목록")
+
+
+# ============================================================
+# Pronunciation Evaluation (Issue #56)
+# ============================================================
+
+
+class PhonemeFeedback(SQLModel):
+    """개별 음소 피드백 스키마."""
+
+    phoneme: str = Field(description="음소 (예: 'ʃ')")
+    score: int = Field(description="해당 음소 점수 (0~100)")
+    tip: str = Field(description="개선 팁")
+
+
+class PronunciationFeedback(SQLModel):
+    """발음 피드백 스키마."""
+
+    overall: str = Field(description="전체 피드백 메시지")
+    stress: str | None = Field(default=None, description="강세 관련 피드백")
+    sounds: list[PhonemeFeedback] | None = Field(default=None, description="개별 음소 피드백 목록")
+
+
+class PronunciationEvaluateRequest(SQLModel):
+    """발음 평가 요청 스키마."""
+
+    card_id: int | None = Field(default=None, description="평가할 단어의 카드 ID")
+    word: str | None = Field(default=None, description="평가할 단어 (card_id 없을 경우)")
+
+
+class PronunciationEvaluateResponse(SQLModel):
+    """발음 평가 응답 스키마."""
+
+    card_id: int | None = Field(default=None, description="카드 ID")
+    word: str = Field(description="평가한 단어")
+    pronunciation_ipa: str | None = Field(default=None, description="IPA 발음 기호")
+
+    score: int = Field(description="발음 점수 (0~100)")
+    grade: str = Field(description="등급 (excellent/good/fair/needs_practice)")
+
+    feedback: PronunciationFeedback = Field(description="피드백 정보")
+
+    native_audio_url: str | None = Field(default=None, description="네이티브 발음 오디오 URL")
+    user_audio_url: str | None = Field(default=None, description="사용자 녹음 URL (저장된 경우)")

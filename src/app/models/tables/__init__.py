@@ -7,6 +7,7 @@ from app.models.tables.user_selected_deck import UserSelectedDeck
 from app.models.tables.vocabulary_card import VocabularyCard, VocabularyCardBase
 from app.models.tables.word_tutor_message import WordTutorMessage, WordTutorMessageBase
 from app.models.tables.word_tutor_thread import WordTutorThread, WordTutorThreadBase
+from app.models.tables.wrong_answer import WrongAnswer, WrongAnswerBase
 
 __all__ = [
     # Tables
@@ -19,6 +20,7 @@ __all__ = [
     "StudySession",
     "WordTutorThread",
     "WordTutorMessage",
+    "WrongAnswer",
     # Base classes
     "ProfileBase",
     "VocabularyCardBase",
@@ -27,4 +29,5 @@ __all__ = [
     "StudySessionBase",
     "WordTutorThreadBase",
     "WordTutorMessageBase",
+    "WrongAnswerBase",
 ]

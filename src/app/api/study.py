@@ -5,6 +5,7 @@
 퀴즈 기능이 통합되어 FSRS 업데이트, 스트릭, 일일 목표, XP가 모두 반영됩니다.
 """
 
+import random
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
@@ -19,13 +20,27 @@ from app.models import (
     CardResponse,
     SessionCompleteRequest,
     SessionCompleteResponse,
+    SessionPreviewRequest,
+    SessionPreviewResponse,
     SessionStartRequest,
     SessionStartResponse,
     StudyOverviewResponse,
     UserCardProgressRead,
+    WrongAnswerReviewedResponse,
+    WrongAnswersResponse,
+    WrongReviewSessionRequest,
+    WrongReviewSessionResponse,
+)
+from app.models.schemas.study import (
+    PhonemeFeedback,
+    PronunciationEvaluateRequest,
+    PronunciationEvaluateResponse,
+    PronunciationFeedback,
 )
 from app.services.study_session_service import StudySessionService
 from app.services.user_card_progress_service import UserCardProgressService
+from app.services.vocabulary_card_service import VocabularyCardService
+from app.services.wrong_answer_service import WrongAnswerService
 
 TAG = "study"
 TAG_METADATA = {
@@ -46,6 +61,55 @@ TAG_METADATA = {
 }
 
 router = APIRouter(prefix="/study", tags=[TAG])
+
+
+@router.post(
+    "/session/preview",
+    response_model=SessionPreviewResponse,
+    summary="학습 세션 프리뷰",
+    description="세션 설정에 따른 카드 배정을 미리 확인합니다. 총 카드 수와 복습 비율을 입력하면 실제 배정될 카드 구성을 반환합니다.",
+    responses={
+        200: {"description": "프리뷰 조회 성공. 사용 가능한 카드와 배정 결과 반환"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        422: {"description": "유효성 검사 실패 - 잘못된 파라미터 값"},
+    },
+)
+async def preview_study_session(
+    request: SessionPreviewRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
+) -> SessionPreviewResponse:
+    """
+    학습 세션 프리뷰를 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **요청 본문:**
+    - `total_cards`: 총 학습할 카드 수 (1~150)
+    - `review_ratio`: 복습 카드 비율 (0.0~1.0)
+      - 예: 0.6 = 60% 복습, 40% 신규
+
+    **반환 정보:**
+    - `available`: 현재 사용 가능한 카드 수
+      - `new_cards`: 사용 가능한 신규 카드 수
+      - `review_cards`: 복습 예정 카드 수
+      - `relearning_cards`: 재학습 카드 수
+    - `allocation`: 설정에 따른 카드 배정
+      - `new_cards`: 배정될 신규 카드 수
+      - `review_cards`: 배정될 복습 카드 수 (재학습 포함)
+      - `total`: 총 배정 카드 수
+    - `message`: 경고 메시지 (카드 부족 시)
+
+    **사용 시나리오:**
+    - 모달에서 사용자가 단어 개수/복습 비율 조정 시 실시간 프리뷰
+    - "새로운 단어 8개 + 복습할 단어 12개" 미리보기
+    """
+    return await StudySessionService.preview_session(
+        session=session,
+        user_id=current_profile.id,
+        total_cards=request.total_cards,
+        review_ratio=request.review_ratio,
+    )
 
 
 @router.post(
@@ -94,6 +158,7 @@ async def start_study_session(
         user_id=current_profile.id,
         new_cards_limit=request.new_cards_limit,
         review_cards_limit=request.review_cards_limit,
+        use_profile_ratio=request.use_profile_ratio,
     )
 
 
@@ -176,32 +241,41 @@ async def submit_answer(
     - `card_id`: 카드 ID
     - `answer`: 사용자 답변
     - `response_time_ms`: 응답 시간 (밀리초, 선택)
+    - `hint_count`: 사용한 힌트 횟수 (0=미사용, 선택)
+    - `revealed_answer`: 정답 공개 여부 (선택)
 
     **처리 내용:**
     1. 정답 확인
-    2. FSRS 알고리즘으로 다음 복습 일정 계산
-    3. 세션 통계 업데이트 (정답/오답 수)
+    2. 힌트 사용에 따른 점수 계산 (기본 100점, 힌트당 -20점)
+    3. FSRS 알고리즘으로 다음 복습 일정 계산 (힌트 사용 시 Hard로 처리)
+    4. 세션 통계 업데이트 (정답/오답 수)
 
     **반환 정보:**
     - `card_id`: 카드 ID
     - `is_correct`: 정답 여부
     - `correct_answer`: 정답
     - `user_answer`: 사용자 답변
-    - `feedback`: 피드백 메시지 (오답 시)
+    - `feedback`: 피드백 메시지
+    - `score`: 획득 점수 (0~100)
+    - `hint_penalty`: 힌트로 인한 감점
     - `next_review_date`: 다음 복습 예정일 (FSRS 계산)
     - `card_state`: 카드 상태 (NEW/LEARNING/REVIEW/RELEARNING)
 
     **FSRS 업데이트:**
-    - 정답 시: Rating 3 (Good) 적용
-    - 오답 시: Rating 1 (Again) 적용
+    - 정답 (힌트 미사용): Rating 3 (Good) 적용
+    - 정답 (힌트 사용): Rating 2 (Hard) 적용
+    - 오답 또는 정답 공개: Rating 1 (Again) 적용
     """
     return await StudySessionService.submit_answer(
         session=session,
         user_id=current_profile.id,
         session_id=request.session_id,
         card_id=request.card_id,
-        answer=request.answer,
+        user_answer=request.answer,
         response_time_ms=request.response_time_ms,
+        hint_count=request.hint_count,
+        revealed_answer=request.revealed_answer,
+        quiz_type=request.quiz_type,
     )
 
 
@@ -276,7 +350,7 @@ async def complete_study_session(
     "/overview",
     response_model=StudyOverviewResponse,
     summary="학습 현황 개요",
-    description="신규/복습 카드 수와 복습 예정 카드 목록을 반환합니다.",
+    description="신규/복습 카드 수와 복습 예정 카드 목록, 일일 목표 진행 상황을 반환합니다.",
     responses={
         200: {"description": "학습 현황 조회 성공"},
         401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
@@ -305,10 +379,16 @@ async def get_study_overview(
       - `korean_meaning`: 한국어 뜻
       - `next_review_date`: 다음 복습 예정일
       - `card_state`: 카드 상태
+    - `daily_goal`: 일일 목표 진행 상황
+      - `goal`: 설정된 일일 목표 카드 수
+      - `completed`: 오늘 완료한 카드 수
+      - `progress`: 진행률 (%)
+      - `is_completed`: 목표 달성 여부
 
     **사용 시나리오:**
     - 대시보드에서 "오늘 학습할 카드: 신규 15개 + 복습 8개" 표시
     - 세션 시작 전 학습 가능한 카드 미리보기
+    - "오늘의 학습 미완료" 여부 판단
     """
     return await StudySessionService.get_overview(
         session=session,
@@ -356,3 +436,278 @@ async def get_card_progress(
             detail="Progress not found for this card",
         )
     return progress
+
+
+# ============================================================
+# Wrong Answer Endpoints (Issue #53)
+# ============================================================
+
+
+@router.get(
+    "/wrong-answers",
+    response_model=WrongAnswersResponse,
+    summary="오답 기록 목록 조회",
+    description="사용자의 오답 기록 목록을 조회합니다.",
+    responses={
+        200: {"description": "오답 기록 조회 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
+async def get_wrong_answers(
+    limit: int = Query(default=20, ge=1, le=100, description="조회할 오답 수 (1~100)"),
+    offset: int = Query(default=0, ge=0, description="페이지네이션 오프셋"),
+    reviewed: bool | None = Query(
+        default=None, description="복습 여부 필터 (true/false/null=전체)"
+    ),
+    quiz_type: str | None = Query(default=None, description="퀴즈 유형 필터"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> WrongAnswersResponse:
+    """
+    오답 기록 목록을 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **쿼리 파라미터:**
+    - `limit`: 조회할 오답 수 (기본값: 20)
+    - `offset`: 페이지네이션 오프셋 (기본값: 0)
+    - `reviewed`: 복습 여부 필터 (true=복습완료, false=미복습, null=전체)
+    - `quiz_type`: 퀴즈 유형 필터 (word_to_meaning/meaning_to_word/cloze/listening)
+
+    **반환 정보:**
+    - `wrong_answers`: 오답 기록 목록
+    - `total`: 전체 오답 수
+    - `unreviewed_count`: 미복습 오답 수
+    """
+    return await WrongAnswerService.get_wrong_answers(
+        session=session,
+        user_id=current_profile.id,
+        limit=limit,
+        offset=offset,
+        reviewed=reviewed,
+        quiz_type=quiz_type,
+    )
+
+
+@router.patch(
+    "/wrong-answers/{wrong_answer_id}/reviewed",
+    response_model=WrongAnswerReviewedResponse,
+    summary="오답 복습 완료 표시",
+    description="오답 기록을 복습 완료로 표시합니다.",
+    responses={
+        200: {"description": "복습 완료 표시 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "오답 기록을 찾을 수 없음"},
+    },
+)
+async def mark_wrong_answer_reviewed(
+    wrong_answer_id: int = Path(description="오답 기록 ID"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> WrongAnswerReviewedResponse:
+    """
+    오답 기록을 복습 완료로 표시합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **파라미터:**
+    - `wrong_answer_id`: 오답 기록 ID
+
+    **반환 정보:**
+    - `id`: 오답 기록 ID
+    - `reviewed`: 복습 완료 여부 (true)
+    - `reviewed_at`: 복습 완료 시간
+    """
+    result = await WrongAnswerService.mark_reviewed(
+        session=session,
+        user_id=current_profile.id,
+        wrong_answer_id=wrong_answer_id,
+    )
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wrong answer not found",
+        )
+    return result
+
+
+@router.post(
+    "/session/start-wrong-review",
+    response_model=WrongReviewSessionResponse,
+    summary="오답 재학습 세션 시작",
+    description="미복습 오답 카드로 재학습 세션을 시작합니다.",
+    responses={
+        200: {"description": "오답 재학습 세션 시작 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+    },
+)
+async def start_wrong_review_session(
+    request: WrongReviewSessionRequest,
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+) -> WrongReviewSessionResponse:
+    """
+    미복습 오답 카드로 재학습 세션을 시작합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **요청 본문:**
+    - `limit`: 재학습할 카드 수 (기본값: 10, 최대: 50)
+
+    **반환 정보:**
+    - `session_id`: 세션 ID
+    - `total_cards`: 총 카드 수
+    - `cards_from_wrong_answers`: 오답 카드 기반 세션 여부 (항상 true)
+    - `started_at`: 세션 시작 시간
+
+    **다음 단계:**
+    - `/session/card`로 카드 조회 (quiz_type 지정)
+    - `/session/answer`로 정답 제출
+    - 모든 카드 완료 후 `/session/complete`로 세션 종료
+    """
+    # Get unreviewed wrong answer card IDs
+    card_ids = await WrongAnswerService.get_unreviewed_card_ids(
+        session=session,
+        user_id=current_profile.id,
+        limit=request.limit,
+    )
+
+    if not card_ids:
+        # Return empty session if no wrong answers
+        from datetime import UTC, datetime
+
+        return WrongReviewSessionResponse(
+            session_id="00000000-0000-0000-0000-000000000000",
+            total_cards=0,
+            cards_from_wrong_answers=True,
+            started_at=datetime.now(UTC),
+        )
+
+    # Start session with wrong answer cards
+    session_response = await StudySessionService.start_session_with_cards(
+        session=session,
+        user_id=current_profile.id,
+        card_ids=card_ids,
+    )
+
+    return WrongReviewSessionResponse(
+        session_id=session_response.session_id,
+        total_cards=session_response.total_cards,
+        cards_from_wrong_answers=True,
+        started_at=session_response.started_at,
+    )
+
+
+# ============================================================
+# Pronunciation Evaluation (Issue #56)
+# ============================================================
+
+
+def _get_grade(score: int) -> str:
+    """점수에 따른 등급 반환."""
+    if score >= 90:
+        return "excellent"
+    elif score >= 75:
+        return "good"
+    elif score >= 60:
+        return "fair"
+    else:
+        return "needs_practice"
+
+
+def _get_feedback_message(grade: str) -> str:
+    """등급에 따른 피드백 메시지 반환."""
+    messages = {
+        "excellent": "완벽해요! 네이티브 수준의 발음입니다.",
+        "good": "좋아요! 조금만 더 연습하면 완벽해질 거예요.",
+        "fair": "괜찮아요! 강세와 발음에 조금 더 신경 써보세요.",
+        "needs_practice": "다시 도전해보세요! 천천히 따라 해보세요.",
+    }
+    return messages.get(grade, "계속 연습해보세요!")
+
+
+@router.post(
+    "/pronunciation/evaluate",
+    response_model=PronunciationEvaluateResponse,
+    summary="발음 평가 (Mock)",
+    description="사용자의 발음을 평가합니다. 현재 MVP 버전으로 Mock 데이터를 반환합니다.",
+    responses={
+        200: {"description": "발음 평가 완료"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "카드를 찾을 수 없음"},
+        422: {"description": "card_id 또는 word 중 하나는 필수"},
+    },
+)
+async def evaluate_pronunciation(
+    request: PronunciationEvaluateRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
+) -> PronunciationEvaluateResponse:
+    """
+    발음을 평가합니다 (MVP Mock 버전).
+
+    **인증 필요:** Bearer 토큰
+
+    **요청 본문:**
+    - `card_id`: 평가할 단어의 카드 ID (선택)
+    - `word`: 평가할 단어 (card_id 없을 경우 사용)
+
+    **참고:**
+    - 현재 MVP 버전으로 Mock 점수와 피드백을 반환합니다.
+    - 추후 Azure/Google Speech API 연동 예정입니다.
+
+    **점수 등급:**
+    - 90-100: excellent (완벽해요!)
+    - 75-89: good (좋아요!)
+    - 60-74: fair (조금 더 연습해요)
+    - 0-59: needs_practice (다시 도전해보세요)
+    """
+    # Validate request
+    if not request.card_id and not request.word:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="card_id 또는 word 중 하나는 필수입니다.",
+        )
+
+    # Get card info if card_id provided
+    word = request.word
+    pronunciation_ipa = None
+    native_audio_url = None
+
+    if request.card_id:
+        card = await VocabularyCardService.get_card(session, request.card_id)
+        if not card:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="카드를 찾을 수 없습니다.",
+            )
+        word = card.english_word
+        pronunciation_ipa = card.pronunciation_ipa
+        native_audio_url = card.audio_url
+
+    # Generate mock score and feedback
+    score = random.randint(60, 95)
+    grade = _get_grade(score)
+
+    # Mock phoneme feedback
+    phoneme_feedbacks = [
+        PhonemeFeedback(phoneme="ə", score=random.randint(60, 90), tip="'어' 소리를 더 짧게"),
+        PhonemeFeedback(phoneme="ʃ", score=random.randint(65, 95), tip="'sh' 소리를 더 부드럽게"),
+    ]
+
+    feedback = PronunciationFeedback(
+        overall=_get_feedback_message(grade),
+        stress="강세 위치에 조금 더 신경 쓰면 좋겠어요." if score < 85 else None,
+        sounds=phoneme_feedbacks if score < 80 else None,
+    )
+
+    return PronunciationEvaluateResponse(
+        card_id=request.card_id,
+        word=word,
+        pronunciation_ipa=pronunciation_ipa,
+        score=score,
+        grade=grade,
+        feedback=feedback,
+        native_audio_url=native_audio_url,
+        user_audio_url=None,
+    )

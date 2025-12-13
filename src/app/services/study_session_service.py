@@ -4,6 +4,7 @@ Study session service for managing study sessions and card selection.
 Quiz 기능이 통합되어 세션 시작, 카드 요청, 정답 제출, 세션 완료를 모두 처리합니다.
 """
 
+import math
 import random
 from datetime import UTC, datetime
 from uuid import UUID
@@ -14,7 +15,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.exceptions import NotFoundError, ValidationError
 from app.models import (
     AnswerResponse,
+    AvailableCards,
+    CardAllocation,
     CardResponse,
+    CardState,
     ClozeQuestion,
     DailyGoalStatus,
     Deck,
@@ -22,6 +26,7 @@ from app.models import (
     Profile,
     QuizType,
     SessionCompleteResponse,
+    SessionPreviewResponse,
     SessionStartResponse,
     SessionStatus,
     SessionSummary,
@@ -36,6 +41,10 @@ from app.models import (
 )
 from app.services.profile_service import ProfileService
 from app.services.user_card_progress_service import UserCardProgressService
+from app.services.wrong_answer_service import WrongAnswerService
+
+# CEFR level order for i+1 calculation
+CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
 class StudySessionService:
@@ -49,16 +58,37 @@ class StudySessionService:
     async def start_session(
         session: AsyncSession,
         user_id: UUID,
-        new_cards_limit: int = 10,
-        review_cards_limit: int = 20,
+        new_cards_limit: int | None = None,
+        review_cards_limit: int | None = None,
+        use_profile_ratio: bool = True,
     ) -> SessionStartResponse:
         """
         Start a new study session.
 
         Creates a StudySession record in DB and returns session info.
         Cards are NOT returned here - use get_next_card() to get each card.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            new_cards_limit: Max new cards (ignored if use_profile_ratio=True)
+            review_cards_limit: Max review cards (ignored if use_profile_ratio=True)
+            use_profile_ratio: If True, calculate limits from profile settings
         """
         started_at = datetime.now(UTC)
+
+        # Get profile for ratio calculation
+        profile = await session.get(Profile, user_id)
+
+        if use_profile_ratio and profile:
+            # Calculate limits based on profile settings
+            new_cards_limit, review_cards_limit = StudySessionService._calculate_card_limits(
+                profile
+            )
+        else:
+            # Use provided limits or defaults
+            new_cards_limit = new_cards_limit if new_cards_limit is not None else 10
+            review_cards_limit = review_cards_limit if review_cards_limit is not None else 20
 
         # Get new cards
         new_cards = await StudySessionService._get_new_cards(
@@ -99,6 +129,52 @@ class StudySessionService:
             total_cards=len(card_ids),
             new_cards_count=len(new_cards),
             review_cards_count=len(review_cards_data),
+            started_at=started_at,
+        )
+
+    @staticmethod
+    async def start_session_with_cards(
+        session: AsyncSession,
+        user_id: UUID,
+        card_ids: list[int],
+    ) -> SessionStartResponse:
+        """
+        Start a new study session with specific card IDs.
+
+        Used for wrong answer review sessions.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            card_ids: List of card IDs to include in session
+        """
+        started_at = datetime.now(UTC)
+
+        # Shuffle for variety
+        random.shuffle(card_ids)
+
+        # Create StudySession record
+        study_session = StudySession(
+            user_id=user_id,
+            new_cards_limit=0,
+            review_cards_limit=len(card_ids),
+            status=SessionStatus.ACTIVE,
+            card_ids=card_ids,
+            current_index=0,
+            correct_count=0,
+            wrong_count=0,
+            started_at=started_at,
+        )
+
+        session.add(study_session)
+        await session.commit()
+        await session.refresh(study_session)
+
+        return SessionStartResponse(
+            session_id=study_session.id,
+            total_cards=len(card_ids),
+            new_cards_count=0,
+            review_cards_count=len(card_ids),
             started_at=started_at,
         )
 
@@ -189,6 +265,9 @@ class StudySessionService:
         card_id: int,
         user_answer: str,
         response_time_ms: int | None = None,
+        hint_count: int = 0,
+        revealed_answer: bool = False,
+        quiz_type: str | None = None,
     ) -> AnswerResponse:
         """
         Submit an answer and update FSRS progress.
@@ -200,9 +279,12 @@ class StudySessionService:
             card_id: Card ID being answered
             user_answer: User's answer
             response_time_ms: Response time in milliseconds (optional)
+            hint_count: Number of hints used (0 = no hints)
+            revealed_answer: Whether the answer was revealed (show answer button)
+            quiz_type: Quiz type used for this answer (for wrong answer tracking)
 
         Returns:
-            AnswerResponse with correctness and FSRS update info
+            AnswerResponse with correctness, score, and FSRS update info
         """
         # Get study session
         study_session = await session.get(StudySession, session_id)
@@ -233,26 +315,57 @@ class StudySessionService:
             or user_answer.strip().lower() == card.english_word.strip().lower()
         )
 
+        # Calculate score based on hint usage (Issue #52)
+        score, hint_penalty = StudySessionService._calculate_score(
+            is_correct=is_correct,
+            hint_count=hint_count,
+            revealed_answer=revealed_answer,
+        )
+
+        # Determine FSRS rating based on hint usage
+        # - revealed_answer: treat as incorrect (Again)
+        # - hint_count > 0: treat as Hard (2)
+        # - correct without hints: Good (3, default)
+        fsrs_is_correct = is_correct and not revealed_answer
+        fsrs_rating_hint = 2 if hint_count > 0 and is_correct else None  # 2 = Hard
+
         # Update FSRS progress
         progress = await UserCardProgressService.process_review(
             session=session,
             user_id=user_id,
             card_id=card_id,
-            is_correct=is_correct,
+            is_correct=fsrs_is_correct,
+            rating_hint=fsrs_rating_hint,
         )
 
-        # Update session counts
-        if is_correct:
+        # Update session counts (revealed_answer counts as wrong)
+        if is_correct and not revealed_answer:
             study_session.correct_count += 1
         else:
             study_session.wrong_count += 1
+
+            # Record wrong answer (Issue #53)
+            await WrongAnswerService.create_wrong_answer(
+                session=session,
+                user_id=user_id,
+                card_id=card_id,
+                session_id=session_id,
+                user_answer=user_answer,
+                correct_answer=card.english_word,
+                quiz_type=quiz_type or "unknown",
+            )
 
         session.add(study_session)
         await session.commit()
 
         # Generate feedback
-        if is_correct:
-            feedback = "정답입니다! 🎉"
+        if revealed_answer:
+            feedback = f"정답: {card.korean_meaning} / {card.english_word}"
+        elif is_correct:
+            if hint_count > 0:
+                feedback = f"정답입니다! (힌트 {hint_count}회 사용)"
+            else:
+                feedback = "정답입니다! 🎉"
         else:
             feedback = f"틀렸습니다. 정답: {card.korean_meaning} / {card.english_word}"
 
@@ -262,9 +375,43 @@ class StudySessionService:
             correct_answer=card.english_word,  # Primary answer
             user_answer=user_answer,
             feedback=feedback,
+            score=score,
+            hint_penalty=hint_penalty,
             next_review_date=progress.next_review_date,
             card_state=progress.card_state,
         )
+
+    @staticmethod
+    def _calculate_score(
+        is_correct: bool,
+        hint_count: int,
+        revealed_answer: bool,
+    ) -> tuple[int, int]:
+        """
+        Calculate score based on correctness and hint usage.
+
+        Args:
+            is_correct: Whether the answer was correct
+            hint_count: Number of hints used
+            revealed_answer: Whether the answer was revealed
+
+        Returns:
+            Tuple of (score, hint_penalty)
+        """
+        if revealed_answer:
+            return 0, 0  # No score when answer revealed
+
+        if not is_correct:
+            return 0, 0  # No score for incorrect answer
+
+        # Base score for correct answer
+        base_score = 100
+        penalty_per_hint = 20
+
+        hint_penalty = min(hint_count * penalty_per_hint, base_score)
+        score = max(0, base_score - hint_penalty)
+
+        return score, hint_penalty
 
     # ============================================================
     # Session Complete
@@ -379,40 +526,112 @@ class StudySessionService:
     # ============================================================
 
     @staticmethod
+    def _get_next_cefr_level(current_cefr: str) -> str:
+        """Get the next CEFR level (i+1). C2 stays at C2."""
+        try:
+            idx = CEFR_ORDER.index(current_cefr)
+            if idx < len(CEFR_ORDER) - 1:
+                return CEFR_ORDER[idx + 1]
+            return current_cefr  # C2 stays at C2
+        except ValueError:
+            return "A1"  # Default fallback
+
+    @staticmethod
     async def _get_new_cards(
         session: AsyncSession,
         user_id: UUID,
         limit: int = 10,
     ) -> list[VocabularyCard]:
-        """Get new cards user hasn't seen, ordered by frequency rank."""
+        """
+        Get new cards user hasn't seen with i+1 CEFR logic.
+
+        Cards are selected with 50/50 mix of current level (i) and next level (i+1).
+        Fallback: if not enough cards, fill from other levels.
+        """
         profile = await session.get(Profile, user_id)
         if not profile:
             return []
+
+        # Get user's current CEFR level
+        level_info = await ProfileService.calculate_profile_level(session, user_id)
+        current_cefr = level_info["cefr_equivalent"]
+        next_cefr = StudySessionService._get_next_cefr_level(current_cefr)
+
+        # Calculate 50/50 split
+        i_limit = math.ceil(limit / 2)
+        i_plus_1_limit = math.floor(limit / 2)
 
         # Subquery for cards user has already seen
         seen_cards_subquery = select(UserCardProgress.card_id).where(
             UserCardProgress.user_id == user_id
         )
 
-        # Build query for unseen cards
-        query = select(VocabularyCard).where(VocabularyCard.id.not_in(seen_cards_subquery))
+        # Helper to build base query with deck filtering
+        def build_base_query():
+            query = select(VocabularyCard).where(VocabularyCard.id.not_in(seen_cards_subquery))
+            if profile.select_all_decks:
+                query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
+                    (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
+                )
+            else:
+                selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                    UserSelectedDeck.user_id == user_id
+                )
+                query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
+            return query
 
-        # Apply deck filtering based on user preference
-        if profile.select_all_decks:
-            query = query.outerjoin(Deck, VocabularyCard.deck_id == Deck.id).where(
-                (Deck.is_public == True) | (VocabularyCard.deck_id == None)  # noqa: E712, E711
+        # Get cards from current level (i)
+        i_query = build_base_query().where(VocabularyCard.cefr_level == current_cefr)
+        i_query = i_query.order_by(VocabularyCard.frequency_rank.asc().nullslast()).limit(i_limit)
+        result = await session.exec(i_query)
+        i_cards = list(result.all())
+
+        # Get cards from next level (i+1)
+        i_plus_1_cards = []
+        if current_cefr != next_cefr:  # Only if not already at C2
+            i_plus_1_query = build_base_query().where(VocabularyCard.cefr_level == next_cefr)
+            i_plus_1_query = i_plus_1_query.order_by(
+                VocabularyCard.frequency_rank.asc().nullslast()
+            ).limit(i_plus_1_limit)
+            result = await session.exec(i_plus_1_query)
+            i_plus_1_cards = list(result.all())
+
+        # Combine cards
+        cards = i_cards + i_plus_1_cards
+
+        # Fallback: if not enough cards, fill from current level first
+        if len(cards) < limit:
+            remaining = limit - len(cards)
+            existing_ids = [c.id for c in cards]
+
+            # Try to get more from current level
+            fallback_i_query = (
+                build_base_query()
+                .where(VocabularyCard.cefr_level == current_cefr)
+                .where(VocabularyCard.id.not_in(existing_ids))
             )
-        else:
-            selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
-                UserSelectedDeck.user_id == user_id
-            )
-            query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
+            fallback_i_query = fallback_i_query.order_by(
+                VocabularyCard.frequency_rank.asc().nullslast()
+            ).limit(remaining)
+            result = await session.exec(fallback_i_query)
+            fallback_i_cards = list(result.all())
+            cards.extend(fallback_i_cards)
+            existing_ids.extend([c.id for c in fallback_i_cards])
 
-        # Order by frequency rank
-        query = query.order_by(VocabularyCard.frequency_rank.asc().nullslast()).limit(limit)
+        # Fallback: if still not enough, get any unseen cards
+        if len(cards) < limit:
+            remaining = limit - len(cards)
+            existing_ids = [c.id for c in cards]
 
-        result = await session.exec(query)
-        return list(result.all())
+            fallback_query = build_base_query().where(VocabularyCard.id.not_in(existing_ids))
+            fallback_query = fallback_query.order_by(
+                VocabularyCard.frequency_rank.asc().nullslast()
+            ).limit(remaining)
+            result = await session.exec(fallback_query)
+            fallback_cards = list(result.all())
+            cards.extend(fallback_cards)
+
+        return cards
 
     @staticmethod
     async def _get_due_review_cards(
@@ -420,8 +639,17 @@ class StudySessionService:
         user_id: UUID,
         limit: int = 20,
     ) -> list[tuple[UserCardProgress, VocabularyCard]]:
-        """Get cards due for review (next_review_date <= now)."""
+        """
+        Get cards due for review (next_review_date <= now).
+
+        Respects profile.review_scope setting:
+        - selected_decks_only: Only review cards from selected decks
+        - all_learned: Review all learned cards regardless of deck
+        """
         now = datetime.now(UTC)
+
+        # Get profile for review_scope setting
+        profile = await session.get(Profile, user_id)
 
         query = (
             select(UserCardProgress, VocabularyCard)
@@ -430,9 +658,20 @@ class StudySessionService:
                 UserCardProgress.user_id == user_id,
                 UserCardProgress.next_review_date <= now,
             )
-            .order_by(UserCardProgress.next_review_date.asc())
-            .limit(limit)
         )
+
+        # Apply deck filtering based on review_scope setting
+        if profile and profile.review_scope == "selected_decks_only":
+            # 선택된 덱의 카드만 복습
+            if not profile.select_all_decks:
+                selected_deck_ids_subquery = select(UserSelectedDeck.deck_id).where(
+                    UserSelectedDeck.user_id == user_id
+                )
+                query = query.where(VocabularyCard.deck_id.in_(selected_deck_ids_subquery))
+            # select_all_decks=True면 필터 없음 (모든 덱)
+        # review_scope == "all_learned": 덱 필터 없이 모든 학습한 카드 복습
+
+        query = query.order_by(UserCardProgress.next_review_date.asc()).limit(limit)
 
         result = await session.exec(query)
         return list(result.all())
@@ -632,6 +871,51 @@ class StudySessionService:
         return None
 
     # ============================================================
+    # Helper Methods: Card Limits Calculation
+    # ============================================================
+
+    @staticmethod
+    def _calculate_card_limits(profile: Profile) -> tuple[int, int]:
+        """
+        Calculate new_cards_limit and review_cards_limit based on profile settings.
+
+        Args:
+            profile: User profile with review ratio settings
+
+        Returns:
+            Tuple of (new_cards_limit, review_cards_limit)
+
+        Modes:
+        - normal: 새 단어 최소 min_new_ratio(25%) 보장
+        - custom: 복습 비율 custom_review_ratio 그대로 적용
+
+        Examples:
+        - normal mode, daily_goal=20, min_new_ratio=0.25:
+          -> new=5 (25%), review=15 (75%)
+        - custom mode, daily_goal=20, custom_review_ratio=0.6:
+          -> new=8 (40%), review=12 (60%)
+        """
+        daily_goal = profile.daily_goal
+
+        if profile.review_ratio_mode == "custom":
+            # Custom mode: use custom_review_ratio directly
+            review_ratio = profile.custom_review_ratio
+            new_ratio = 1.0 - review_ratio
+        else:
+            # Normal mode: guarantee minimum new ratio
+            new_ratio = profile.min_new_ratio
+            review_ratio = 1.0 - new_ratio
+
+        new_cards_limit = max(1, int(daily_goal * new_ratio))
+        review_cards_limit = max(1, int(daily_goal * review_ratio))
+
+        # Ensure limits don't exceed maximums
+        new_cards_limit = min(new_cards_limit, 50)
+        review_cards_limit = min(review_cards_limit, 100)
+
+        return new_cards_limit, review_cards_limit
+
+    # ============================================================
     # Helper Methods: Messages
     # ============================================================
 
@@ -667,7 +951,7 @@ class StudySessionService:
             limit: Maximum number of due cards to return
 
         Returns:
-            StudyOverviewResponse with counts and due cards
+            StudyOverviewResponse with counts, due cards, and daily goal progress
         """
         # Get counts using existing service method
         count_data = await UserCardProgressService.get_new_cards_count(session, user_id)
@@ -695,9 +979,145 @@ class StudySessionService:
                     )
                 )
 
+        # Get profile for daily_goal
+        profile = await session.get(Profile, user_id)
+        if not profile:
+            raise NotFoundError(f"Profile not found for user {user_id}", resource="profile")
+
+        daily_goal_value = profile.daily_goal or 30
+
+        # Calculate today's completed cards from StudySession
+        now = datetime.now(UTC)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        # Query today's completed sessions
+        sessions_query = select(StudySession).where(
+            StudySession.user_id == user_id,
+            StudySession.started_at >= today_start,
+            StudySession.started_at <= today_end,
+            StudySession.completed_at.isnot(None),
+        )
+        result = await session.exec(sessions_query)
+        sessions = result.all()
+
+        # Sum cards from all completed sessions today
+        total_cards_today = sum(s.correct_count + s.wrong_count for s in sessions)
+
+        # Calculate progress
+        progress_value = (
+            min((total_cards_today / daily_goal_value) * 100, 100.0)
+            if daily_goal_value > 0
+            else 0.0
+        )
+        is_completed = total_cards_today >= daily_goal_value
+
+        daily_goal_status = DailyGoalStatus(
+            goal=daily_goal_value,
+            completed=total_cards_today,
+            progress=round(progress_value, 1),
+            is_completed=is_completed,
+        )
+
         return StudyOverviewResponse(
             new_cards_count=new_cards_count,
             review_cards_count=review_cards_count,
             total_available=new_cards_count + review_cards_count,
             due_cards=due_cards,
+            daily_goal=daily_goal_status,
+        )
+
+    @staticmethod
+    async def preview_session(
+        session: AsyncSession,
+        user_id: UUID,
+        total_cards: int,
+        review_ratio: float,
+    ) -> SessionPreviewResponse:
+        """
+        Preview session allocation based on total cards and review ratio.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            total_cards: Total cards to study
+            review_ratio: Ratio of review cards (0.0-1.0)
+
+        Returns:
+            SessionPreviewResponse with available and allocated cards
+        """
+        # Get counts using existing service method
+        count_data = await UserCardProgressService.get_new_cards_count(session, user_id)
+        new_cards_available = count_data["new_cards_count"]
+        review_cards_available = count_data["review_cards_count"]
+
+        # Get relearning cards count (RELEARNING state)
+        relearning_query = select(func.count(UserCardProgress.id)).where(
+            UserCardProgress.user_id == user_id,
+            UserCardProgress.card_state == CardState.RELEARNING,
+        )
+        result = await session.exec(relearning_query)
+        relearning_cards_available = result.one() or 0
+
+        # Calculate allocation based on ratio
+        review_cards_requested = int(total_cards * review_ratio)
+        new_cards_requested = total_cards - review_cards_requested
+
+        # Adjust allocation based on availability
+        review_cards_allocated = min(review_cards_requested, review_cards_available)
+        new_cards_allocated = min(new_cards_requested, new_cards_available)
+
+        # Adjust if we can't meet the requested total
+        actual_total = review_cards_allocated + new_cards_allocated
+
+        # Try to fill remaining slots from the other type if available
+        if actual_total < total_cards:
+            shortage = total_cards - actual_total
+            if (
+                new_cards_allocated < new_cards_requested
+                and new_cards_available > new_cards_allocated
+            ):
+                # Try to add more new cards
+                additional_new = min(shortage, new_cards_available - new_cards_allocated)
+                new_cards_allocated += additional_new
+                actual_total += additional_new
+                shortage -= additional_new
+
+            if (
+                shortage > 0
+                and review_cards_allocated < review_cards_requested
+                and review_cards_available > review_cards_allocated
+            ):
+                # Try to add more review cards
+                additional_review = min(shortage, review_cards_available - review_cards_allocated)
+                review_cards_allocated += additional_review
+                actual_total += additional_review
+
+        # Generate warning message if we can't meet the request
+        message = None
+        if actual_total < total_cards:
+            missing = total_cards - actual_total
+            message = f"요청한 {total_cards}개의 카드 중 {missing}개가 부족합니다. {actual_total}개의 카드만 사용할 수 있습니다."
+        elif (
+            review_cards_allocated < review_cards_requested
+            or new_cards_allocated < new_cards_requested
+        ):
+            message = f"요청한 비율대로 배정할 수 없어 조정되었습니다. 신규 {new_cards_allocated}개, 복습 {review_cards_allocated}개가 배정됩니다."
+
+        available = AvailableCards(
+            new_cards=new_cards_available,
+            review_cards=review_cards_available,
+            relearning_cards=relearning_cards_available,
+        )
+
+        allocation = CardAllocation(
+            new_cards=new_cards_allocated,
+            review_cards=review_cards_allocated,
+            total=actual_total,
+        )
+
+        return SessionPreviewResponse(
+            available=available,
+            allocation=allocation,
+            message=message,
         )

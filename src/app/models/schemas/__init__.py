@@ -21,8 +21,6 @@ from app.models.schemas.stats import (
     StatsAccuracyRead,
     StatsHistoryItem,
     StatsHistoryRead,
-    TodayStatsRead,
-    TodayVocabularyStats,
     TotalLearnedRead,
 )
 from app.models.schemas.study import (
@@ -33,6 +31,10 @@ from app.models.schemas.study import (
     ClozeQuestion,
     DailyGoalStatus,
     DueCardSummary,
+    PhonemeFeedback,
+    PronunciationEvaluateRequest,
+    PronunciationEvaluateResponse,
+    PronunciationFeedback,
     SessionCompleteRequest,
     SessionCompleteResponse,
     SessionStartRequest,
@@ -51,14 +53,20 @@ from app.models.schemas.user_card_progress import (
     UserCardProgressRead,
 )
 from app.models.schemas.user_selected_deck import (
+    CategorySelectionState,
+    DisplayItem,
     GetSelectedDecksResponse,
     SelectDecksRequest,
     SelectDecksResponse,
     SelectedDeckInfo,
+    SelectedDecksSummary,
     UserSelectedDeckCreate,
     UserSelectedDeckRead,
 )
 from app.models.schemas.vocabulary_card import (
+    CardSummary,
+    RelatedWordInfo,
+    RelatedWordsResponse,
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
@@ -69,6 +77,14 @@ from app.models.schemas.word_tutor import (
     TutorMessageRequest,
     TutorMessageResponse,
     TutorStartResponse,
+)
+from app.models.schemas.wrong_answer import (
+    WrongAnswerCardInfo,
+    WrongAnswerRead,
+    WrongAnswerReviewedResponse,
+    WrongAnswersResponse,
+    WrongReviewSessionRequest,
+    WrongReviewSessionResponse,
 )
 
 __all__ = [
@@ -84,6 +100,9 @@ __all__ = [
     "VocabularyCardCreate",
     "VocabularyCardRead",
     "VocabularyCardUpdate",
+    "RelatedWordInfo",
+    "CardSummary",
+    "RelatedWordsResponse",
     # UserCardProgress
     "UserCardProgressCreate",
     "UserCardProgressRead",
@@ -107,14 +126,15 @@ __all__ = [
     "SelectDecksResponse",
     "SelectedDeckInfo",
     "GetSelectedDecksResponse",
+    "SelectedDecksSummary",
+    "DisplayItem",
+    "CategorySelectionState",
     # Stats
     "TotalLearnedRead",
     "StatsHistoryRead",
     "StatsHistoryItem",
     "StatsAccuracyRead",
     "AccuracyByPeriod",
-    "TodayStatsRead",
-    "TodayVocabularyStats",
     # Study Session
     "SessionStartRequest",
     "SessionStartResponse",
@@ -139,4 +159,16 @@ __all__ = [
     "TutorMessageResponse",
     "TutorMessageRead",
     "TutorHistoryResponse",
+    # Wrong Answer
+    "WrongAnswerCardInfo",
+    "WrongAnswerRead",
+    "WrongAnswerReviewedResponse",
+    "WrongAnswersResponse",
+    "WrongReviewSessionRequest",
+    "WrongReviewSessionResponse",
+    # Pronunciation Evaluation
+    "PhonemeFeedback",
+    "PronunciationFeedback",
+    "PronunciationEvaluateRequest",
+    "PronunciationEvaluateResponse",
 ]

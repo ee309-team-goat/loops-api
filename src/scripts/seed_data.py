@@ -11,7 +11,9 @@ Run with: cd src && PYTHONPATH=. uv run python scripts/seed_data.py
 """
 
 import asyncio
+import csv
 import json
+import sys
 from pathlib import Path
 
 from sqlmodel import func, select
@@ -24,6 +26,181 @@ from app.models.tables.vocabulary_card import VocabularyCard
 # Path to collected vocabulary data
 DATA_DIR = Path(__file__).parent.parent / "data"
 VOCABULARY_JSON = DATA_DIR / "vocabulary.json"
+
+# Add scripts directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+
+class FrequencyMapper:
+    """Handles loading frequency data and mapping to vocabulary cards."""
+
+    UNMATCHED_RANK = 999999
+    DATA_DIR = Path(__file__).parent.parent.parent / "data" / "frequency"
+
+    def __init__(self):
+        self.frequency_map: dict[str, int] = {}
+
+    def load_coca_data(self) -> dict[str, int]:
+        """Load COCA Top 5000 frequency data."""
+        file_path = self.DATA_DIR / "COCA_5000.csv"
+        frequency_map = {}
+
+        with open(file_path, encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                word = row["lemma"].lower().strip()
+                rank = int(row["rank"])
+                frequency_map[word] = rank
+
+        return frequency_map
+
+    def load_google_ngram_data(self) -> dict[str, int]:
+        """Load Google Ngram 246k frequency data."""
+        file_path = self.DATA_DIR / "google_ngram_frequency_alpha.txt"
+        frequency_map = {}
+
+        with open(file_path, encoding="utf-8") as f:
+            next(f)  # Skip header
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    rank_str = parts[0]
+                    word = parts[1].lower().strip()
+                    try:
+                        rank = int(rank_str)
+                        frequency_map[word] = rank
+                    except ValueError:
+                        continue
+
+        return frequency_map
+
+    def load_all_sources(self) -> dict[str, int]:
+        """
+        Load all sources and merge them with priority.
+        Priority: COCA > Google Ngram
+        """
+        # Start with Google Ngram (lower priority)
+        combined = self.load_google_ngram_data()
+
+        # Override with COCA (highest priority)
+        coca_map = self.load_coca_data()
+        for word, rank in coca_map.items():
+            combined[word] = rank
+
+        return combined
+
+    def load_frequency_data(self):
+        """Load frequency data from all sources."""
+        self.frequency_map = self.load_all_sources()
+
+    def get_rank(self, english_word: str) -> int:
+        """
+        Get frequency rank for an English word.
+        Returns UNMATCHED_RANK (999999) if not found.
+        """
+        if not english_word or not english_word.strip():
+            return self.UNMATCHED_RANK
+
+        import string
+
+        word_lower = english_word.lower().strip()
+        word_clean = word_lower.strip(string.punctuation)
+
+        # Try exact match
+        if word_clean in self.frequency_map:
+            return self.frequency_map[word_clean]
+
+        # Try first word for multi-word phrases
+        words = word_clean.split()
+        if len(words) > 1:
+            first_word = words[0]
+            if first_word in self.frequency_map:
+                return self.frequency_map[first_word]
+
+        return self.UNMATCHED_RANK
+
+
+class CEFRMapper:
+    """Handles loading CEFR level data and mapping to vocabulary cards."""
+
+    DATA_DIR = Path(__file__).parent.parent.parent / "data" / "frequency"
+
+    def __init__(self):
+        self.cefr_map: dict[str, str] = {}
+
+    def load_oxford_data(self):
+        """Load Oxford 3000 and 5000 CEFR data."""
+        # Load Oxford 3000
+        oxford_3000_path = self.DATA_DIR / "oxford-3000.csv"
+        with open(oxford_3000_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                word = row["word"].lower().strip()
+                level = row["level"].upper()
+                self.cefr_map[word] = level
+
+        # Load Oxford 5000
+        oxford_5000_path = self.DATA_DIR / "oxford-5000.csv"
+        with open(oxford_5000_path, encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                word = row["word"].lower().strip()
+                level = row["level"].upper()
+                # Don't override if already set from Oxford 3000
+                if word not in self.cefr_map:
+                    self.cefr_map[word] = level
+
+    def get_cefr_level_from_frequency(self, frequency_rank: int) -> str:
+        """
+        Assign CEFR level based on frequency rank.
+
+        Fallback when word not in Oxford data:
+        - A1: 1-500 (most common)
+        - A2: 501-1500
+        - B1: 1501-3000
+        - B2: 3001-5000
+        - C1: 5001-10000
+        - C2: 10001+ (rare)
+        """
+        if frequency_rank <= 500:
+            return "A1"
+        elif frequency_rank <= 1500:
+            return "A2"
+        elif frequency_rank <= 3000:
+            return "B1"
+        elif frequency_rank <= 5000:
+            return "B2"
+        elif frequency_rank <= 10000:
+            return "C1"
+        else:
+            return "C2"
+
+    def get_level(self, english_word: str, frequency_rank: int) -> str:
+        """
+        Get CEFR level for an English word.
+        Prioritizes Oxford data, falls back to frequency-based assignment.
+        """
+        if not english_word or not english_word.strip():
+            return self.get_cefr_level_from_frequency(frequency_rank)
+
+        import string
+
+        word_lower = english_word.lower().strip()
+        word_clean = word_lower.strip(string.punctuation)
+
+        # Try exact match in Oxford data
+        if word_clean in self.cefr_map:
+            return self.cefr_map[word_clean]
+
+        # Try first word for multi-word phrases
+        words = word_clean.split()
+        if len(words) > 1:
+            first_word = words[0]
+            if first_word in self.cefr_map:
+                return self.cefr_map[first_word]
+
+        # Fallback to frequency-based
+        return self.get_cefr_level_from_frequency(frequency_rank)
 
 
 async def seed_decks(session: AsyncSession) -> dict[str, int]:

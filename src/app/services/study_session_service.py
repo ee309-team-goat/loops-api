@@ -41,6 +41,7 @@ from app.models import (
 )
 from app.services.profile_service import ProfileService
 from app.services.user_card_progress_service import UserCardProgressService
+from app.services.wrong_answer_service import WrongAnswerService
 
 # CEFR level order for i+1 calculation
 CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
@@ -128,6 +129,52 @@ class StudySessionService:
             total_cards=len(card_ids),
             new_cards_count=len(new_cards),
             review_cards_count=len(review_cards_data),
+            started_at=started_at,
+        )
+
+    @staticmethod
+    async def start_session_with_cards(
+        session: AsyncSession,
+        user_id: UUID,
+        card_ids: list[int],
+    ) -> SessionStartResponse:
+        """
+        Start a new study session with specific card IDs.
+
+        Used for wrong answer review sessions.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            card_ids: List of card IDs to include in session
+        """
+        started_at = datetime.now(UTC)
+
+        # Shuffle for variety
+        random.shuffle(card_ids)
+
+        # Create StudySession record
+        study_session = StudySession(
+            user_id=user_id,
+            new_cards_limit=0,
+            review_cards_limit=len(card_ids),
+            status=SessionStatus.ACTIVE,
+            card_ids=card_ids,
+            current_index=0,
+            correct_count=0,
+            wrong_count=0,
+            started_at=started_at,
+        )
+
+        session.add(study_session)
+        await session.commit()
+        await session.refresh(study_session)
+
+        return SessionStartResponse(
+            session_id=study_session.id,
+            total_cards=len(card_ids),
+            new_cards_count=0,
+            review_cards_count=len(card_ids),
             started_at=started_at,
         )
 
@@ -220,6 +267,7 @@ class StudySessionService:
         response_time_ms: int | None = None,
         hint_count: int = 0,
         revealed_answer: bool = False,
+        quiz_type: str | None = None,
     ) -> AnswerResponse:
         """
         Submit an answer and update FSRS progress.
@@ -233,6 +281,7 @@ class StudySessionService:
             response_time_ms: Response time in milliseconds (optional)
             hint_count: Number of hints used (0 = no hints)
             revealed_answer: Whether the answer was revealed (show answer button)
+            quiz_type: Quiz type used for this answer (for wrong answer tracking)
 
         Returns:
             AnswerResponse with correctness, score, and FSRS update info
@@ -294,6 +343,17 @@ class StudySessionService:
             study_session.correct_count += 1
         else:
             study_session.wrong_count += 1
+
+            # Record wrong answer (Issue #53)
+            await WrongAnswerService.create_wrong_answer(
+                session=session,
+                user_id=user_id,
+                card_id=card_id,
+                session_id=session_id,
+                user_answer=user_answer,
+                correct_answer=card.english_word,
+                quiz_type=quiz_type or "unknown",
+            )
 
         session.add(study_session)
         await session.commit()

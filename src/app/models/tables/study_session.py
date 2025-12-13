@@ -46,6 +46,8 @@ class StudySession(StudySessionBase, TimestampMixin, table=True):
     # 결과 집계
     correct_count: int = Field(default=0)
     wrong_count: int = Field(default=0)
+    new_cards_count: int = Field(default=0, description="오늘 학습한 신규 카드 수")
+    review_cards_count: int = Field(default=0, description="오늘 학습한 복습 카드 수")
 
     # 타임스탬프
     started_at: datetime = Field(default_factory=lambda: datetime.utcnow())

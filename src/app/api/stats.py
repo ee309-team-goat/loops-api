@@ -4,7 +4,7 @@
 총 학습량, 학습 기록, 정확도 통계 등 학습 분석 데이터를 제공합니다.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -150,7 +150,8 @@ async def get_stats_history(
     - 평균 통계 표시
     """
     # Calculate date range based on period
-    now = datetime.now(UTC)
+    # Note: DB uses 'timestamp without time zone', so use naive datetime
+    now = datetime.utcnow()
     if period == "all":
         # No date filter for all period
         start_date = None
@@ -281,7 +282,8 @@ async def get_stats_accuracy(
     - 5% 이상 하락: declining
     - 그 외: stable
     """
-    now = datetime.now(UTC)
+    # Note: DB uses 'timestamp without time zone', so use naive datetime
+    now = datetime.utcnow()
 
     # Helper function to calculate accuracy for a period
     async def get_accuracy_for_period(days: int | None) -> tuple[int, int]:
@@ -410,7 +412,8 @@ async def get_today_stats(
     **오늘 기준:**
     - UTC 기준 오늘 날짜 (00:00:00 ~ 23:59:59)
     """
-    now = datetime.now(UTC)
+    # Note: DB uses 'timestamp without time zone', so use naive datetime
+    now = datetime.utcnow()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 

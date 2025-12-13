@@ -4,7 +4,7 @@
 프로필 조회/수정, 학습 설정, 스트릭 정보, 레벨 정보 등 사용자 데이터를 관리합니다.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -347,7 +347,8 @@ async def get_profile_streak(
     - `message`: 사용자에게 표시할 동기 부여 메시지
     """
     # Calculate days_studied_this_month
-    now = datetime.now(UTC)
+    # Note: DB uses 'timestamp without time zone', so use naive datetime
+    now = datetime.utcnow()
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Count distinct dates when user reviewed cards this month

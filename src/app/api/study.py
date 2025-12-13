@@ -679,13 +679,13 @@ async def start_wrong_review_session(
 
     if not card_ids:
         # Return empty session if no wrong answers
-        from datetime import UTC, datetime
+        from datetime import datetime
 
         return WrongReviewSessionResponse(
             session_id="00000000-0000-0000-0000-000000000000",
             total_cards=0,
             cards_from_wrong_answers=True,
-            started_at=datetime.now(UTC),
+            started_at=datetime.utcnow(),
         )
 
     # Start session with wrong answer cards

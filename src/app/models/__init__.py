@@ -9,8 +9,6 @@ from app.models.schemas import (
     AccuracyByPeriod,
     AnswerRequest,
     AnswerResponse,
-    AvailableCards,
-    CardAllocation,
     CardRequest,
     CardResponse,
     CardSummary,
@@ -44,23 +42,17 @@ from app.models.schemas import (
     SelectedDecksSummary,
     SessionCompleteRequest,
     SessionCompleteResponse,
-    SessionPreviewRequest,
-    SessionPreviewResponse,
     SessionStartRequest,
     SessionStartResponse,
     SessionSummary,
     StatsAccuracyRead,
     StatsHistoryItem,
     StatsHistoryRead,
-    StatsHistorySummary,
     StreakInfo,
     StreakRead,
     StudyCard,
     StudyOverviewResponse,
     TodayProgressRead,
-    TodayStatsRead,
-    TodayVocabularyStats,
-    TotalLearnedRead,
     UserCardProgressCreate,
     UserCardProgressRead,
     UserSelectedDeckCreate,
@@ -68,6 +60,12 @@ from app.models.schemas import (
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
+    WrongAnswerCardInfo,
+    WrongAnswerRead,
+    WrongAnswerReviewedResponse,
+    WrongAnswersResponse,
+    WrongReviewSessionRequest,
+    WrongReviewSessionResponse,
     XPInfo,
 )
 
@@ -85,6 +83,8 @@ from app.models.tables import (
     UserSelectedDeck,
     VocabularyCard,
     VocabularyCardBase,
+    WrongAnswer,
+    WrongAnswerBase,
 )
 
 __all__ = [
@@ -102,12 +102,14 @@ __all__ = [
     "Favorite",
     "UserSelectedDeck",
     "StudySession",
+    "WrongAnswer",
     # Base classes (from tables)
     "ProfileBase",
     "VocabularyCardBase",
     "UserCardProgressBase",
     "DeckBase",
     "StudySessionBase",
+    "WrongAnswerBase",
     # Profile Schemas
     "ProfileRead",
     "ProfileUpdate",
@@ -150,14 +152,10 @@ __all__ = [
     "DisplayItem",
     "CategorySelectionState",
     # Stats Schemas
-    "TotalLearnedRead",
     "StatsHistoryRead",
     "StatsHistoryItem",
-    "StatsHistorySummary",
     "StatsAccuracyRead",
     "AccuracyByPeriod",
-    "TodayStatsRead",
-    "TodayVocabularyStats",
     # Study Session Schemas
     "SessionStartRequest",
     "SessionStartResponse",
@@ -176,9 +174,11 @@ __all__ = [
     # Study Overview Schemas
     "DueCardSummary",
     "StudyOverviewResponse",
-    # Session Preview Schemas
-    "AvailableCards",
-    "CardAllocation",
-    "SessionPreviewRequest",
-    "SessionPreviewResponse",
+    # Wrong Answer Schemas
+    "WrongAnswerCardInfo",
+    "WrongAnswerRead",
+    "WrongAnswerReviewedResponse",
+    "WrongAnswersResponse",
+    "WrongReviewSessionRequest",
+    "WrongReviewSessionResponse",
 ]

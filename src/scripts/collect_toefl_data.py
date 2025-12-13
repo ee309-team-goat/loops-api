@@ -363,7 +363,7 @@ def insert_to_database(words: list[dict]) -> int:
 
         if response.status_code in [200, 201]:
             inserted += len(batch)
-            print(f"Inserted batch {i//batch_size + 1}: {len(batch)} words")
+            print(f"Inserted batch {i // batch_size + 1}: {len(batch)} words")
         else:
             print(f"Error inserting batch: {response.status_code} - {response.text[:200]}")
 

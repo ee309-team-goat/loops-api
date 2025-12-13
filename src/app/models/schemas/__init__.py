@@ -78,6 +78,14 @@ from app.models.schemas.vocabulary_card import (
     VocabularyCardRead,
     VocabularyCardUpdate,
 )
+from app.models.schemas.wrong_answer import (
+    WrongAnswerCardInfo,
+    WrongAnswerRead,
+    WrongAnswerReviewedResponse,
+    WrongAnswersResponse,
+    WrongReviewSessionRequest,
+    WrongReviewSessionResponse,
+)
 
 __all__ = [
     # Profile
@@ -153,6 +161,13 @@ __all__ = [
     "CardAllocation",
     "SessionPreviewRequest",
     "SessionPreviewResponse",
+    # Wrong Answer
+    "WrongAnswerCardInfo",
+    "WrongAnswerRead",
+    "WrongAnswerReviewedResponse",
+    "WrongAnswersResponse",
+    "WrongReviewSessionRequest",
+    "WrongReviewSessionResponse",
     # Pronunciation Evaluation
     "PhonemeFeedback",
     "PronunciationFeedback",

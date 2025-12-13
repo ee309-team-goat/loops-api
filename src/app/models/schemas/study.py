@@ -104,6 +104,11 @@ class AnswerRequest(SQLModel):
     hint_count: int = Field(default=0, ge=0, description="사용한 힌트 횟수 (0=미사용)")
     revealed_answer: bool = Field(default=False, description="정답보기로 정답 공개했는지 여부")
 
+    # 퀴즈 유형 (Issue #53 - 오답 노트용)
+    quiz_type: str | None = Field(
+        default=None, description="퀴즈 유형 (word_to_meaning/meaning_to_word/cloze/listening)"
+    )
+
 
 class AnswerResponse(SQLModel):
     """정답 제출 응답 스키마."""

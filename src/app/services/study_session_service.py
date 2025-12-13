@@ -14,7 +14,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.exceptions import NotFoundError, ValidationError
 from app.models import (
     AnswerResponse,
+    AvailableCards,
+    CardAllocation,
     CardResponse,
+    CardState,
     ClozeQuestion,
     DailyGoalStatus,
     Deck,
@@ -22,6 +25,7 @@ from app.models import (
     Profile,
     QuizType,
     SessionCompleteResponse,
+    SessionPreviewResponse,
     SessionStartResponse,
     SessionStatus,
     SessionSummary,
@@ -667,7 +671,7 @@ class StudySessionService:
             limit: Maximum number of due cards to return
 
         Returns:
-            StudyOverviewResponse with counts and due cards
+            StudyOverviewResponse with counts, due cards, and daily goal progress
         """
         # Get counts using existing service method
         count_data = await UserCardProgressService.get_new_cards_count(session, user_id)
@@ -695,9 +699,145 @@ class StudySessionService:
                     )
                 )
 
+        # Get profile for daily_goal
+        profile = await session.get(Profile, user_id)
+        if not profile:
+            raise NotFoundError(f"Profile not found for user {user_id}", resource="profile")
+
+        daily_goal_value = profile.daily_goal or 30
+
+        # Calculate today's completed cards from StudySession
+        now = datetime.now(UTC)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        # Query today's completed sessions
+        sessions_query = select(StudySession).where(
+            StudySession.user_id == user_id,
+            StudySession.started_at >= today_start,
+            StudySession.started_at <= today_end,
+            StudySession.completed_at.isnot(None),
+        )
+        result = await session.exec(sessions_query)
+        sessions = result.all()
+
+        # Sum cards from all completed sessions today
+        total_cards_today = sum(s.correct_count + s.wrong_count for s in sessions)
+
+        # Calculate progress
+        progress_value = (
+            min((total_cards_today / daily_goal_value) * 100, 100.0)
+            if daily_goal_value > 0
+            else 0.0
+        )
+        is_completed = total_cards_today >= daily_goal_value
+
+        daily_goal_status = DailyGoalStatus(
+            goal=daily_goal_value,
+            completed=total_cards_today,
+            progress=round(progress_value, 1),
+            is_completed=is_completed,
+        )
+
         return StudyOverviewResponse(
             new_cards_count=new_cards_count,
             review_cards_count=review_cards_count,
             total_available=new_cards_count + review_cards_count,
             due_cards=due_cards,
+            daily_goal=daily_goal_status,
+        )
+
+    @staticmethod
+    async def preview_session(
+        session: AsyncSession,
+        user_id: UUID,
+        total_cards: int,
+        review_ratio: float,
+    ) -> SessionPreviewResponse:
+        """
+        Preview session allocation based on total cards and review ratio.
+
+        Args:
+            session: DB session
+            user_id: User ID
+            total_cards: Total cards to study
+            review_ratio: Ratio of review cards (0.0-1.0)
+
+        Returns:
+            SessionPreviewResponse with available and allocated cards
+        """
+        # Get counts using existing service method
+        count_data = await UserCardProgressService.get_new_cards_count(session, user_id)
+        new_cards_available = count_data["new_cards_count"]
+        review_cards_available = count_data["review_cards_count"]
+
+        # Get relearning cards count (RELEARNING state)
+        relearning_query = select(func.count(UserCardProgress.id)).where(
+            UserCardProgress.user_id == user_id,
+            UserCardProgress.card_state == CardState.RELEARNING,
+        )
+        result = await session.exec(relearning_query)
+        relearning_cards_available = result.one() or 0
+
+        # Calculate allocation based on ratio
+        review_cards_requested = int(total_cards * review_ratio)
+        new_cards_requested = total_cards - review_cards_requested
+
+        # Adjust allocation based on availability
+        review_cards_allocated = min(review_cards_requested, review_cards_available)
+        new_cards_allocated = min(new_cards_requested, new_cards_available)
+
+        # Adjust if we can't meet the requested total
+        actual_total = review_cards_allocated + new_cards_allocated
+
+        # Try to fill remaining slots from the other type if available
+        if actual_total < total_cards:
+            shortage = total_cards - actual_total
+            if (
+                new_cards_allocated < new_cards_requested
+                and new_cards_available > new_cards_allocated
+            ):
+                # Try to add more new cards
+                additional_new = min(shortage, new_cards_available - new_cards_allocated)
+                new_cards_allocated += additional_new
+                actual_total += additional_new
+                shortage -= additional_new
+
+            if (
+                shortage > 0
+                and review_cards_allocated < review_cards_requested
+                and review_cards_available > review_cards_allocated
+            ):
+                # Try to add more review cards
+                additional_review = min(shortage, review_cards_available - review_cards_allocated)
+                review_cards_allocated += additional_review
+                actual_total += additional_review
+
+        # Generate warning message if we can't meet the request
+        message = None
+        if actual_total < total_cards:
+            missing = total_cards - actual_total
+            message = f"요청한 {total_cards}개의 카드 중 {missing}개가 부족합니다. {actual_total}개의 카드만 사용할 수 있습니다."
+        elif (
+            review_cards_allocated < review_cards_requested
+            or new_cards_allocated < new_cards_requested
+        ):
+            message = f"요청한 비율대로 배정할 수 없어 조정되었습니다. 신규 {new_cards_allocated}개, 복습 {review_cards_allocated}개가 배정됩니다."
+
+        available = AvailableCards(
+            new_cards=new_cards_available,
+            review_cards=review_cards_available,
+            relearning_cards=relearning_cards_available,
+        )
+
+        allocation = CardAllocation(
+            new_cards=new_cards_allocated,
+            review_cards=review_cards_allocated,
+            total=actual_total,
+        )
+
+        return SessionPreviewResponse(
+            available=available,
+            allocation=allocation,
+            message=message,
         )

@@ -5,6 +5,7 @@
 퀴즈 기능이 통합되어 FSRS 업데이트, 스트릭, 일일 목표, XP가 모두 반영됩니다.
 """
 
+import random
 from typing import Annotated
 from uuid import UUID
 
@@ -34,8 +35,15 @@ from app.models import (
     WrongReviewSessionRequest,
     WrongReviewSessionResponse,
 )
+from app.models.schemas.study import (
+    PhonemeFeedback,
+    PronunciationEvaluateRequest,
+    PronunciationEvaluateResponse,
+    PronunciationFeedback,
+)
 from app.services.study_session_service import StudySessionService
 from app.services.user_card_progress_service import UserCardProgressService
+from app.services.vocabulary_card_service import VocabularyCardService
 from app.services.wrong_answer_service import WrongAnswerService
 
 TAG = "study"
@@ -692,4 +700,119 @@ async def start_wrong_review_session(
         total_cards=session_response.total_cards,
         cards_from_wrong_answers=True,
         started_at=session_response.started_at,
+    )
+
+
+# ============================================================
+# Pronunciation Evaluation (Issue #56)
+# ============================================================
+
+
+def _get_grade(score: int) -> str:
+    """점수에 따른 등급 반환."""
+    if score >= 90:
+        return "excellent"
+    elif score >= 75:
+        return "good"
+    elif score >= 60:
+        return "fair"
+    else:
+        return "needs_practice"
+
+
+def _get_feedback_message(grade: str) -> str:
+    """등급에 따른 피드백 메시지 반환."""
+    messages = {
+        "excellent": "완벽해요! 네이티브 수준의 발음입니다.",
+        "good": "좋아요! 조금만 더 연습하면 완벽해질 거예요.",
+        "fair": "괜찮아요! 강세와 발음에 조금 더 신경 써보세요.",
+        "needs_practice": "다시 도전해보세요! 천천히 따라 해보세요.",
+    }
+    return messages.get(grade, "계속 연습해보세요!")
+
+
+@router.post(
+    "/pronunciation/evaluate",
+    response_model=PronunciationEvaluateResponse,
+    summary="발음 평가 (Mock)",
+    description="사용자의 발음을 평가합니다. 현재 MVP 버전으로 Mock 데이터를 반환합니다.",
+    responses={
+        200: {"description": "발음 평가 완료"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "카드를 찾을 수 없음"},
+        422: {"description": "card_id 또는 word 중 하나는 필수"},
+    },
+)
+async def evaluate_pronunciation(
+    request: PronunciationEvaluateRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_profile: CurrentActiveProfile,
+) -> PronunciationEvaluateResponse:
+    """
+    발음을 평가합니다 (MVP Mock 버전).
+
+    **인증 필요:** Bearer 토큰
+
+    **요청 본문:**
+    - `card_id`: 평가할 단어의 카드 ID (선택)
+    - `word`: 평가할 단어 (card_id 없을 경우 사용)
+
+    **참고:**
+    - 현재 MVP 버전으로 Mock 점수와 피드백을 반환합니다.
+    - 추후 Azure/Google Speech API 연동 예정입니다.
+
+    **점수 등급:**
+    - 90-100: excellent (완벽해요!)
+    - 75-89: good (좋아요!)
+    - 60-74: fair (조금 더 연습해요)
+    - 0-59: needs_practice (다시 도전해보세요)
+    """
+    # Validate request
+    if not request.card_id and not request.word:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="card_id 또는 word 중 하나는 필수입니다.",
+        )
+
+    # Get card info if card_id provided
+    word = request.word
+    pronunciation_ipa = None
+    native_audio_url = None
+
+    if request.card_id:
+        card = await VocabularyCardService.get_card(session, request.card_id)
+        if not card:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="카드를 찾을 수 없습니다.",
+            )
+        word = card.english_word
+        pronunciation_ipa = card.pronunciation_ipa
+        native_audio_url = card.audio_url
+
+    # Generate mock score and feedback
+    score = random.randint(60, 95)
+    grade = _get_grade(score)
+
+    # Mock phoneme feedback
+    phoneme_feedbacks = [
+        PhonemeFeedback(phoneme="ə", score=random.randint(60, 90), tip="'어' 소리를 더 짧게"),
+        PhonemeFeedback(phoneme="ʃ", score=random.randint(65, 95), tip="'sh' 소리를 더 부드럽게"),
+    ]
+
+    feedback = PronunciationFeedback(
+        overall=_get_feedback_message(grade),
+        stress="강세 위치에 조금 더 신경 쓰면 좋겠어요." if score < 85 else None,
+        sounds=phoneme_feedbacks if score < 80 else None,
+    )
+
+    return PronunciationEvaluateResponse(
+        card_id=request.card_id,
+        word=word,
+        pronunciation_ipa=pronunciation_ipa,
+        score=score,
+        grade=grade,
+        feedback=feedback,
+        native_audio_url=native_audio_url,
+        user_audio_url=None,
     )

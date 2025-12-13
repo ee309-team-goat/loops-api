@@ -1,12 +1,6 @@
 from app.models.schemas.deck import (
-    CategoriesResponse,
-    CategoryDecksResponse,
-    CategoryDetail,
-    CategoryInfo,
-    CategoryWithStats,
     DeckCreate,
     DeckDetailRead,
-    DeckInCategory,
     DeckRead,
     DecksListResponse,
     DeckUpdate,
@@ -37,6 +31,10 @@ from app.models.schemas.study import (
     ClozeQuestion,
     DailyGoalStatus,
     DueCardSummary,
+    PhonemeFeedback,
+    PronunciationEvaluateRequest,
+    PronunciationEvaluateResponse,
+    PronunciationFeedback,
     SessionAbandonRequest,
     SessionAbandonResponse,
     SessionAbandonSummary,
@@ -115,14 +113,7 @@ __all__ = [
     "DeckUpdate",
     "DeckWithProgressRead",
     "DeckDetailRead",
-    "DeckInCategory",
     "DecksListResponse",
-    # Category
-    "CategoryInfo",
-    "CategoryWithStats",
-    "CategoryDetail",
-    "CategoriesResponse",
-    "CategoryDecksResponse",
     # Favorite
     "FavoriteCreate",
     "FavoriteRead",
@@ -173,4 +164,9 @@ __all__ = [
     "WrongAnswersResponse",
     "WrongReviewSessionRequest",
     "WrongReviewSessionResponse",
+    # Pronunciation Evaluation
+    "PhonemeFeedback",
+    "PronunciationFeedback",
+    "PronunciationEvaluateRequest",
+    "PronunciationEvaluateResponse",
 ]

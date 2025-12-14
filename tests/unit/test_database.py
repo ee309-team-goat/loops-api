@@ -150,7 +150,8 @@ class TestSSLConfiguration:
         ca_file = tmp_path / "test-ca.crt"
         # Create a minimal valid PEM certificate for testing
         # (This is a self-signed test certificate that won't validate real connections)
-        ca_file.write_text("""-----BEGIN CERTIFICATE-----
+        ca_file.write_text(
+            """-----BEGIN CERTIFICATE-----
 MIIBkTCB+wIJAKHBfpegPjMCMA0GCSqGSIb3DQEBCwUAMBExDzANBgNVBAMMBnRl
 c3RjYTAeFw0yMzAxMDEwMDAwMDBaFw0yNDAxMDEwMDAwMDBaMBExDzANBgNVBAMM
 BnRlc3RjYTBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC7o96WqWXfmhFsVWz8OKWF
@@ -158,7 +159,8 @@ avv3HH1vRhIQPTGExt7OprHrWPLnUdBqrW6YloqDq7WwNh5ZP5K5K5K5K5K5K5Kp
 AgMBAAGjUzBRMB0GA1UdDgQWBBQTest1234567890123456789012MB8GA1UdIwQY
 MBaAFBTest1234567890123456789012MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZI
 hvcNAQELBQADQQBTest
------END CERTIFICATE-----""")
+-----END CERTIFICATE-----"""
+        )
 
         # Test that ssl context can be created (even if cert is invalid)
         try:
@@ -190,7 +192,13 @@ hvcNAQELBQADQQBTest
         with patch("os.getenv", side_effect=mock_getenv):
             # Simulate the SSL branch logic from database.py lines 35-36
             ca_file = os.getenv("DB_SSL_CA_FILE")
-            no_verify = os.getenv("DB_SSL_NO_VERIFY") in {"1", "true", "TRUE", "yes", "YES"}
+            no_verify = os.getenv("DB_SSL_NO_VERIFY") in {
+                "1",
+                "true",
+                "TRUE",
+                "yes",
+                "YES",
+            }
 
             assert ca_file == ca_file_path
             assert no_verify is False

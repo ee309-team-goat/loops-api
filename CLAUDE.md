@@ -363,6 +363,54 @@ GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 
 **Storage upload failing**: Ensure `SUPABASE_SECRET_KEY` is set (required for write operations)
 
+## Testing
+
+See [docs/TESTING.md](docs/TESTING.md) for detailed testing guide.
+
+### Quick Start
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run with coverage
+uv run pytest --cov=src/app --cov-report=term-missing
+
+# Run specific test file
+uv run pytest tests/unit/api/test_auth_api.py -v
+```
+
+### Test Structure
+
+```text
+tests/
+├── conftest.py              # Shared fixtures
+├── factories.py             # Model factories
+├── unit/
+│   ├── api/                 # API endpoint tests
+│   └── services/            # Service layer tests
+```
+
+### Coverage Requirements
+
+- **Minimum**: 80%
+- **Current**: 85%+
+
+### Key Patterns
+
+```python
+# API test with mocking
+def test_endpoint(api_client, mocker):
+    mocker.patch("app.api.module.Service.method", new_callable=AsyncMock, return_value=mock_response)
+    response = api_client.get("/api/v1/endpoint")
+    assert response.status_code == 200
+
+# Authentication test
+def test_requires_auth(unauthenticated_client):
+    response = unauthenticated_client.get("/api/v1/endpoint")
+    assert response.status_code == 403
+```
+
 ## Quick Reference
 
 ```bash
@@ -377,4 +425,8 @@ just dev                    # Start server
 just revision "description" # Create migration
 just migrate                # Apply migration
 just current                # Verify
+
+# Testing
+uv run pytest               # Run tests
+uv run pytest --cov         # With coverage
 ```

@@ -69,63 +69,6 @@ async def get_decks_list(
     return await DeckService.get_decks_list(session, current_profile.id, skip, limit)
 
 
-@router.get(
-    "/{deck_id}",
-    response_model=DeckDetailRead,
-    summary="덱 상세 조회",
-    description="특정 덱의 상세 정보와 학습 진행 상황을 조회합니다.",
-    responses={
-        200: {"description": "덱 상세 정보 반환 성공"},
-        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
-        403: {"description": "권한 없음 - 비공개 덱에 접근 권한이 없음"},
-        404: {"description": "덱을 찾을 수 없음"},
-    },
-)
-async def get_deck_detail(
-    deck_id: int = Path(description="조회할 덱의 고유 ID"),
-    session: Annotated[AsyncSession, Depends(get_session)] = None,
-    current_profile: CurrentActiveProfile = None,
-):
-    """
-    특정 덱의 상세 정보를 조회합니다.
-
-    **인증 필요:** Bearer 토큰
-
-    **접근 조건:**
-    - 공개 덱 (`is_public: true`)
-    - 또는 본인이 생성한 덱
-
-    **반환 정보:**
-    - 덱 기본 정보: ID, 이름, 설명, 생성자
-    - 카드 정보: 총 카드 수
-    - 학습 진행: 진행률, 학습/복습 중인 카드 수
-    - 생성/수정 시간
-    """
-    deck = await DeckService.get_deck_by_id(session, deck_id)
-
-    if not deck:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Deck with id {deck_id} not found",
-        )
-
-    if not await DeckService.check_deck_access(deck, current_profile.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to access this deck",
-        )
-
-    deck_read = DeckRead.model_validate(deck)
-    progress = await DeckService.calculate_deck_progress(session, current_profile.id, deck_id)
-
-    response = {
-        **deck_read.model_dump(),
-        **progress,
-    }
-
-    return DeckDetailRead(**response)
-
-
 @router.put(
     "/selected-decks",
     response_model=SelectDecksResponse,
@@ -390,3 +333,65 @@ async def deselect_all_category_decks(
         "category_id": category_id,
         "removed_decks": removed_count,
     }
+
+
+# ============================================================
+# Deck Detail (must be last due to /{deck_id} catch-all pattern)
+# ============================================================
+
+
+@router.get(
+    "/{deck_id}",
+    response_model=DeckDetailRead,
+    summary="덱 상세 조회",
+    description="특정 덱의 상세 정보와 학습 진행 상황을 조회합니다.",
+    responses={
+        200: {"description": "덱 상세 정보 반환 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        403: {"description": "권한 없음 - 비공개 덱에 접근 권한이 없음"},
+        404: {"description": "덱을 찾을 수 없음"},
+    },
+)
+async def get_deck_detail(
+    deck_id: int = Path(description="조회할 덱의 고유 ID"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+):
+    """
+    특정 덱의 상세 정보를 조회합니다.
+
+    **인증 필요:** Bearer 토큰
+
+    **접근 조건:**
+    - 공개 덱 (`is_public: true`)
+    - 또는 본인이 생성한 덱
+
+    **반환 정보:**
+    - 덱 기본 정보: ID, 이름, 설명, 생성자
+    - 카드 정보: 총 카드 수
+    - 학습 진행: 진행률, 학습/복습 중인 카드 수
+    - 생성/수정 시간
+    """
+    deck = await DeckService.get_deck_by_id(session, deck_id)
+
+    if not deck:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Deck with id {deck_id} not found",
+        )
+
+    if not await DeckService.check_deck_access(deck, current_profile.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to access this deck",
+        )
+
+    deck_read = DeckRead.model_validate(deck)
+    progress = await DeckService.calculate_deck_progress(session, current_profile.id, deck_id)
+
+    response = {
+        **deck_read.model_dump(),
+        **progress,
+    }
+
+    return DeckDetailRead(**response)

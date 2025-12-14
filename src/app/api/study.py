@@ -339,7 +339,6 @@ async def complete_study_session(
         session=session,
         user_id=current_profile.id,
         session_id=request.session_id,
-        duration_seconds=request.duration_seconds,
     )
 
 

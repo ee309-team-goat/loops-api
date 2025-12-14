@@ -3,8 +3,6 @@
 from datetime import datetime
 from unittest.mock import AsyncMock
 
-import pytest
-
 from app.models import Deck, DecksListResponse
 
 
@@ -249,15 +247,8 @@ class TestUpdateSelectedDecks:
 
 
 class TestGetSelectedDecks:
-    """Tests for GET /decks/selected-decks endpoint.
+    """Tests for GET /decks/selected-decks endpoint."""
 
-    Note: Some tests are skipped due to route ordering issue where
-    /{deck_id} path pattern matches before /selected-decks.
-    """
-
-    @pytest.mark.skip(
-        reason="Route order issue - /{deck_id} matches before /selected-decks in tests"
-    )
     def test_get_selected_decks_success(self, api_client, mocker):
         """Test successful retrieval of selected decks."""
         from app.models.schemas.user_selected_deck import GetSelectedDecksResponse
@@ -291,9 +282,6 @@ class TestGetSelectedDecks:
         assert data["select_all"] is False
         assert len(data["deck_ids"]) == 2
 
-    @pytest.mark.skip(
-        reason="Route order issue - /{deck_id} matches before /selected-decks in tests"
-    )
     def test_get_selected_decks_requires_auth(self, unauthenticated_client):
         """Test that get selected decks requires authentication."""
         response = unauthenticated_client.get("/api/v1/decks/selected-decks")
@@ -301,13 +289,8 @@ class TestGetSelectedDecks:
 
 
 class TestGetCategories:
-    """Tests for GET /decks/categories endpoint.
+    """Tests for GET /decks/categories endpoint."""
 
-    Note: Some tests are skipped due to route ordering issue where
-    /{deck_id} path pattern matches before /categories.
-    """
-
-    @pytest.mark.skip(reason="Route order issue - /{deck_id} matches before /categories in tests")
     def test_get_categories_success(self, api_client, mocker):
         """Test successful retrieval of categories."""
         from app.models import CategoryWithStats
@@ -346,7 +329,6 @@ class TestGetCategories:
         assert len(data["categories"]) == 2
         assert data["categories"][0]["id"] == "exam"
 
-    @pytest.mark.skip(reason="Route order issue - /{deck_id} matches before /categories in tests")
     def test_get_categories_requires_auth(self, unauthenticated_client):
         """Test that get categories requires authentication."""
         response = unauthenticated_client.get("/api/v1/decks/categories")

@@ -4,7 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Loops API is a FastAPI backend for a Korean vocabulary learning application using FSRS (Free Spaced Repetition Scheduler) algorithm. It uses SQLModel (SQLAlchemy + Pydantic) for async database operations with PostgreSQL, Supabase for authentication, and `uv` for package management.
+Loops API is a FastAPI backend for a Korean vocabulary learning application using FSRS (Free Spaced Repetition Scheduler) algorithm. It features AI-powered tutoring via LangGraph/OpenAI, image generation via Gemini, Supabase authentication & storage, and async PostgreSQL operations with SQLModel.
+
+**Tech Stack:**
+- **Framework**: FastAPI 0.121+
+- **ORM**: SQLModel (SQLAlchemy + Pydantic)
+- **Database**: PostgreSQL (async via asyncpg)
+- **Auth & Storage**: Supabase
+- **Learning Algorithm**: py-fsrs 6.3
+- **AI/LLM**: LangChain + LangGraph + OpenAI
+- **Image Generation**: Google Gemini
+- **Package Manager**: uv
 
 ## Common Commands
 
@@ -65,10 +75,11 @@ src/
 │   │   ├── profiles.py       # User profiles
 │   │   ├── cards.py          # Vocabulary cards
 │   │   ├── decks.py          # Deck management
-│   │   ├── progress.py       # FSRS learning progress
 │   │   ├── study.py          # Study sessions
-│   │   ├── stats.py          # Statistics
-│   │   └── quiz.py           # Quiz functionality
+│   │   ├── tutor.py          # AI Word Tutor chat
+│   │   └── stats.py          # Statistics
+│   ├── constants/
+│   │   └── categories.py     # Vocabulary categories
 │   ├── core/
 │   │   ├── security.py       # Supabase client, token verification
 │   │   ├── dependencies.py   # FastAPI dependencies (CurrentActiveProfile)
@@ -76,29 +87,73 @@ src/
 │   │   └── logging.py        # Structured logging (loguru)
 │   ├── models/
 │   │   ├── base.py           # TimestampMixin
-│   │   ├── enums.py          # CardState enum
+│   │   ├── enums.py          # CardState, SessionStatus, QuizType, ChatRole
 │   │   ├── tables/           # SQLModel table definitions
 │   │   └── schemas/          # Pydantic DTOs
-│   └── services/             # Business logic (static methods)
+│   └── services/             # Business logic
+│       ├── profile_service.py
+│       ├── vocabulary_card_service.py
+│       ├── user_card_progress_service.py
+│       ├── deck_service.py
+│       ├── study_session_service.py
+│       ├── wrong_answer_service.py
+│       ├── word_tutor_service.py      # AI tutor orchestration
+│       ├── word_tutor_graph.py        # LangGraph workflows
+│       ├── gemini_image_service.py    # Gemini image generation
+│       └── supabase_storage_service.py # Supabase Storage uploads
 ├── alembic/                  # Database migrations
-└── scripts/                  # Utility scripts (seed_data.py)
+└── scripts/                  # Utility scripts
+    ├── seed_data.py          # Database seeding
+    ├── collect_data.py       # Vocabulary collection
+    ├── collect_phrases.py    # Phrases/idioms collection
+    ├── collect_toefl_data.py # TOEFL word list collection
+    ├── map_frequency.py      # Frequency rank mapping
+    ├── generate_cloze.py     # Cloze sentence generation
+    ├── generate_card_images.py # Card image generation (Gemini)
+    ├── enrich_with_gpt.py    # GPT enrichment
+    ├── update_cards_via_api.py # Bulk update via API
+    ├── seed_via_rest.py      # Seed via REST API
+    └── verify_data.py        # Data validation
 ```
 
-### Model Architecture
+### Database Models
 
-Models are split into two directories:
+Models in `src/app/models/tables/`:
 
-1. **Tables** (`src/app/models/tables/`): Database models with `table=True`
-   - `Profile` - User profile linked to Supabase Auth (UUID primary key)
-   - `VocabularyCard` - Korean vocabulary with cloze sentences, examples
-   - `UserCardProgress` - FSRS learning state per user-card
-   - `Deck` - Word collections
-   - `Favorite` - User favorites
-   - `UserSelectedDeck` - User's selected decks for study
+| Model | Description |
+|-------|-------------|
+| `Profile` | User profile (UUID from Supabase), streaks, settings, daily_goal |
+| `VocabularyCard` | English word with korean_meaning, IPA, examples, cloze_sentences, frequency_rank, cefr_level, image_url |
+| `UserCardProgress` | FSRS state (stability, difficulty, lapses, card_state, next_review_date) |
+| `Deck` | Word collections (public/private, official flag) |
+| `StudySession` | Learning session (card_ids, correct/wrong counts, status) |
+| `WordTutorThread` | AI tutor conversation thread per (user, session, card) |
+| `WordTutorMessage` | Individual messages in tutor chat (role, content, suggested_questions) |
+| `WrongAnswer` | Tracks incorrect answers for review (user_answer, correct_answer, quiz_type, reviewed) |
+| `Favorite` | User's bookmarked cards |
+| `UserSelectedDeck` | User's selected decks for study |
 
-2. **Schemas** (`src/app/models/schemas/`): Pydantic models for API DTOs
-   - `*Create`, `*Read`, `*Update` patterns
-   - Request/Response models for each domain
+### Enums
+
+```python
+# src/app/models/enums.py
+CardState: NEW, LEARNING, REVIEW, RELEARNING
+SessionStatus: ACTIVE, COMPLETED, ABANDONED
+QuizType: WORD_TO_MEANING, MEANING_TO_WORD, CLOZE, LISTENING, IMAGE_TO_WORD
+ChatRole: SYSTEM, USER, ASSISTANT
+```
+
+### Schemas (`src/app/models/schemas/`)
+
+| Domain | Schemas |
+|--------|---------|
+| Profile | `ProfileRead`, `ProfileUpdate`, `ProfileConfigRead/Update`, `TodayProgressRead`, `StreakRead` |
+| Card | `VocabularyCardCreate/Read/Update`, `UserCardProgressCreate/Read` |
+| Deck | `DeckCreate/Read/Update`, `DeckWithProgressRead`, `SelectDecksRequest/Response` |
+| Study | `SessionStartRequest/Response`, `CardRequest/Response`, `AnswerRequest/Response`, `SessionCompleteResponse` |
+| Stats | `TotalLearnedRead`, `StatsHistoryRead`, `StatsAccuracyRead`, `TodayStatsRead` |
+| Tutor | `TutorMessageRequest`, `TutorStartResponse`, `TutorMessageResponse`, `TutorHistoryResponse` |
+| WrongAnswer | `WrongAnswerCreate`, `WrongAnswerRead` |
 
 **Pattern for new models**:
 
@@ -120,6 +175,20 @@ class EntityRead(EntityBase):
 
 **Critical**: Import new models in both `src/app/models/tables/__init__.py` AND `src/app/models/__init__.py` for Alembic detection.
 
+### API Routes
+
+All routes mounted at `/api/v1` (configurable via `API_V1_PREFIX`):
+
+| Prefix | File | Description |
+|--------|------|-------------|
+| `/auth` | `auth.py` | Register, login, refresh, logout |
+| `/profiles` | `profiles.py` | me, today-progress, streak, config, level |
+| `/cards` | `cards.py` | Vocabulary cards CRUD |
+| `/decks` | `decks.py` | Deck management, select, selected |
+| `/study` | `study.py` | session/start, session/card, session/answer, session/complete |
+| `/study/.../tutor` | `tutor.py` | tutor/start, tutor/message, tutor/history |
+| `/stats` | `stats.py` | total-learned, accuracy, history, today |
+
 ### Authentication
 
 Uses **Supabase Auth** (not local JWT):
@@ -138,14 +207,19 @@ async def protected_route(profile: CurrentActiveProfile):
 
 ### Service Layer
 
-Business logic in `src/app/services/` using static methods:
+Business logic in `src/app/services/`:
 
-```python
-class EntityService:
-    @staticmethod
-    async def get_entity(session: AsyncSession, entity_id: int) -> Entity | None:
-        return await session.get(Entity, entity_id)
-```
+| Service | Responsibility |
+|---------|---------------|
+| `ProfileService` | Profile CRUD, streak updates, daily goals |
+| `VocabularyCardService` | Card CRUD with filtering |
+| `UserCardProgressService` | FSRS integration, review scheduling |
+| `DeckService` | Deck listing with progress calculation |
+| `StudySessionService` | Session flow, card selection, answer processing |
+| `WrongAnswerService` | Wrong answer tracking and review |
+| `WordTutorService` | AI tutor orchestration |
+| `GeminiImageService` | Image generation via Gemini API |
+| `SupabaseStorageService` | File uploads to Supabase Storage |
 
 ### FSRS Integration
 
@@ -156,20 +230,46 @@ Uses `py-fsrs` library for spaced repetition:
 - Rating: 1=Again, 2=Hard, 3=Good, 4=Easy
 - See `src/app/services/user_card_progress_service.py` for integration
 
-### API Routes
+### AI Tutor (LangGraph)
 
-All routes mounted at `/api/v1` (configurable via `API_V1_PREFIX`):
+The Word Tutor feature uses LangGraph for AI-powered vocabulary assistance:
 
-| Prefix | File | Description |
-|--------|------|-------------|
-| `/auth` | `auth.py` | Register, login, refresh, logout, me |
-| `/profiles` | `profiles.py` | Profile CRUD, settings |
-| `/cards` | `cards.py` | Vocabulary cards |
-| `/decks` | `decks.py` | Deck management |
-| `/progress` | `progress.py` | FSRS review, due cards |
-| `/study` | `study.py` | Study sessions |
-| `/stats` | `stats.py` | Learning statistics |
-| `/quiz` | `quiz.py` | Quiz functionality |
+**Location**: `src/app/services/word_tutor_service.py`, `word_tutor_graph.py`
+
+**Endpoints** (`/study/session/{session_id}/cards/{card_id}/tutor/...`):
+- `POST .../start` - Creates thread, generates 3-7 starter questions via GPT
+- `POST .../message` - User sends question, LLM responds with answer + follow-up suggestions
+- `GET .../history` - Retrieves conversation history
+
+### Image Generation (Gemini)
+
+Uses Google Gemini for vocabulary card images:
+
+**Location**: `src/app/services/gemini_image_service.py`
+
+```python
+from app.services.gemini_image_service import GeminiImageService, GeneratedImage
+
+image: GeneratedImage = GeminiImageService.generate_image("a cute cat")
+# image.bytes, image.mime_type
+```
+
+### Supabase Storage
+
+File uploads to Supabase Storage buckets:
+
+**Location**: `src/app/services/supabase_storage_service.py`
+
+```python
+from app.services.supabase_storage_service import SupabaseStorageService
+
+url = SupabaseStorageService.upload_bytes(
+    bucket="card-images",
+    path="cards/123.png",
+    data=image_bytes,
+    mime_type="image/png"
+)
+```
 
 ## Development Patterns
 
@@ -219,20 +319,34 @@ entities = list(result.scalars().all())
 
 ## Environment Configuration
 
-Required in `.env`:
+Required in `.env` (see `.env.example`):
 
 ```env
+# Application
+APP_NAME=Loops API
+DEBUG=True
+API_V1_PREFIX=/api/v1
+ALLOWED_ORIGINS=*
+
 # Database
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/loops
+DATABASE_ECHO=False
 
 # Supabase Auth
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-key
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+SUPABASE_SECRET_KEY=sb_secret_xxx  # Required for Storage + admin ops
 
-# Application
-DEBUG=True
-ALLOWED_ORIGINS=*
-API_V1_PREFIX=/api/v1
+# Supabase Storage
+SUPABASE_STORAGE_BUCKET=card-images
+
+# OpenAI (AI Tutor)
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
+
+# Gemini (Image Generation)
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 ```
 
 ## Troubleshooting
@@ -241,7 +355,13 @@ API_V1_PREFIX=/api/v1
 
 **Database connection error**: Run `just docker-up` or ensure PostgreSQL is running
 
-**Auth token invalid**: Check `SUPABASE_URL` and `SUPABASE_KEY` in `.env`
+**Auth token invalid**: Check `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `.env`
+
+**AI Tutor not responding**: Verify `OPENAI_API_KEY` is set and valid
+
+**Image generation failing**: Check `GEMINI_API_KEY` in `.env`
+
+**Storage upload failing**: Ensure `SUPABASE_SECRET_KEY` is set (required for write operations)
 
 ## Quick Reference
 

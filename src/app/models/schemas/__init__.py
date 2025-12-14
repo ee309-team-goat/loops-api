@@ -51,6 +51,8 @@ from app.models.schemas.study import (
     SessionCompleteRequest,
     SessionCompleteResponse,
     SessionDailyGoalInfo,
+    SessionPreviewAllocation,
+    SessionPreviewAvailable,
     SessionPreviewRequest,
     SessionPreviewResponse,
     SessionStartRequest,

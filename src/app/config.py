@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # Secret key: for admin operations (user deletion, password reset, etc.)
     supabase_secret_key: str = ""
 
+    # OpenAI / LLM settings
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
     # Gemini image generation (Google GenAI SDK)
     gemini_api_key: str = ""  # GEMINI_API_KEY
     gemini_image_model: str = "gemini-3-pro-image-preview"

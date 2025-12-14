@@ -1,8 +1,12 @@
 import asyncio
+import os
+import ssl
 from logging.config import fileConfig
 
+import certifi
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
 
@@ -69,10 +73,32 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in async mode."""
+    db_url = make_url(settings.database_url)
+    connect_args = {}
+    # Supabase Postgres requires SSL. For asyncpg, pass ssl=True via connect_args.
+    if (
+        db_url.host
+        and (db_url.host.endswith("supabase.co") or db_url.host.endswith("supabase.com"))
+    ) or ("sslmode" in db_url.query or "ssl" in db_url.query):
+        # Default: verify using certifi CA bundle (avoids macOS Python cert store issues).
+        ca_file = os.getenv("DB_SSL_CA_FILE")
+        no_verify = os.getenv("DB_SSL_NO_VERIFY") in {"1", "true", "TRUE", "yes", "YES"}
+
+        if no_verify:
+            # Last-resort for corporate MITM/self-signed chains.
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+        else:
+            ctx = ssl.create_default_context(cafile=ca_file or certifi.where())
+
+        connect_args = {"ssl": ctx}
+
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:

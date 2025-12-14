@@ -2,7 +2,7 @@
 from app.models.base import TimestampMixin
 
 # Enums
-from app.models.enums import CardState, QuizType, SessionStatus
+from app.models.enums import CardState, ChatRole, QuizType, SessionStatus
 
 # Schemas (DTOs)
 from app.models.schemas import (
@@ -67,6 +67,11 @@ from app.models.schemas import (
     StudyCard,
     StudyOverviewResponse,
     TodayProgressRead,
+    TutorHistoryResponse,
+    TutorMessageRead,
+    TutorMessageRequest,
+    TutorMessageResponse,
+    TutorStartResponse,
     UserCardProgressCreate,
     UserCardProgressRead,
     UserSelectedDeckCreate,
@@ -97,6 +102,10 @@ from app.models.tables import (
     UserSelectedDeck,
     VocabularyCard,
     VocabularyCardBase,
+    WordTutorMessage,
+    WordTutorMessageBase,
+    WordTutorThread,
+    WordTutorThreadBase,
     WrongAnswer,
     WrongAnswerBase,
 )
@@ -106,6 +115,7 @@ __all__ = [
     "TimestampMixin",
     # Enums
     "CardState",
+    "ChatRole",
     "SessionStatus",
     "QuizType",
     # Tables
@@ -116,6 +126,8 @@ __all__ = [
     "Favorite",
     "UserSelectedDeck",
     "StudySession",
+    "WordTutorThread",
+    "WordTutorMessage",
     "WrongAnswer",
     # Base classes (from tables)
     "ProfileBase",
@@ -123,6 +135,8 @@ __all__ = [
     "UserCardProgressBase",
     "DeckBase",
     "StudySessionBase",
+    "WordTutorThreadBase",
+    "WordTutorMessageBase",
     "WrongAnswerBase",
     # Profile Schemas
     "ProfileRead",
@@ -197,6 +211,12 @@ __all__ = [
     # Study Overview Schemas
     "DueCardSummary",
     "StudyOverviewResponse",
+    # Tutor Schemas
+    "TutorMessageRequest",
+    "TutorStartResponse",
+    "TutorMessageResponse",
+    "TutorMessageRead",
+    "TutorHistoryResponse",
     # Session Status & Abandon Schemas
     "SessionDailyGoalInfo",
     "SessionStatusResponse",

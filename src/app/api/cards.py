@@ -4,9 +4,11 @@
 영어 단어 카드의 생성, 조회, 수정, 삭제를 처리합니다.
 """
 
-from typing import Annotated
+import io
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi.responses import StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveProfile
@@ -17,6 +19,7 @@ from app.models import (
     VocabularyCardRead,
     VocabularyCardUpdate,
 )
+from app.services.tts_service import TTSService
 from app.services.vocabulary_card_service import VocabularyCardService
 
 TAG = "cards"
@@ -147,6 +150,50 @@ async def get_vocabulary_card(
             detail="Vocabulary card not found",
         )
     return card
+
+
+@router.get(
+    "/{card_id}/audio",
+    summary="단어 카드 발음 오디오 생성",
+    description="TTS를 사용하여 단어 카드의 발음 오디오를 실시간으로 생성하여 제공합니다.",
+    responses={
+        200: {"description": "오디오 스트림 반환 성공"},
+        401: {"description": "인증 실패 - 유효한 토큰이 필요함"},
+        404: {"description": "단어 카드를 찾을 수 없음"},
+        429: {"description": "레이트 리밋 초과"},
+        503: {"description": "TTS 외부 서비스 오류"},
+    },
+)
+async def get_vocabulary_card_audio(
+    card_id: int = Path(description="조회할 카드의 고유 ID"),
+    audio_format: Literal["mp3", "ogg"] = Query(
+        default="mp3",
+        alias="format",
+        description="오디오 포맷 (mp3 또는 ogg)",
+    ),
+    voice: str | None = Query(default=None, description="TTS 보이스 (기본: 서버 설정)"),
+    session: Annotated[AsyncSession, Depends(get_session)] = None,
+    current_profile: CurrentActiveProfile = None,
+):
+    card = await VocabularyCardService.get_card(session, card_id)
+    if not card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vocabulary card not found",
+        )
+
+    audio_bytes = await TTSService.generate_audio(
+        profile_id=current_profile.id,
+        text=card.english_word,
+        audio_format=audio_format,
+        voice=voice,
+    )
+
+    media_type = "audio/mpeg" if audio_format == "mp3" else "audio/ogg"
+    response = StreamingResponse(io.BytesIO(audio_bytes), media_type=media_type)
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    response.headers["Content-Disposition"] = f'inline; filename="card-{card_id}.{audio_format}"'
+    return response
 
 
 @router.patch(

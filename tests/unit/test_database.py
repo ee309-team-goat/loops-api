@@ -137,7 +137,7 @@ class TestSSLConfiguration:
         from app.database import _SUPABASE_CA_CERT
 
         # Verify the path is constructed correctly
-        expected_path = Path(__file__).resolve().parents[3] / "certs" / "prod-ca-2021.crt"
+        expected_path = Path(__file__).resolve().parents[2] / "certs" / "prod-ca-2021.crt"
         assert _SUPABASE_CA_CERT == expected_path
         # The path should be absolute
         assert _SUPABASE_CA_CERT.is_absolute()

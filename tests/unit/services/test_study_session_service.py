@@ -771,7 +771,11 @@ class TestGenerateStreakMessage:
 
     def test_streak_message_continued(self):
         """Test streak message for continued streak."""
-        result = {"is_new_record": False, "streak_status": "continued", "current_streak": 5}
+        result = {
+            "is_new_record": False,
+            "streak_status": "continued",
+            "current_streak": 5,
+        }
         message = StudySessionService._generate_streak_message(result)
 
         assert "연속" in message

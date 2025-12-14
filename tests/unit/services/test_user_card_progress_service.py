@@ -585,7 +585,10 @@ class TestTodayProgressEdgeCases:
             card_id=card.id,
             quality_history=[
                 {"date": "2024-01-15T08:00:00", "is_correct": True},
-                {"date": "invalid_date", "is_correct": True},  # Invalid - will be skipped
+                {
+                    "date": "invalid_date",
+                    "is_correct": True,
+                },  # Invalid - will be skipped
                 {"is_correct": True},  # Missing date - will be skipped
             ],
         )

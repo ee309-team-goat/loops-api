@@ -387,3 +387,234 @@ class TestGenerateCourseName:
 
         assert "외 3개" in course_name
         assert len(display_items) == 4
+
+    def test_generate_course_name_single_deck(self, db_session):
+        """Test course name with a single deck selected."""
+        from app.models import Deck
+
+        # Create mock deck
+        deck = Deck(id=1, name="테스트 덱", is_public=True)
+
+        course_name, display_items = DeckService._generate_course_name([deck], [])
+
+        assert course_name == "테스트 덱"
+        assert len(display_items) == 1
+        assert display_items[0].type == "deck"
+        assert display_items[0].name == "테스트 덱"
+
+    def test_generate_course_name_multiple_decks(self, db_session):
+        """Test course name with multiple decks selected."""
+        from app.models import Deck
+
+        deck1 = Deck(id=1, name="덱 1", is_public=True)
+        deck2 = Deck(id=2, name="덱 2", is_public=True)
+        deck3 = Deck(id=3, name="덱 3", is_public=True)
+
+        course_name, display_items = DeckService._generate_course_name([deck1, deck2, deck3], [])
+
+        assert "덱 1 외 2개" in course_name
+        assert len(display_items) == 3
+
+    def test_generate_course_name_mixed_categories_and_decks(self, db_session):
+        """Test course name with full categories and partial deck selections."""
+        from app.models import Deck
+
+        # Decks that belong to a category (not fully selected)
+        deck1 = Deck(id=1, name="시험 덱 1", category="exam", is_public=True)
+        # Deck from a different category (partial selection)
+        deck2 = Deck(id=2, name="일상 덱 1", category="daily", is_public=True)
+
+        fully_selected = [{"id": "business", "name": "비즈니스", "count": 3}]
+
+        course_name, display_items = DeckService._generate_course_name(
+            [deck1, deck2], fully_selected
+        )
+
+        # Both decks are partial (not in fully selected category)
+        assert "외" in course_name
+        assert len(display_items) == 3  # 1 category + 2 decks
+
+
+class TestGetCategories:
+    """Tests for get_categories method."""
+
+    async def test_get_categories_returns_list(self, db_session):
+        """Test that get_categories returns a list."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        # Create some decks in different categories
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+        await DeckFactory.create_async(db_session, is_public=True, category="daily")
+
+        result = await DeckService.get_categories(db_session, profile.id)
+
+        assert isinstance(result, list)
+        # Check that exam and daily categories are included
+        category_ids = [cat.id for cat in result]
+        assert "exam" in category_ids
+        assert "daily" in category_ids
+
+    async def test_get_categories_with_selected_decks(self, db_session):
+        """Test category selection state with selected decks."""
+        profile = await ProfileFactory.create_async(db_session)
+        deck = await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        # Select the deck
+        await DeckService.update_selected_decks(
+            db_session, profile.id, select_all=False, deck_ids=[deck.id]
+        )
+
+        result = await DeckService.get_categories(db_session, profile.id)
+
+        exam_cat = next((c for c in result if c.id == "exam"), None)
+        assert exam_cat is not None
+        assert exam_cat.selected_decks >= 1
+
+
+class TestGetCategoryDecks:
+    """Tests for get_category_decks method."""
+
+    async def test_get_category_decks_valid_category(self, db_session):
+        """Test getting decks for a valid category."""
+        profile = await ProfileFactory.create_async(db_session)
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        category_detail, decks_list, total, selected = await DeckService.get_category_decks(
+            db_session, profile.id, "exam"
+        )
+
+        assert category_detail is not None
+        assert category_detail.id == "exam"
+        assert len(decks_list) >= 1
+        assert total >= 1
+
+    async def test_get_category_decks_invalid_category(self, db_session):
+        """Test getting decks for an invalid category."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        category_detail, decks_list, total, selected = await DeckService.get_category_decks(
+            db_session, profile.id, "nonexistent_category"
+        )
+
+        assert category_detail is None
+        assert decks_list == []
+        assert total == 0
+        assert selected == 0
+
+    async def test_get_category_decks_with_selected(self, db_session):
+        """Test getting category decks with some selected."""
+        profile = await ProfileFactory.create_async(db_session)
+        deck = await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        # Select the deck
+        await DeckService.update_selected_decks(
+            db_session, profile.id, select_all=False, deck_ids=[deck.id]
+        )
+
+        category_detail, decks_list, total, selected = await DeckService.get_category_decks(
+            db_session, profile.id, "exam"
+        )
+
+        assert selected >= 1
+        # Check that deck is marked as selected
+        deck_info = next((d for d in decks_list if d.id == deck.id), None)
+        assert deck_info is not None
+        assert deck_info.is_selected is True
+
+
+class TestSelectAllCategoryDecks:
+    """Tests for select_all_category_decks method."""
+
+    async def test_select_all_valid_category(self, db_session):
+        """Test selecting all decks in a valid category."""
+        profile = await ProfileFactory.create_async(db_session)
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        success, total, added, error = await DeckService.select_all_category_decks(
+            db_session, profile.id, "exam"
+        )
+
+        assert success is True
+        assert total >= 2
+        assert added >= 2
+        assert error is None
+
+    async def test_select_all_invalid_category(self, db_session):
+        """Test selecting all decks in an invalid category."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        success, total, added, error = await DeckService.select_all_category_decks(
+            db_session, profile.id, "nonexistent_category"
+        )
+
+        assert success is False
+        assert error is not None
+        assert "not found" in error
+
+    async def test_select_all_already_selected(self, db_session):
+        """Test selecting all when some are already selected."""
+        profile = await ProfileFactory.create_async(db_session)
+        deck1 = await DeckFactory.create_async(db_session, is_public=True, category="exam")
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        # Select first deck
+        await DeckService.update_selected_decks(
+            db_session, profile.id, select_all=False, deck_ids=[deck1.id]
+        )
+
+        # Select all in category
+        success, total, added, error = await DeckService.select_all_category_decks(
+            db_session, profile.id, "exam"
+        )
+
+        assert success is True
+        assert added >= 1  # At least one new deck was added
+
+
+class TestDeselectAllCategoryDecks:
+    """Tests for deselect_all_category_decks method."""
+
+    async def test_deselect_all_valid_category(self, db_session):
+        """Test deselecting all decks in a valid category."""
+        profile = await ProfileFactory.create_async(db_session)
+        deck = await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        # First select the deck
+        await DeckService.update_selected_decks(
+            db_session, profile.id, select_all=False, deck_ids=[deck.id]
+        )
+
+        # Now deselect all in category
+        success, removed, error = await DeckService.deselect_all_category_decks(
+            db_session, profile.id, "exam"
+        )
+
+        assert success is True
+        assert removed >= 1
+        assert error is None
+
+    async def test_deselect_all_invalid_category(self, db_session):
+        """Test deselecting all decks in an invalid category."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        success, removed, error = await DeckService.deselect_all_category_decks(
+            db_session, profile.id, "nonexistent_category"
+        )
+
+        assert success is False
+        assert error is not None
+        assert "not found" in error
+
+    async def test_deselect_all_none_selected(self, db_session):
+        """Test deselecting all when none are selected."""
+        profile = await ProfileFactory.create_async(db_session)
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        success, removed, error = await DeckService.deselect_all_category_decks(
+            db_session, profile.id, "exam"
+        )
+
+        assert success is True
+        assert removed == 0
+        assert error is None

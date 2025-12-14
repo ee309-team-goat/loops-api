@@ -203,6 +203,50 @@ just --list                         # 모든 명령어 보기
 
 ---
 
+## 🔍 코드 품질 검사
+
+### Linter (ruff)
+
+```bash
+# 코드 스타일 검사
+uv run ruff check src/
+
+# 자동 수정
+uv run ruff check src/ --fix
+
+# 포맷팅
+uv run ruff format src/
+```
+
+### Type Checker (mypy)
+
+```bash
+# 타입 검사 실행
+uv run mypy src/
+```
+
+---
+
+## 🧪 테스트
+
+```bash
+# 전체 테스트 실행
+uv run pytest
+
+# 커버리지 리포트 포함
+uv run pytest --cov=src/app --cov-report=term-missing
+
+# 특정 테스트 파일 실행
+uv run pytest tests/unit/services/test_deck_service.py -v
+
+# 커버리지 HTML 리포트 생성
+uv run pytest --cov=src/app --cov-report=html
+```
+
+테스트 커버리지 목표: **80% 이상**
+
+---
+
 ## 🔐 환경 설정
 
 `.env` 파일 필수 설정:

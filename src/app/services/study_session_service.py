@@ -1061,10 +1061,9 @@ class StudySessionService:
             cloze_data = card.cloze_sentences[0]
             if isinstance(cloze_data, dict):
                 return ClozeQuestion(
-                    sentence_with_blank=cloze_data.get("sentence_with_blank", ""),
+                    sentence=cloze_data.get("sentence_with_blank", ""),
                     hint=cloze_data.get("hint", ""),
                     answer=cloze_data.get("answer", card.english_word),
-                    blank_position=cloze_data.get("blank_position", 0),
                 )
 
         # Generate from example_sentences
@@ -1084,10 +1083,9 @@ class StudySessionService:
                         hint += f" ({card.part_of_speech})"
 
                     return ClozeQuestion(
-                        sentence_with_blank=sentence_with_blank,
+                        sentence=sentence_with_blank,
                         hint=hint,
                         answer=card.english_word,
-                        blank_position=sentence.lower().find(word),
                     )
 
         return None

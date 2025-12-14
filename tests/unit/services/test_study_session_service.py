@@ -544,3 +544,354 @@ class TestCalculateScore:
 
         assert score == 0
         assert penalty == 0
+
+
+class TestAbandonSession:
+    """Tests for session abandonment."""
+
+    async def test_abandon_session_success(self, db_session):
+        """Test successfully abandoning a session."""
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+            correct_count=2,
+            wrong_count=1,
+        )
+
+        result = await StudySessionService.abandon_session(
+            db_session, profile.id, session.id, save_progress=True
+        )
+
+        assert result.session_id == session.id
+        assert result.status == "abandoned"
+        assert result.summary.completed_cards == 3
+        assert result.progress_saved is True
+        assert "저장" in result.message
+
+    async def test_abandon_session_not_found(self, db_session):
+        """Test abandoning non-existent session."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        with pytest.raises(NotFoundError):
+            await StudySessionService.abandon_session(db_session, profile.id, uuid4())
+
+    async def test_abandon_session_wrong_user(self, db_session):
+        """Test abandoning session belonging to another user."""
+        profile1 = await ProfileFactory.create_async(db_session)
+        profile2 = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile1.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        with pytest.raises(ValidationError):
+            await StudySessionService.abandon_session(db_session, profile2.id, session.id)
+
+    async def test_abandon_session_already_completed(self, db_session):
+        """Test abandoning already completed session."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            status=SessionStatus.COMPLETED,
+        )
+
+        with pytest.raises(ValidationError):
+            await StudySessionService.abandon_session(db_session, profile.id, session.id)
+
+    async def test_abandon_session_no_progress_saved(self, db_session):
+        """Test abandoning session without saving progress."""
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        result = await StudySessionService.abandon_session(
+            db_session, profile.id, session.id, save_progress=False
+        )
+
+        assert result.progress_saved is False
+        assert "종료" in result.message
+
+
+class TestGetNewCards:
+    """Tests for _get_new_cards helper method."""
+
+    async def test_get_new_cards_select_all_decks(self, db_session):
+        """Test getting new cards when select_all_decks is True."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=True)
+        deck = await DeckFactory.create_async(db_session, is_public=True)
+
+        # Create new cards
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(db_session, deck_id=deck.id)
+
+        result = await StudySessionService._get_new_cards(db_session, profile.id, limit=10)
+
+        assert len(result) == 5
+
+    async def test_get_new_cards_with_selected_decks(self, db_session):
+        """Test getting new cards with specific selected decks."""
+        from tests.factories.user_selected_deck_factory import UserSelectedDeckFactory
+
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=False)
+        deck1 = await DeckFactory.create_async(db_session, is_public=True)
+        deck2 = await DeckFactory.create_async(db_session, is_public=True)
+
+        # Create cards in both decks
+        for _ in range(3):
+            await VocabularyCardFactory.create_async(db_session, deck_id=deck1.id)
+        for _ in range(3):
+            await VocabularyCardFactory.create_async(db_session, deck_id=deck2.id)
+
+        # Only select deck1
+        await UserSelectedDeckFactory.create_async(db_session, user_id=profile.id, deck_id=deck1.id)
+
+        result = await StudySessionService._get_new_cards(db_session, profile.id, limit=10)
+
+        # Should only get cards from deck1
+        assert len(result) == 3
+
+    async def test_get_new_cards_no_profile(self, db_session):
+        """Test getting new cards with non-existent profile."""
+        result = await StudySessionService._get_new_cards(db_session, uuid4(), limit=10)
+
+        assert result == []
+
+
+class TestGetDueReviewCards:
+    """Tests for _get_due_review_cards helper method."""
+
+    async def test_get_due_cards_with_selected_decks_scope(self, db_session):
+        """Test getting due cards with selected_decks_only review scope."""
+        from datetime import datetime
+
+        from tests.factories.user_card_progress_factory import UserCardProgressFactory
+        from tests.factories.user_selected_deck_factory import UserSelectedDeckFactory
+
+        profile = await ProfileFactory.create_async(
+            db_session, select_all_decks=False, review_scope="selected_decks_only"
+        )
+        deck = await DeckFactory.create_async(db_session, is_public=True)
+        card = await VocabularyCardFactory.create_async(db_session, deck_id=deck.id)
+
+        # Select the deck
+        await UserSelectedDeckFactory.create_async(db_session, user_id=profile.id, deck_id=deck.id)
+
+        # Create progress with past due date
+        await UserCardProgressFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_id=card.id,
+            next_review_date=datetime(2020, 1, 1),
+        )
+
+        result = await StudySessionService._get_due_review_cards(db_session, profile.id, limit=10)
+
+        assert len(result) >= 1
+
+
+class TestCalculateCardLimits:
+    """Tests for _calculate_card_limits helper method."""
+
+    def test_calculate_limits_normal_mode(self):
+        """Test card limits calculation in normal mode."""
+        from app.models import Profile
+
+        profile = Profile(
+            id=uuid4(),
+            daily_goal=20,
+            review_ratio_mode="normal",
+            min_new_ratio=0.25,
+        )
+
+        new_limit, review_limit = StudySessionService._calculate_card_limits(profile)
+
+        assert new_limit == 5  # 20 * 0.25
+        assert review_limit == 15  # 20 * 0.75
+
+    def test_calculate_limits_custom_mode(self):
+        """Test card limits calculation in custom mode."""
+        from app.models import Profile
+
+        profile = Profile(
+            id=uuid4(),
+            daily_goal=20,
+            review_ratio_mode="custom",
+            custom_review_ratio=0.6,
+        )
+
+        new_limit, review_limit = StudySessionService._calculate_card_limits(profile)
+
+        assert new_limit == 8  # 20 * 0.4
+        assert review_limit == 12  # 20 * 0.6
+
+    def test_calculate_limits_max_caps(self):
+        """Test card limits are capped at maximum values."""
+        from app.models import Profile
+
+        profile = Profile(
+            id=uuid4(),
+            daily_goal=200,  # Very high daily goal
+            review_ratio_mode="normal",
+            min_new_ratio=0.5,
+        )
+
+        new_limit, review_limit = StudySessionService._calculate_card_limits(profile)
+
+        assert new_limit <= 50  # Max new cards
+        assert review_limit <= 100  # Max review cards
+
+
+class TestGenerateStreakMessage:
+    """Tests for _generate_streak_message helper method."""
+
+    def test_streak_message_new_record(self):
+        """Test streak message when new record is achieved."""
+        result = {"is_new_record": True, "longest_streak": 10}
+        message = StudySessionService._generate_streak_message(result)
+
+        assert "최고 기록" in message
+        assert "10" in message
+
+    def test_streak_message_continued(self):
+        """Test streak message for continued streak."""
+        result = {"is_new_record": False, "streak_status": "continued", "current_streak": 5}
+        message = StudySessionService._generate_streak_message(result)
+
+        assert "연속" in message
+        assert "5" in message
+
+    def test_streak_message_started(self):
+        """Test streak message for started streak."""
+        result = {"is_new_record": False, "streak_status": "started"}
+        message = StudySessionService._generate_streak_message(result)
+
+        assert "시작" in message
+
+    def test_streak_message_broken(self):
+        """Test streak message for broken streak."""
+        result = {"is_new_record": False, "streak_status": "broken"}
+        message = StudySessionService._generate_streak_message(result)
+
+        assert "다시" in message
+
+
+class TestGetOverview:
+    """Tests for get_overview method."""
+
+    async def test_get_overview(self, db_session):
+        """Test getting study overview."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=True)
+        deck = await DeckFactory.create_async(db_session, is_public=True)
+
+        # Create new cards
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(db_session, deck_id=deck.id)
+
+        result = await StudySessionService.get_overview(db_session, profile.id)
+
+        assert result.new_cards_count == 5
+        assert result.review_cards_count == 0
+        assert result.total_available == 5
+
+    async def test_get_overview_with_review_cards(self, db_session):
+        """Test overview with cards due for review."""
+        from datetime import datetime
+
+        from tests.factories.user_card_progress_factory import UserCardProgressFactory
+
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=True)
+        deck = await DeckFactory.create_async(db_session, is_public=True)
+        card = await VocabularyCardFactory.create_async(db_session, deck_id=deck.id)
+
+        # Create progress with past due date
+        await UserCardProgressFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_id=card.id,
+            next_review_date=datetime(2020, 1, 1),
+        )
+
+        result = await StudySessionService.get_overview(db_session, profile.id)
+
+        assert result.review_cards_count >= 1
+        assert len(result.due_cards) >= 1
+
+
+class TestGenerateClozeQuestion:
+    """Tests for _generate_cloze_question helper method."""
+
+    def test_cloze_from_cloze_sentences(self):
+        """Test cloze generation from pre-generated cloze_sentences."""
+        from app.models import VocabularyCard
+
+        card = VocabularyCard(
+            id=1,
+            english_word="apple",
+            korean_meaning="사과",
+            cloze_sentences=[
+                {
+                    "sentence_with_blank": "I like ______.",
+                    "hint": "과일",
+                    "answer": "apple",
+                    "blank_position": 7,
+                }
+            ],
+        )
+
+        result = StudySessionService._generate_cloze_question(card)
+
+        assert result is not None
+        assert result.sentence == "I like ______."
+        assert result.answer == "apple"
+
+    def test_cloze_from_example_sentences(self):
+        """Test cloze generation from example_sentences."""
+        from app.models import VocabularyCard
+
+        card = VocabularyCard(
+            id=1,
+            english_word="apple",
+            korean_meaning="사과",
+            cloze_sentences=None,
+            example_sentences=[{"en": "I like apple very much."}],
+            part_of_speech="noun",
+        )
+
+        result = StudySessionService._generate_cloze_question(card)
+
+        assert result is not None
+        assert "______" in result.sentence
+        assert result.answer == "apple"
+
+    def test_cloze_no_data(self):
+        """Test cloze generation with no cloze data."""
+        from app.models import VocabularyCard
+
+        card = VocabularyCard(
+            id=1,
+            english_word="apple",
+            korean_meaning="사과",
+            cloze_sentences=None,
+            example_sentences=None,
+        )
+
+        result = StudySessionService._generate_cloze_question(card)
+
+        assert result is None

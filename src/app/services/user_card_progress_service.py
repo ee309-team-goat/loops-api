@@ -34,9 +34,17 @@ class UserCardProgressService:
 
         card = Card()
         card.state = state_map.get(progress.card_state, FSRSState.Learning)
-        # Note: DB uses 'timestamp without time zone', so use naive datetime
-        card.due = progress.next_review_date or datetime.utcnow()
-        card.last_review = progress.last_review_date
+        # FSRS requires timezone-aware datetime for review_card() calculations
+        # DB stores naive datetime, so convert to UTC-aware for FSRS
+        due = progress.next_review_date or datetime.utcnow()
+        card.due = due.replace(tzinfo=UTC) if due.tzinfo is None else due
+
+        last_review = progress.last_review_date
+        card.last_review = (
+            last_review.replace(tzinfo=UTC)
+            if last_review and last_review.tzinfo is None
+            else last_review
+        )
 
         # Only set stability/difficulty if card has been reviewed before
         if progress.stability is not None and progress.stability > 0:

@@ -22,7 +22,7 @@ This project uses [just](https://just.systems) as a command runner. Install with
 
 ```bash
 # Development
-just dev                    # Start dev server (port 8080)
+just dev                    # Start dev server (port 8000)
 just setup                  # Initial setup (install deps, create .env)
 just install                # Install dependencies (uv sync)
 
@@ -96,11 +96,14 @@ src/
 │       ├── user_card_progress_service.py
 │       ├── deck_service.py
 │       ├── study_session_service.py
+│       ├── stats_service.py           # Statistics aggregation
 │       ├── wrong_answer_service.py
 │       ├── word_tutor_service.py      # AI tutor orchestration
 │       ├── word_tutor_graph.py        # LangGraph workflows
 │       ├── gemini_image_service.py    # Gemini image generation
-│       └── supabase_storage_service.py # Supabase Storage uploads
+│       ├── supabase_storage_service.py # Supabase Storage uploads
+│       ├── tts_service.py             # Text-to-Speech (Google TTS)
+│       └── pronunciation_service.py   # Pronunciation audio handling
 ├── alembic/                  # Database migrations
 └── scripts/                  # Utility scripts
     ├── seed_data.py          # Database seeding
@@ -123,7 +126,7 @@ Models in `src/app/models/tables/`:
 | Model | Description |
 |-------|-------------|
 | `Profile` | User profile (UUID from Supabase), streaks, settings, daily_goal |
-| `VocabularyCard` | English word with korean_meaning, IPA, examples, cloze_sentences, frequency_rank, cefr_level, image_url |
+| `VocabularyCard` | English word with korean_meaning, IPA, examples, cloze_sentences, frequency_rank, cefr_level, image_url, related_words |
 | `UserCardProgress` | FSRS state (stability, difficulty, lapses, card_state, next_review_date) |
 | `Deck` | Word collections (public/private, official flag) |
 | `StudySession` | Learning session (card_ids, correct/wrong counts, status) |
@@ -216,10 +219,13 @@ Business logic in `src/app/services/`:
 | `UserCardProgressService` | FSRS integration, review scheduling |
 | `DeckService` | Deck listing with progress calculation |
 | `StudySessionService` | Session flow, card selection, answer processing |
+| `StatsService` | Statistics aggregation (accuracy, history, today) |
 | `WrongAnswerService` | Wrong answer tracking and review |
 | `WordTutorService` | AI tutor orchestration |
 | `GeminiImageService` | Image generation via Gemini API |
 | `SupabaseStorageService` | File uploads to Supabase Storage |
+| `TtsService` | Text-to-Speech audio generation (Google TTS) |
+| `PronunciationService` | Pronunciation audio URL handling |
 
 ### FSRS Integration
 
@@ -353,7 +359,11 @@ GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 
 **Migration not detecting changes**: Ensure model is imported in `src/app/models/__init__.py`
 
-**Database connection error**: Run `just docker-up` or ensure PostgreSQL is running
+**Database connection error**: Run `just docker-up` or ensure PostgreSQL is running. For Supabase, use pooler URL (`aws-0-ap-southeast-1.pooler.supabase.com`)
+
+**Column does not exist error**: Migration not applied to DB. Run `just migrate` or apply SQL manually in Supabase SQL Editor
+
+**Multiple migration heads**: Run `uv run alembic merge -m "merge heads" <head1> <head2> ...` to consolidate
 
 **Auth token invalid**: Check `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `.env`
 

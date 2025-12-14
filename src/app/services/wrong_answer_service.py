@@ -133,8 +133,8 @@ class WrongAnswerService:
         if not wrong_answer:
             return None
 
-        # Update reviewed status
-        now = datetime.now(UTC)
+        # Update reviewed status (use naive datetime to match DB schema)
+        now = datetime.now(UTC).replace(tzinfo=None)
         wrong_answer.reviewed = True
         wrong_answer.reviewed_at = now
         session.add(wrong_answer)
@@ -153,15 +153,20 @@ class WrongAnswerService:
         limit: int = 10,
     ) -> list[int]:
         """Get unique card IDs from unreviewed wrong answers."""
-        query = (
-            select(WrongAnswer.card_id)
+        # Use subquery to get most recent wrong answer per card, then select distinct card_ids
+        subquery = (
+            select(
+                WrongAnswer.card_id,
+                func.max(WrongAnswer.created_at).label("latest_created"),
+            )
             .where(
                 WrongAnswer.user_id == user_id,
                 WrongAnswer.reviewed == False,  # noqa: E712
             )
-            .distinct()
-            .order_by(WrongAnswer.created_at.desc())
+            .group_by(WrongAnswer.card_id)
+            .order_by(func.max(WrongAnswer.created_at).desc())
             .limit(limit)
         )
-        result = await session.exec(query)
-        return list(result.all())
+        result = await session.exec(subquery)
+        rows = list(result.all())
+        return [row[0] for row in rows]

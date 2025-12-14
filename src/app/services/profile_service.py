@@ -246,3 +246,85 @@ class ProfileService:
             "accuracy_rate": round(accuracy_rate, 1),
             "mastered_cards": mastered_count,
         }
+
+    @staticmethod
+    async def update_profile_config(
+        session: AsyncSession,
+        profile: Profile,
+        config_data: dict,
+    ) -> Profile:
+        """
+        Update profile configuration fields.
+
+        Args:
+            session: Database session
+            profile: Profile instance to update
+            config_data: Dictionary of config fields to update
+
+        Returns:
+            Updated Profile instance
+        """
+        for field, value in config_data.items():
+            setattr(profile, field, value)
+
+        session.add(profile)
+        await session.commit()
+        await session.refresh(profile)
+        return profile
+
+    @staticmethod
+    async def get_profile_streak(
+        session: AsyncSession,
+        profile: Profile,
+    ) -> dict:
+        """
+        Get streak information for a profile.
+
+        Returns:
+            dict: {
+                "current_streak": int,
+                "longest_streak": int,
+                "last_study_date": date | None,
+                "days_studied_this_month": int,
+                "streak_status": "active" | "broken",
+                "message": str
+            }
+        """
+        # Calculate days_studied_this_month
+        now = datetime.utcnow()
+        first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # Count distinct dates when user reviewed cards this month
+        days_query = select(
+            func.count(func.distinct(func.date(UserCardProgress.last_review_date)))
+        ).where(
+            UserCardProgress.user_id == profile.id,
+            UserCardProgress.last_review_date >= first_day_of_month,
+            UserCardProgress.last_review_date.isnot(None),
+        )
+        result = await session.exec(days_query)
+        days_studied_this_month = result.one()
+
+        # Calculate streak_status
+        today = now.date()
+        yesterday = today - timedelta(days=1)
+
+        if profile.last_study_date in [today, yesterday]:
+            streak_status = "active"
+            message = f"🔥 {profile.current_streak}일 연속 학습 중!"
+        else:
+            streak_status = "broken"
+            if profile.last_study_date:
+                days_ago = (today - profile.last_study_date).days
+                message = f"💪 {days_ago}일 전 마지막 학습. 다시 시작해보세요!"
+            else:
+                message = "💪 첫 학습을 시작해보세요!"
+
+        return {
+            "current_streak": profile.current_streak,
+            "longest_streak": profile.longest_streak,
+            "last_study_date": profile.last_study_date,
+            "days_studied_this_month": days_studied_this_month,
+            "streak_status": streak_status,
+            "message": message,
+        }

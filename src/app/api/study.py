@@ -5,7 +5,6 @@
 퀴즈 기능이 통합되어 FSRS 업데이트, 스트릭, 일일 목표, XP가 모두 반영됩니다.
 """
 
-import random
 from typing import Annotated
 from uuid import UUID
 
@@ -36,11 +35,10 @@ from app.models import (
     WrongReviewSessionResponse,
 )
 from app.models.schemas.study import (
-    PhonemeFeedback,
     PronunciationEvaluateRequest,
     PronunciationEvaluateResponse,
-    PronunciationFeedback,
 )
+from app.services.pronunciation_service import PronunciationService
 from app.services.study_session_service import StudySessionService
 from app.services.user_card_progress_service import UserCardProgressService
 from app.services.vocabulary_card_service import VocabularyCardService
@@ -708,29 +706,6 @@ async def start_wrong_review_session(
 # ============================================================
 
 
-def _get_grade(score: int) -> str:
-    """점수에 따른 등급 반환."""
-    if score >= 90:
-        return "excellent"
-    elif score >= 75:
-        return "good"
-    elif score >= 60:
-        return "fair"
-    else:
-        return "needs_practice"
-
-
-def _get_feedback_message(grade: str) -> str:
-    """등급에 따른 피드백 메시지 반환."""
-    messages = {
-        "excellent": "완벽해요! 네이티브 수준의 발음입니다.",
-        "good": "좋아요! 조금만 더 연습하면 완벽해질 거예요.",
-        "fair": "괜찮아요! 강세와 발음에 조금 더 신경 써보세요.",
-        "needs_practice": "다시 도전해보세요! 천천히 따라 해보세요.",
-    }
-    return messages.get(grade, "계속 연습해보세요!")
-
-
 @router.post(
     "/pronunciation/evaluate",
     response_model=PronunciationEvaluateResponse,
@@ -774,11 +749,7 @@ async def evaluate_pronunciation(
             detail="card_id 또는 word 중 하나는 필수입니다.",
         )
 
-    # Get card info if card_id provided
-    word = request.word
-    pronunciation_ipa = None
-    native_audio_url = None
-
+    # If card_id provided, get card info and use service
     if request.card_id:
         card = await VocabularyCardService.get_card(session, request.card_id)
         if not card:
@@ -786,33 +757,10 @@ async def evaluate_pronunciation(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="카드를 찾을 수 없습니다.",
             )
-        word = card.english_word
-        pronunciation_ipa = card.pronunciation_ipa
-        native_audio_url = card.audio_url
+        return PronunciationService.evaluate_from_card(card)
 
-    # Generate mock score and feedback
-    score = random.randint(60, 95)
-    grade = _get_grade(score)
-
-    # Mock phoneme feedback
-    phoneme_feedbacks = [
-        PhonemeFeedback(phoneme="ə", score=random.randint(60, 90), tip="'어' 소리를 더 짧게"),
-        PhonemeFeedback(phoneme="ʃ", score=random.randint(65, 95), tip="'sh' 소리를 더 부드럽게"),
-    ]
-
-    feedback = PronunciationFeedback(
-        overall=_get_feedback_message(grade),
-        stress="강세 위치에 조금 더 신경 쓰면 좋겠어요." if score < 85 else None,
-        sounds=phoneme_feedbacks if score < 80 else None,
-    )
-
-    return PronunciationEvaluateResponse(
-        card_id=request.card_id,
-        word=word,
-        pronunciation_ipa=pronunciation_ipa,
-        score=score,
-        grade=grade,
-        feedback=feedback,
-        native_audio_url=native_audio_url,
-        user_audio_url=None,
+    # Otherwise, evaluate with just the word
+    return PronunciationService.evaluate_pronunciation(
+        card_id=None,
+        word=request.word,
     )

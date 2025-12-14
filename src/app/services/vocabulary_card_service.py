@@ -1,7 +1,23 @@
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models import VocabularyCard, VocabularyCardCreate, VocabularyCardUpdate
+from app.models import (
+    CardSummary,
+    RelatedWordInfo,
+    RelatedWordsResponse,
+    VocabularyCard,
+    VocabularyCardCreate,
+    VocabularyCardUpdate,
+)
+
+# relation_type -> Korean label mapping
+RELATION_TYPE_LABELS = {
+    "etymology": "어원",
+    "synonym": "유의어",
+    "antonym": "반의어",
+    "topic": "주제 연관",
+    "collocation": "연어",
+}
 
 
 class VocabularyCardService:
@@ -68,3 +84,45 @@ class VocabularyCardService:
         await session.delete(card)
         await session.commit()
         return True
+
+    @staticmethod
+    def get_related_words(card: VocabularyCard) -> RelatedWordsResponse:
+        """
+        Get related words for a vocabulary card.
+
+        Transforms the card's related_words JSON data into a structured response.
+
+        Args:
+            card: VocabularyCard instance with related_words data
+
+        Returns:
+            RelatedWordsResponse with card summary and related words list
+        """
+        card_summary = CardSummary(
+            id=card.id,
+            english_word=card.english_word,
+            korean_meaning=card.korean_meaning,
+        )
+
+        related_words: list[RelatedWordInfo] = []
+
+        if card.related_words:
+            for related in card.related_words:
+                if isinstance(related, dict):
+                    relation_type = related.get("relation_type", "topic")
+                    related_words.append(
+                        RelatedWordInfo(
+                            card_id=related.get("card_id"),
+                            english_word=related.get("word", ""),
+                            korean_meaning=related.get("meaning", ""),
+                            relation_type=relation_type,
+                            relation_label=RELATION_TYPE_LABELS.get(relation_type, "기타"),
+                            reason=related.get("reason", ""),
+                        )
+                    )
+
+        return RelatedWordsResponse(
+            card=card_summary,
+            related_words=related_words,
+            total_related=len(related_words),
+        )

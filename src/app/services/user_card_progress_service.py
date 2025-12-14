@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fsrs import Card, Rating, Scheduler
@@ -61,7 +61,15 @@ class UserCardProgressService:
         now = review_datetime
 
         # Calculate interval from due date
-        interval_days = (card.due - now).days if card.due else 0
+        # FSRS returns timezone-aware datetime, so convert for comparison
+        card_due = card.due
+        if card_due is not None:
+            # Convert to naive for comparison if needed
+            now_for_compare = now.replace(tzinfo=None) if now.tzinfo else now
+            due_for_compare = card_due.replace(tzinfo=None) if card_due.tzinfo else card_due
+            interval_days = (due_for_compare - now_for_compare).days
+        else:
+            interval_days = 0
 
         # Track lapses (forgot card that was in Review state)
         was_review = progress.card_state == CardState.REVIEW
@@ -69,16 +77,22 @@ class UserCardProgressService:
             progress.lapses += 1
 
         # Update FSRS-computed values
+        # Convert timezone-aware datetime to naive for DB storage
         progress.stability = card.stability
         progress.difficulty = card.difficulty
-        progress.next_review_date = card.due
-        progress.last_review_date = now
+        progress.next_review_date = (
+            card_due.replace(tzinfo=None) if card_due and card_due.tzinfo else card_due
+        )
+        progress.last_review_date = now.replace(tzinfo=None) if now.tzinfo else now
         progress.interval = max(interval_days, 0)
 
         # Calculate elapsed days since last review
         if progress.last_review_date and progress.quality_history:
             last_review = progress.last_review_date
-            progress.elapsed_days = (now - last_review).days
+            # Ensure both are naive for comparison
+            now_naive = now.replace(tzinfo=None) if now.tzinfo else now
+            last_naive = last_review.replace(tzinfo=None) if last_review.tzinfo else last_review
+            progress.elapsed_days = (now_naive - last_naive).days
         else:
             progress.elapsed_days = 0
 
@@ -97,8 +111,9 @@ class UserCardProgressService:
             progress.correct_count += 1
 
         # Record history
+        now_naive = now.replace(tzinfo=None) if now.tzinfo else now
         history_entry = {
-            "date": now.isoformat(),
+            "date": now_naive.isoformat(),
             "is_correct": is_correct,
             "interval": interval_days,
             "stability": card.stability,
@@ -202,8 +217,10 @@ class UserCardProgressService:
             fsrs_rating = rating_map.get(rating_hint, Rating.Good if is_correct else Rating.Again)
         else:
             fsrs_rating = Rating.Good if is_correct else Rating.Again
-        # Note: DB uses 'timestamp without time zone', so use naive datetime
+        # Note: DB uses 'timestamp without time zone', so use naive datetime for storage
+        # But FSRS requires timezone-aware datetime for review_card()
         now = datetime.utcnow()
+        now_utc = datetime.now(UTC)
 
         progress = await UserCardProgressService.get_user_card_progress(session, user_id, card_id)
 
@@ -221,7 +238,7 @@ class UserCardProgressService:
         updated_card, _review_log = UserCardProgressService.scheduler.review_card(
             card=card,
             rating=fsrs_rating,
-            review_datetime=now,
+            review_datetime=now_utc,
         )
 
         # Update progress from the reviewed card

@@ -4,11 +4,9 @@
 프로필 조회/수정, 학습 설정, 스트릭 정보, 레벨 정보 등 사용자 데이터를 관리합니다.
 """
 
-from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.dependencies import CurrentActiveProfile
@@ -23,7 +21,6 @@ from app.models import (
     ProfileUpdate,
     StreakRead,
     TodayProgressRead,
-    UserCardProgress,
 )
 from app.services.profile_service import ProfileService
 from app.services.user_card_progress_service import UserCardProgressService
@@ -158,9 +155,14 @@ async def get_profile_config(
     return ProfileConfigRead(
         daily_goal=current_profile.daily_goal,
         select_all_decks=current_profile.select_all_decks,
+        review_ratio_mode=current_profile.review_ratio_mode,
+        custom_review_ratio=current_profile.custom_review_ratio,
+        min_new_ratio=current_profile.min_new_ratio,
+        review_scope=current_profile.review_scope,
         timezone=current_profile.timezone,
         theme=current_profile.theme,
         notification_enabled=current_profile.notification_enabled,
+        highlight_color=current_profile.highlight_color,
     )
 
 
@@ -194,22 +196,22 @@ async def update_profile_config(
     - `theme`: "light", "dark", "auto" 중 하나
     - `notification_enabled`: true/false
     """
-    # Update only provided fields
     update_data = config_data.model_dump(exclude_unset=True)
-
-    for field, value in update_data.items():
-        setattr(current_profile, field, value)
-
-    session.add(current_profile)
-    await session.commit()
-    await session.refresh(current_profile)
+    updated_profile = await ProfileService.update_profile_config(
+        session, current_profile, update_data
+    )
 
     return ProfileConfigRead(
-        daily_goal=current_profile.daily_goal,
-        select_all_decks=current_profile.select_all_decks,
-        timezone=current_profile.timezone,
-        theme=current_profile.theme,
-        notification_enabled=current_profile.notification_enabled,
+        daily_goal=updated_profile.daily_goal,
+        select_all_decks=updated_profile.select_all_decks,
+        review_ratio_mode=updated_profile.review_ratio_mode,
+        custom_review_ratio=updated_profile.custom_review_ratio,
+        min_new_ratio=updated_profile.min_new_ratio,
+        review_scope=updated_profile.review_scope,
+        timezone=updated_profile.timezone,
+        theme=updated_profile.theme,
+        notification_enabled=updated_profile.notification_enabled,
+        highlight_color=updated_profile.highlight_color,
     )
 
 
@@ -346,42 +348,5 @@ async def get_profile_streak(
     - `streak_status`: 스트릭 상태 ("active" 또는 "broken")
     - `message`: 사용자에게 표시할 동기 부여 메시지
     """
-    # Calculate days_studied_this_month
-    # Note: DB uses 'timestamp without time zone', so use naive datetime
-    now = datetime.utcnow()
-    first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    # Count distinct dates when user reviewed cards this month
-    days_query = select(
-        func.count(func.distinct(func.date(UserCardProgress.last_review_date)))
-    ).where(
-        UserCardProgress.user_id == current_profile.id,
-        UserCardProgress.last_review_date >= first_day_of_month,
-        UserCardProgress.last_review_date.isnot(None),
-    )
-    result = await session.exec(days_query)
-    days_studied_this_month = result.one()
-
-    # Calculate streak_status
-    today = now.date()
-    yesterday = today - timedelta(days=1)
-
-    if current_profile.last_study_date in [today, yesterday]:
-        streak_status = "active"
-        message = f"🔥 {current_profile.current_streak}일 연속 학습 중!"
-    else:
-        streak_status = "broken"
-        if current_profile.last_study_date:
-            days_ago = (today - current_profile.last_study_date).days
-            message = f"💪 {days_ago}일 전 마지막 학습. 다시 시작해보세요!"
-        else:
-            message = "💪 첫 학습을 시작해보세요!"
-
-    return StreakRead(
-        current_streak=current_profile.current_streak,
-        longest_streak=current_profile.longest_streak,
-        last_study_date=current_profile.last_study_date,
-        days_studied_this_month=days_studied_this_month,
-        streak_status=streak_status,
-        message=message,
-    )
+    streak_data = await ProfileService.get_profile_streak(session, current_profile)
+    return StreakRead(**streak_data)

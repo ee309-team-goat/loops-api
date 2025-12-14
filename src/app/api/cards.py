@@ -12,23 +12,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
 from app.models import (
-    CardSummary,
-    RelatedWordInfo,
     RelatedWordsResponse,
     VocabularyCardCreate,
     VocabularyCardRead,
     VocabularyCardUpdate,
 )
 from app.services.vocabulary_card_service import VocabularyCardService
-
-# relation_type -> 한글 라벨 매핑
-RELATION_TYPE_LABELS = {
-    "etymology": "어원",
-    "synonym": "유의어",
-    "antonym": "반의어",
-    "topic": "주제 연관",
-    "collocation": "연어",
-}
 
 TAG = "cards"
 TAG_METADATA = {
@@ -284,31 +273,4 @@ async def get_related_words(
             detail="Vocabulary card not found",
         )
 
-    card_summary = CardSummary(
-        id=card.id,
-        english_word=card.english_word,
-        korean_meaning=card.korean_meaning,
-    )
-
-    related_words: list[RelatedWordInfo] = []
-
-    if card.related_words:
-        for related in card.related_words:
-            if isinstance(related, dict):
-                relation_type = related.get("relation_type", "topic")
-                related_words.append(
-                    RelatedWordInfo(
-                        card_id=related.get("card_id"),
-                        english_word=related.get("word", ""),
-                        korean_meaning=related.get("meaning", ""),
-                        relation_type=relation_type,
-                        relation_label=RELATION_TYPE_LABELS.get(relation_type, "기타"),
-                        reason=related.get("reason", ""),
-                    )
-                )
-
-    return RelatedWordsResponse(
-        card=card_summary,
-        related_words=related_words,
-        total_related=len(related_words),
-    )
+    return VocabularyCardService.get_related_words(card)

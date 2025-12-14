@@ -1,6 +1,7 @@
 import os
 import ssl
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import certifi
 from sqlalchemy.engine.url import make_url
@@ -13,6 +14,9 @@ from app.config import settings
 
 # Import all models here to ensure they are registered with SQLModel
 from app.models import *  # noqa: F401, F403
+
+# Supabase root CA certificate path (relative to project root)
+_SUPABASE_CA_CERT = Path(__file__).resolve().parents[2] / "certs" / "prod-ca-2021.crt"
 
 # Create async engine
 _db_url = make_url(settings.database_url)
@@ -28,8 +32,14 @@ if (
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
+    elif ca_file:
+        ctx = ssl.create_default_context(cafile=ca_file)
+    elif _SUPABASE_CA_CERT.exists():
+        # Use Supabase's self-signed root CA certificate
+        ctx = ssl.create_default_context(cafile=str(_SUPABASE_CA_CERT))
     else:
-        ctx = ssl.create_default_context(cafile=ca_file or certifi.where())
+        # Fallback to certifi (won't work with Supabase's self-signed cert)
+        ctx = ssl.create_default_context(cafile=certifi.where())
 
     _connect_args = {"ssl": ctx}
 

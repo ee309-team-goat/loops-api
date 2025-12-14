@@ -7,32 +7,19 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlmodel import delete, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.constants.categories import get_all_category_ids, get_category_metadata
+from app.constants.categories import get_category_metadata
 from app.core.dependencies import CurrentActiveProfile
 from app.database import get_session
 from app.models import (
     CategoriesResponse,
     CategoryDecksResponse,
-    CategoryDetail,
-    CategorySelectionState,
-    CategoryWithStats,
-    Deck,
     DeckDetailRead,
-    DeckInCategory,
     DeckRead,
     DecksListResponse,
-    DeckWithProgressRead,
-    DisplayItem,
-    GetSelectedDecksResponse,
     SelectDecksRequest,
     SelectDecksResponse,
-    SelectedDeckInfo,
-    SelectedDecksSummary,
-    UserSelectedDeck,
-    VocabularyCard,
 )
 from app.services.deck_service import DeckService
 
@@ -79,41 +66,7 @@ async def get_decks_list(
     - `skip`: 건너뛸 레코드 수 (기본값: 0)
     - `limit`: 반환할 최대 레코드 수 (기본값: 10, 최대: 100)
     """
-    # Query for accessible decks (public or created by user)
-    decks_query = (
-        select(Deck)
-        .where((Deck.is_public == True) | (Deck.creator_id == current_profile.id))  # noqa: E712
-        .offset(skip)
-        .limit(limit)
-    )
-    result = await session.exec(decks_query)
-    decks = list(result.all())
-
-    # Count total accessible decks
-    count_query = select(func.count(Deck.id)).where(
-        (Deck.is_public == True) | (Deck.creator_id == current_profile.id)  # noqa: E712
-    )
-    result = await session.exec(count_query)
-    total_count = result.one()
-
-    # Calculate progress for each deck
-    decks_with_progress = []
-    for deck in decks:
-        progress = await DeckService.calculate_deck_progress(session, current_profile.id, deck.id)
-        deck_dict = {
-            "id": deck.id,
-            "name": deck.name,
-            "description": deck.description,
-            **progress,
-        }
-        decks_with_progress.append(DeckWithProgressRead(**deck_dict))
-
-    return DecksListResponse(
-        decks=decks_with_progress,
-        total=total_count,
-        skip=skip,
-        limit=limit,
-    )
+    return await DeckService.get_decks_list(session, current_profile.id, skip, limit)
 
 
 @router.get(
@@ -148,32 +101,23 @@ async def get_deck_detail(
     - 학습 진행: 진행률, 학습/복습 중인 카드 수
     - 생성/수정 시간
     """
-    # Get deck
-    deck_query = select(Deck).where(Deck.id == deck_id)
-    result = await session.exec(deck_query)
-    deck = result.one_or_none()
+    deck = await DeckService.get_deck_by_id(session, deck_id)
 
-    # Check if deck exists
     if not deck:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Deck with id {deck_id} not found",
         )
 
-    # Check access permission (public or user's own deck)
-    if not deck.is_public and deck.creator_id != current_profile.id:
+    if not await DeckService.check_deck_access(deck, current_profile.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to access this deck",
         )
 
-    # Get deck details using DeckRead
     deck_read = DeckRead.model_validate(deck)
-
-    # Calculate progress
     progress = await DeckService.calculate_deck_progress(session, current_profile.id, deck_id)
 
-    # Combine deck details and progress
     response = {
         **deck_read.model_dump(),
         **progress,
@@ -221,46 +165,21 @@ async def update_selected_decks(
     current_profile.select_all_decks = request.select_all
     session.add(current_profile)
 
-    # Clear existing selections
-    delete_stmt = delete(UserSelectedDeck).where(UserSelectedDeck.user_id == current_profile.id)
-    await session.exec(delete_stmt)
+    success, selected_deck_ids, error_message = await DeckService.update_selected_decks(
+        session, current_profile.id, request.select_all, request.deck_ids
+    )
 
-    selected_deck_ids = []
-
-    # If select_all=false, validate and add specific decks
-    if not request.select_all:
-        if not request.deck_ids:
+    if not success:
+        if "not found" in error_message:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_message,
+            )
+        else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="deck_ids must be provided when select_all is false",
+                detail=error_message,
             )
-
-        # Validate all deck IDs exist and are accessible
-        for deck_id in request.deck_ids:
-            deck_query = select(Deck).where(
-                Deck.id == deck_id,
-                (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-            )
-            result = await session.exec(deck_query)
-            deck = result.one_or_none()
-
-            if not deck:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Deck with id {deck_id} not found or not accessible",
-                )
-
-        # Add selected decks to user_selected_decks table
-        for deck_id in request.deck_ids:
-            selected_deck = UserSelectedDeck(
-                user_id=current_profile.id,
-                deck_id=deck_id,
-            )
-            session.add(selected_deck)
-
-        selected_deck_ids = request.deck_ids
-
-    await session.commit()
 
     return SelectDecksResponse(
         select_all=request.select_all,
@@ -270,7 +189,6 @@ async def update_selected_decks(
 
 @router.get(
     "/selected-decks",
-    response_model=GetSelectedDecksResponse,
     summary="선택된 덱 조회",
     description="현재 학습에 사용하도록 설정된 덱 목록을 조회합니다.",
     responses={
@@ -296,197 +214,9 @@ async def get_selected_decks(
     **참고:**
     - `select_all: true`인 경우 `deck_ids`, `decks`, `summary`는 빈 배열/null
     """
-    select_all = current_profile.select_all_decks
-    deck_ids: list[int] = []
-    decks: list[SelectedDeckInfo] = []
-    summary: SelectedDecksSummary | None = None
-
-    # If select_all=false, get selected deck IDs from user_selected_decks table
-    if not select_all:
-        selected_query = select(UserSelectedDeck).where(
-            UserSelectedDeck.user_id == current_profile.id
-        )
-        result = await session.exec(selected_query)
-        selected_decks_records = list(result.all())
-        deck_ids = [sd.deck_id for sd in selected_decks_records]
-        selected_deck_ids_set = set(deck_ids)
-
-        # Get deck details with progress for each selected deck
-        total_selected_cards = 0
-        deck_objects: list[Deck] = []
-
-        for deck_id in deck_ids:
-            deck_query = select(Deck).where(Deck.id == deck_id)
-            result = await session.exec(deck_query)
-            deck = result.one_or_none()
-
-            if deck:
-                deck_objects.append(deck)
-                progress = await DeckService.calculate_deck_progress(
-                    session, current_profile.id, deck_id
-                )
-                total_selected_cards += progress["total_cards"]
-
-                deck_info = SelectedDeckInfo(
-                    id=deck.id,
-                    name=deck.name,
-                    total_cards=progress["total_cards"],
-                    progress_percent=progress["progress_percent"],
-                )
-                decks.append(deck_info)
-
-        # Build category states
-        category_states: list[CategorySelectionState] = []
-        fully_selected_categories: list[dict] = []
-
-        for category_id in get_all_category_ids():
-            metadata = get_category_metadata(category_id)
-            if not metadata:
-                continue
-
-            # Count total decks in this category
-            total_query = select(func.count(Deck.id)).where(
-                Deck.category == category_id,
-                (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-            )
-            result = await session.exec(total_query)
-            total_decks = result.one() or 0
-
-            if total_decks == 0:
-                continue
-
-            # Get deck IDs in this category
-            decks_in_cat_query = select(Deck.id).where(
-                Deck.category == category_id,
-                (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-            )
-            result = await session.exec(decks_in_cat_query)
-            category_deck_ids = set(result.all())
-
-            # Count selected decks in this category
-            selected_in_category = category_deck_ids & selected_deck_ids_set
-            selected_count = len(selected_in_category)
-
-            # Calculate selection_state
-            if selected_count == total_decks:
-                selection_state = "all"
-                fully_selected_categories.append(
-                    {
-                        "id": category_id,
-                        "name": metadata["name"],
-                        "count": total_decks,
-                    }
-                )
-            elif selected_count > 0:
-                selection_state = "partial"
-            else:
-                selection_state = "none"
-
-            category_states.append(
-                CategorySelectionState(
-                    category_id=category_id,
-                    category_name=metadata["name"],
-                    total_decks=total_decks,
-                    selected_decks=selected_count,
-                    selection_state=selection_state,
-                )
-            )
-
-        # Generate course name and display items
-        course_name, display_items = _generate_course_name(deck_objects, fully_selected_categories)
-
-        summary = SelectedDecksSummary(
-            course_name=course_name,
-            total_selected_decks=len(deck_ids),
-            total_selected_cards=total_selected_cards,
-            display_items=display_items,
-            category_states=category_states,
-        )
-
-    return GetSelectedDecksResponse(
-        select_all=select_all,
-        deck_ids=deck_ids,
-        decks=decks,
-        summary=summary,
+    return await DeckService.get_selected_decks(
+        session, current_profile.id, current_profile.select_all_decks
     )
-
-
-def _generate_course_name(
-    selected_decks: list[Deck],
-    fully_selected_categories: list[dict],
-) -> tuple[str, list[DisplayItem]]:
-    """
-    코스명 생성 로직.
-
-    규칙:
-    1. 카테고리 전체 선택만 있는 경우:
-       - 1~3개: 카테고리명 나열 (예: "시험, 교과서")
-       - 4개 이상: "첫 번째 카테고리 외 N개"
-    2. 단어장 1개 선택: 해당 단어장명
-    3. 단어장 2개 이상 선택: "첫 번째 단어장명 외 N개"
-    """
-    display_items: list[DisplayItem] = []
-
-    # 부분 선택된 덱 (전체 선택된 카테고리에 속하지 않는 덱)
-    fully_selected_cat_ids = {cat["id"] for cat in fully_selected_categories}
-    partial_decks = [deck for deck in selected_decks if deck.category not in fully_selected_cat_ids]
-
-    # 카테고리 전체 선택만 있는 경우
-    if len(fully_selected_categories) > 0 and len(partial_decks) == 0:
-        for cat in fully_selected_categories:
-            display_items.append(
-                DisplayItem(
-                    type="category",
-                    name=cat["name"],
-                    count=cat["count"],
-                )
-            )
-
-        if len(fully_selected_categories) <= 3:
-            course_name = ", ".join([cat["name"] for cat in fully_selected_categories])
-        else:
-            first_cat = fully_selected_categories[0]["name"]
-            course_name = f"{first_cat} 외 {len(fully_selected_categories) - 1}개"
-
-    # 단어장만 선택된 경우
-    elif len(selected_decks) == 1:
-        deck = selected_decks[0]
-        display_items.append(
-            DisplayItem(
-                type="deck",
-                name=deck.name,
-                count=1,
-            )
-        )
-        course_name = deck.name
-
-    elif len(selected_decks) > 1:
-        # 전체 선택된 카테고리 + 부분 선택 덱 혼합
-        for cat in fully_selected_categories:
-            display_items.append(
-                DisplayItem(
-                    type="category",
-                    name=cat["name"],
-                    count=cat["count"],
-                )
-            )
-
-        for deck in partial_decks:
-            display_items.append(
-                DisplayItem(
-                    type="deck",
-                    name=deck.name,
-                    count=1,
-                )
-            )
-
-        first_deck = selected_decks[0]
-        course_name = f"{first_deck.name} 외 {len(selected_decks) - 1}개"
-
-    else:
-        course_name = "선택된 단어장 없음"
-
-    return course_name, display_items
 
 
 # ============================================================
@@ -524,62 +254,8 @@ async def get_categories(
     - partial: 카테고리의 일부 덱만 선택됨
     - none: 카테고리의 덱이 하나도 선택되지 않음
     """
-    categories_list = []
-
-    # Get user's selected deck IDs
-    selected_decks_query = select(UserSelectedDeck.deck_id).where(
-        UserSelectedDeck.user_id == current_profile.id
-    )
-    result = await session.exec(selected_decks_query)
-    selected_deck_ids = set(result.all())
-
-    for category_id in get_all_category_ids():
-        metadata = get_category_metadata(category_id)
-        if not metadata:
-            continue
-
-        # Count total decks in this category
-        total_query = select(func.count(Deck.id)).where(
-            Deck.category == category_id,
-            (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-        )
-        result = await session.exec(total_query)
-        total_decks = result.one() or 0
-
-        # Get deck IDs in this category
-        decks_query = select(Deck.id).where(
-            Deck.category == category_id,
-            (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-        )
-        result = await session.exec(decks_query)
-        category_deck_ids = set(result.all())
-
-        # Count selected decks in this category
-        selected_in_category = category_deck_ids & selected_deck_ids
-        selected_decks = len(selected_in_category)
-
-        # Calculate selection_state
-        if total_decks == 0:
-            selection_state = "none"
-        elif selected_decks == total_decks:
-            selection_state = "all"
-        elif selected_decks > 0:
-            selection_state = "partial"
-        else:
-            selection_state = "none"
-
-        category_info = CategoryWithStats(
-            id=category_id,
-            name=metadata["name"],
-            description=metadata["description"],
-            icon=metadata["icon"],
-            total_decks=total_decks,
-            selected_decks=selected_decks,
-            selection_state=selection_state,
-        )
-        categories_list.append(category_info)
-
-    return CategoriesResponse(categories=categories_list)
+    categories = await DeckService.get_categories(session, current_profile.id)
+    return CategoriesResponse(categories=categories)
 
 
 @router.get(
@@ -612,61 +288,20 @@ async def get_category_decks(
     - 해당 카테고리의 전체 덱 수
     - 해당 카테고리에서 선택된 덱 수
     """
-    # Check if category exists
-    metadata = get_category_metadata(category_id)
-    if not metadata:
+    category_detail, decks_list, total_decks, selected_count = await DeckService.get_category_decks(
+        session, current_profile.id, category_id
+    )
+
+    if category_detail is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Category '{category_id}' not found",
         )
 
-    # Get user's selected deck IDs
-    selected_decks_query = select(UserSelectedDeck.deck_id).where(
-        UserSelectedDeck.user_id == current_profile.id
-    )
-    result = await session.exec(selected_decks_query)
-    selected_deck_ids = set(result.all())
-
-    # Get all decks in this category
-    decks_query = select(Deck).where(
-        Deck.category == category_id,
-        (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-    )
-    result = await session.exec(decks_query)
-    decks = list(result.all())
-
-    # Build deck list with is_selected
-    decks_list = []
-    selected_count = 0
-
-    for deck in decks:
-        is_selected = deck.id in selected_deck_ids
-        if is_selected:
-            selected_count += 1
-
-        cards_query = select(func.count(VocabularyCard.id)).where(VocabularyCard.deck_id == deck.id)
-        result = await session.exec(cards_query)
-        total_cards = result.one() or 0
-
-        deck_info = DeckInCategory(
-            id=deck.id,
-            name=deck.name,
-            description=deck.description,
-            total_cards=total_cards,
-            is_selected=is_selected,
-        )
-        decks_list.append(deck_info)
-
-    category_detail = CategoryDetail(
-        id=category_id,
-        name=metadata["name"],
-        description=metadata["description"],
-    )
-
     return CategoryDecksResponse(
         category=category_detail,
         decks=decks_list,
-        total_decks=len(decks),
+        total_decks=total_decks,
         selected_decks=selected_count,
     )
 
@@ -696,46 +331,21 @@ async def select_all_category_decks(
     - 해당 카테고리의 모든 덱을 사용자의 selected_decks에 추가
     - 이미 선택된 덱은 건너뜀 (중복 방지)
     """
-    # Check if category exists
-    metadata = get_category_metadata(category_id)
-    if not metadata:
+    success, total_decks, added_count, error_message = await DeckService.select_all_category_decks(
+        session, current_profile.id, category_id
+    )
+
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Category '{category_id}' not found",
+            detail=error_message,
         )
 
-    # Get all decks in this category
-    decks_query = select(Deck.id).where(
-        Deck.category == category_id,
-        (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-    )
-    result = await session.exec(decks_query)
-    deck_ids = list(result.all())
-
-    # Get already selected decks
-    selected_query = select(UserSelectedDeck.deck_id).where(
-        UserSelectedDeck.user_id == current_profile.id
-    )
-    result = await session.exec(selected_query)
-    already_selected = set(result.all())
-
-    # Add new selections
-    added_count = 0
-    for deck_id in deck_ids:
-        if deck_id not in already_selected:
-            new_selection = UserSelectedDeck(
-                user_id=current_profile.id,
-                deck_id=deck_id,
-            )
-            session.add(new_selection)
-            added_count += 1
-
-    await session.commit()
-
+    metadata = get_category_metadata(category_id)
     return {
         "message": f"Added {added_count} decks from category '{metadata['name']}'",
         "category_id": category_id,
-        "total_decks": len(deck_ids),
+        "total_decks": total_decks,
         "added_decks": added_count,
     }
 
@@ -764,32 +374,17 @@ async def deselect_all_category_decks(
     **동작:**
     - 해당 카테고리의 모든 덱을 사용자의 selected_decks에서 제거
     """
-    # Check if category exists
-    metadata = get_category_metadata(category_id)
-    if not metadata:
+    success, removed_count, error_message = await DeckService.deselect_all_category_decks(
+        session, current_profile.id, category_id
+    )
+
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Category '{category_id}' not found",
+            detail=error_message,
         )
 
-    # Get all deck IDs in this category
-    decks_query = select(Deck.id).where(
-        Deck.category == category_id,
-        (Deck.is_public == True) | (Deck.creator_id == current_profile.id),  # noqa: E712
-    )
-    result = await session.exec(decks_query)
-    deck_ids = list(result.all())
-
-    # Delete selections for these decks
-    delete_stmt = delete(UserSelectedDeck).where(
-        UserSelectedDeck.user_id == current_profile.id,
-        UserSelectedDeck.deck_id.in_(deck_ids),
-    )
-    result = await session.exec(delete_stmt)
-    await session.commit()
-
-    removed_count = result.rowcount
-
+    metadata = get_category_metadata(category_id)
     return {
         "message": f"Removed {removed_count} decks from category '{metadata['name']}'",
         "category_id": category_id,

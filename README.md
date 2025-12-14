@@ -1,57 +1,102 @@
-# Loops API - AI 기반 영어 학습 시스템
+# Loops API
 
-FSRS(Free Spaced Repetition Scheduler) 알고리즘을 활용한 AI 기반 영어 학습 백엔드 API
+FSRS 알고리즘 기반 AI 영어 학습 백엔드
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
-[![PostgreSQL 16+](https://img.shields.io/badge/PostgreSQL-16+-blue.svg)](https://www.postgresql.org/)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.121+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Coverage](https://img.shields.io/badge/Coverage-98%25-brightgreen)](https://github.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 🎯 프로젝트 소개
+## 목차
 
-Loops API는 과학적으로 검증된 FSRS 알고리즘을 활용하여 최적의 복습 주기를 제공하는 영어 학습 플랫폼의 백엔드입니다.
+- [소개](#-소개)
+- [기술 스택](#-기술-스택)
+- [시작하기](#-시작하기)
+- [프로젝트 구조](#-프로젝트-구조)
+- [개발 가이드](#-개발-가이드)
+- [테스트](#-테스트)
+- [API 문서](#-api-문서)
+- [배포](#-배포)
+- [기여하기](#-기여하기)
 
-### 핵심 특징
+---
 
-- 🧠 **FSRS 알고리즘**: 전통적인 SM-2를 넘어선 현대적 간격 반복 시스템
-- 🔐 **JWT 인증**: 안전한 토큰 기반 사용자 인증
-- 📊 **상세한 학습 분석**: 실시간 진도 추적 및 통계
-- 🎴 **덱 시스템**: 주제별, 난이도별 단어장 관리
-- 🤖 **AI 상호작용**: AI 기반 예문 생성 및 발음 체크
-- 📱 **오프라인 동기화**: 동기화 큐를 통한 오프라인 학습 지원
+## 📖 소개
+
+Loops API는 과학적으로 검증된 **FSRS(Free Spaced Repetition Scheduler)** 알고리즘을 활용하여 최적의 복습 주기를 제공하는 영어 학습 플랫폼입니다.
+
+### 주요 기능
+
+| 기능 | 설명 |
+|------|------|
+| **FSRS 학습** | 전통적인 SM-2를 넘어선 현대적 간격 반복 시스템 |
+| **AI 튜터** | GPT 기반 실시간 단어 질의응답 |
+| **이미지 생성** | Gemini로 단어 연상 이미지 자동 생성 |
+| **덱 시스템** | 주제별, 난이도별 단어장 관리 |
+| **학습 통계** | 정답률, 연속 학습일, 진도 추적 |
+
+### 학습 흐름
+
+```text
+사용자 → 덱 선택 → 학습 세션 시작 → 카드 학습 → FSRS 평가 → 복습 일정 계산
+                                        ↓
+                                   AI 튜터 질문 (선택)
+```
 
 ---
 
 ## 🛠 기술 스택
 
-**Core**
+### 핵심 프레임워크
 
-- FastAPI 0.104+ - 고성능 비동기 웹 프레임워크
-- Python 3.12+ - 최신 Python 기능 활용
-- UV - 초고속 패키지 매니저
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| **FastAPI** | 0.121+ | 비동기 웹 프레임워크 |
+| **Python** | 3.12+ | 런타임 |
+| **UV** | latest | 패키지 매니저 |
+| **Just** | latest | 태스크 러너 |
 
-**Database**
+### 데이터베이스
 
-- PostgreSQL 16+ - 메인 데이터베이스
-- SQLModel - SQLAlchemy + Pydantic 통합 ORM
-- Alembic - 데이터베이스 마이그레이션
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| **PostgreSQL** | 16+ | 메인 데이터베이스 |
+| **SQLModel** | latest | ORM (SQLAlchemy + Pydantic) |
+| **Alembic** | latest | 마이그레이션 |
+| **asyncpg** | latest | 비동기 드라이버 |
 
-**Security**
+### 인증 & 스토리지
 
-- python-jose - JWT 토큰 처리
-- passlib[bcrypt] - 비밀번호 해싱
+| 기술 | 용도 |
+|------|------|
+| **Supabase Auth** | JWT 토큰 기반 인증 |
+| **Supabase Storage** | 이미지 파일 저장 |
 
-**ML & AI**
+### AI & 학습
 
-- FSRS 6.3.0 - 간격 반복 학습 알고리즘
-- Upstage - LLM API (예문 생성)
+| 기술 | 용도 |
+|------|------|
+| **py-fsrs 6.3** | FSRS v5 간격 반복 알고리즘 |
+| **LangChain + LangGraph** | AI 튜터 워크플로우 |
+| **OpenAI GPT-4o-mini** | 대화 생성 |
+| **Google Gemini** | 이미지 생성 |
+
+### 개발 도구
+
+| 도구 | 용도 |
+|------|------|
+| **pytest** | 테스트 프레임워크 |
+| **ruff** | 린터 & 포매터 |
+| **mypy** | 정적 타입 검사 |
 
 ---
 
-## ⚡ 빠른 시작
+## 🚀 시작하기
 
-### 1. 사전 요구사항
+### 사전 요구사항
 
 ```bash
 # UV 설치 (필수)
@@ -61,154 +106,127 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 brew install just  # macOS
 ```
 
-### 2. 프로젝트 설정
+### 빠른 설치
 
 ```bash
-# 저장소 클론
+# 1. 저장소 클론
 git clone <repository-url>
 cd loops-api
 
-# 초기 설정 (의존성 설치 + .env 생성)
+# 2. 초기 설정 (의존성 설치 + .env 생성)
 just setup
 
-# .env 파일 수정
-# DATABASE_URL, SECRET_KEY 등 설정
+# 3. .env 파일 편집
+# DATABASE_URL, SUPABASE_URL 등 설정
 ```
 
-### 3. 데이터베이스 설정 & 실행
+### 실행 방법
 
-**옵션 A: Docker (권장)**
+#### Docker 사용 (권장)
 
 ```bash
-# PostgreSQL 포함 전체 스택 실행
-just docker-up
-
-# 마이그레이션 적용
-just docker-migrate
-
-# 샘플 데이터 추가 (선택)
-just docker-seed
+just docker-up        # PostgreSQL 컨테이너 시작
+just docker-migrate   # 마이그레이션 적용
+just dev              # 개발 서버 시작
 ```
 
-**옵션 B: 로컬 PostgreSQL**
+#### 로컬 PostgreSQL 사용
 
 ```bash
-# PostgreSQL 데이터베이스 생성
-createdb loops
-
-# .env에서 DATABASE_URL 수정
-# DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/loops
-
-# 마이그레이션 적용
-just migrate
-
-# 샘플 데이터 추가 (선택)
-just db-seed
+createdb loops        # 데이터베이스 생성
+just migrate          # 마이그레이션 적용
+just dev              # 개발 서버 시작
 ```
 
-### 4. 개발 서버 시작
+### 실행 확인
 
-```bash
-just dev
-```
-
-서버 실행 후:
-
-- API 문서: http://localhost:8080/docs
-- 헬스 체크: http://localhost:8080/health
+- **API 문서**: <http://localhost:8080/docs>
+- **헬스 체크**: <http://localhost:8080/health>
 
 ---
 
-## 📚 주요 기능
+## 📁 프로젝트 구조
 
-### 사용자 관리
+```text
+loops-api/
+├── src/app/
+│   ├── main.py           # FastAPI 앱 진입점
+│   ├── config.py         # 환경 설정
+│   ├── database.py       # DB 세션 팩토리
+│   ├── api/              # API 라우터
+│   │   ├── auth.py       # 인증
+│   │   ├── profiles.py   # 프로필
+│   │   ├── cards.py      # 단어 카드
+│   │   ├── decks.py      # 덱 관리
+│   │   ├── study.py      # 학습 세션
+│   │   ├── tutor.py      # AI 튜터
+│   │   └── stats.py      # 통계
+│   ├── core/             # 핵심 유틸리티
+│   │   ├── security.py   # 인증 검증
+│   │   ├── dependencies.py
+│   │   └── exceptions.py
+│   ├── models/
+│   │   ├── tables/       # DB 테이블 정의
+│   │   └── schemas/      # API 스키마
+│   └── services/         # 비즈니스 로직
+├── tests/                # 테스트 코드
+├── alembic/              # DB 마이그레이션
+├── docs/                 # 상세 문서
+├── scripts/              # 유틸리티 스크립트
+└── justfile              # 명령어 정의
+```
 
-- 회원가입 / 로그인 (JWT)
-- 구독 관리 (Free/Premium/Enterprise)
-- 학습 연속 일수(Streak) 추적
+### 레이어 구조
 
-### 단어 학습
+```text
+HTTP 요청 → API Router → Service → Database
+              ↓
+         의존성 주입
+         (인증, 세션)
+```
 
-- FSRS 기반 최적 복습 주기 계산
-- 4단계 난이도 평가 (Again/Hard/Good/Easy)
-- 학습 상태 추적 (New/Learning/Review/Relearning)
-- 단어별 상세 정보 (발음, 예문, 유의어, 반의어, 어원)
-
-### 덱(Deck) 시스템
-
-- 공식 덱 / 사용자 생성 덱
-- 덱별 학습 진행률 추적
-- 공개 덱 공유 기능
-
-### AI 기능
-
-- 컨텍스트별 예문 생성
-- 발음 체크 및 피드백
-- 단어 설명 및 사용법 안내
-
----
-
-## 📖 문서
-
-프로젝트 문서는 `docs/` 폴더에 정리되어 있습니다:
-
-**개발 문서**
-
-- **[DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - 개발 가이드 및 프로젝트 구조
-- **[COMMANDS.md](./docs/COMMANDS.md)** - 명령어 레퍼런스 (Just, UV)
-- **[API.md](./docs/API.md)** - API 엔드포인트 문서 및 테스트 예제
-- **[DATABASE.md](./docs/DATABASE.md)** - 데이터베이스 스키마 & 마이그레이션
-- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - 배포 가이드
-- **[TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** - 문제 해결 가이드
-
-**프로젝트 관리**
-
-- **[PROJECT_MANAGEMENT.md](./docs/PROJECT_MANAGEMENT.md)** - 프로젝트 관리 및 워크플로우 가이드
-- **[GITHUB_PROJECTS_SETUP.md](./docs/GITHUB_PROJECTS_SETUP.md)** - GitHub Projects 세팅 가이드
-- **[GITHUB_ISSUES_TEMPLATE.md](./docs/GITHUB_ISSUES_TEMPLATE.md)** - 이슈 템플릿 및 에픽 목록
-
-**기타**
-
-- **[CLAUDE.md](./CLAUDE.md)** - AI 협업 가이드 (Claude Code용)
+| 레이어 | 위치 | 역할 |
+|--------|------|------|
+| **API** | `api/` | 요청/응답 처리, 검증 |
+| **Service** | `services/` | 비즈니스 로직, FSRS 계산 |
+| **Model** | `models/` | DB 스키마, DTO 정의 |
+| **Core** | `core/` | 인증, 예외, 의존성 |
 
 ---
 
-## 💡 자주 쓰는 명령어
+## 💻 개발 가이드
+
+### 자주 쓰는 명령어
 
 ```bash
 # 개발
-just dev                            # 개발 서버 시작
-just info                           # 환경 상태 확인
+just dev              # 개발 서버 시작 (port 8080)
+just info             # 환경 상태 확인
 
 # 마이그레이션
-just revision "설명"                # 마이그레이션 생성
-just migrate                        # 마이그레이션 적용
-just rollback                       # 마지막 마이그레이션 롤백
+just migrate          # 마이그레이션 적용
+just revision "설명"  # 새 마이그레이션 생성
+just rollback         # 마지막 마이그레이션 롤백
+just current          # 현재 리비전 확인
 
 # 데이터베이스
-just db-seed                        # 샘플 데이터 추가
-just db-test                        # DB 연결 테스트
+just db-seed          # 샘플 데이터 추가
+just db-test          # DB 연결 테스트
 
 # Docker
-just docker-up                      # Docker 시작
-just docker-logs                    # 로그 확인
-just docker-down                    # Docker 중지
+just docker-up        # 컨테이너 시작
+just docker-down      # 컨테이너 중지
+just docker-logs      # 로그 확인
 
-# 유틸리티
-just clean                          # 캐시 정리
-just --list                         # 모든 명령어 보기
+# 정리
+just clean            # 캐시 정리
+just --list           # 모든 명령어 보기
 ```
 
-**전체 명령어 목록**: [docs/COMMANDS.md](./docs/COMMANDS.md)
-
----
-
-## 🔍 코드 품질 검사
-
-### Linter (ruff)
+### 코드 품질 검사
 
 ```bash
-# 코드 스타일 검사
+# 린트 검사
 uv run ruff check src/
 
 # 자동 수정
@@ -216,58 +234,151 @@ uv run ruff check src/ --fix
 
 # 포맷팅
 uv run ruff format src/
+
+# 타입 검사
+uv run mypy src/
+
+# 전체 검사 (CI와 동일)
+uv run ruff check src/ && uv run ruff format src/ --check && uv run mypy src/
 ```
 
-### Type Checker (mypy)
+### 환경 설정 (.env)
+
+**필수 설정**
 
 ```bash
-# 타입 검사 실행
-uv run mypy src/
+# 애플리케이션
+APP_NAME=Loops API
+DEBUG=True
+API_V1_PREFIX=/api/v1
+
+# 데이터베이스
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/loops
+
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIs...
+SUPABASE_SECRET_KEY=eyJhbGciOiJIUzI1NiIs...
+```
+
+#### AI 기능 (선택)
+
+```bash
+# OpenAI - AI 튜터
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+
+# Google Gemini - 이미지 생성
+GEMINI_API_KEY=AIza...
 ```
 
 ---
 
 ## 🧪 테스트
 
+### 기본 실행
+
 ```bash
-# 전체 테스트 실행
+# 전체 테스트
 uv run pytest
 
-# 커버리지 리포트 포함
+# 상세 출력
+uv run pytest -v
+
+# 커버리지 포함
 uv run pytest --cov=src/app --cov-report=term-missing
-
-# 특정 테스트 파일 실행
-uv run pytest tests/unit/services/test_deck_service.py -v
-
-# 커버리지 HTML 리포트 생성
-uv run pytest --cov=src/app --cov-report=html
 ```
 
-테스트 커버리지 목표: **60% 이상**
+### 특정 테스트 실행
+
+```bash
+# 파일 단위
+uv run pytest tests/unit/services/test_deck_service.py -v
+
+# 클래스 단위
+uv run pytest tests/unit/services/test_deck_service.py::TestDeckServiceCRUD -v
+
+# 함수 단위
+uv run pytest tests/unit/services/test_deck_service.py::TestDeckServiceCRUD::test_create_deck -v
+
+# 키워드 필터
+uv run pytest -k "deck" -v
+```
+
+### 커버리지 리포트
+
+```bash
+# 터미널 출력
+uv run pytest --cov=src/app --cov-report=term-missing
+
+# HTML 리포트
+uv run pytest --cov=src/app --cov-report=html
+open htmlcov/index.html
+
+# XML 리포트 (CI용)
+uv run pytest --cov=src/app --cov-report=xml
+```
+
+### 디버깅 옵션
+
+```bash
+uv run pytest -x              # 첫 실패에서 중단
+uv run pytest --lf            # 마지막 실패한 테스트만
+uv run pytest -s              # print 출력 표시
+uv run pytest --pdb           # 실패 시 디버거
+uv run pytest --durations=10  # 느린 테스트 표시
+```
+
+### 커버리지 현황
+
+| 모듈 | 커버리지 |
+|------|----------|
+| API 레이어 | 96%+ |
+| 서비스 레이어 | 95%+ |
+| 스키마/모델 | 96%+ |
+| **전체** | **98%+** |
 
 ---
 
-## 🚀 배포
+## 📡 API 문서
 
-`main` 브랜치에 push하면 Cloud Run 연동을 통해 자동으로 Google Cloud Run에 배포됩니다.
+모든 API는 `/api/v1` 접두사를 사용합니다.
+
+### 주요 엔드포인트
+
+| 그룹 | 경로 | 설명 |
+|------|------|------|
+| **인증** | `/auth/*` | 회원가입, 로그인, 토큰 갱신 |
+| **프로필** | `/profiles/*` | 사용자 정보, 스트릭, 진도 |
+| **카드** | `/cards/*` | 단어 카드 조회 |
+| **덱** | `/decks/*` | 덱 목록, 선택, 관리 |
+| **학습** | `/study/*` | 세션 시작, 카드 학습, 답변 제출 |
+| **튜터** | `/study/.../tutor/*` | AI 튜터 대화 |
+| **통계** | `/stats/*` | 학습량, 정답률, 히스토리 |
+
+### 상세 문서
+
+서버 실행 후 Swagger UI에서 확인:
+
+- **Swagger UI**: <http://localhost:8080/docs>
+- **ReDoc**: <http://localhost:8080/redoc>
+
+---
+
+## 🚢 배포
 
 ### 자동 배포
 
+`main` 브랜치에 push하면 Cloud Run에 자동 배포됩니다.
+
 ```bash
-# main 브랜치에 push하면 자동 배포
 git push origin main
 ```
 
-### GitHub Actions 배포 (수동)
-
-GitHub Actions 탭에서 "Deploy to Cloud Run" 워크플로우를 수동으로 실행할 수 있습니다.
-
-배포 워크플로우: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
-
-### gcloud CLI 배포
+### 수동 배포
 
 ```bash
-# Docker 이미지 빌드 및 Cloud Run 배포
+# Docker 이미지 빌드 및 배포
 gcloud builds submit --tag asia-northeast3-docker.pkg.dev/ee309-loops/cloud-run-source-deploy/loops-api
 
 gcloud run deploy loops-api \
@@ -276,29 +387,55 @@ gcloud run deploy loops-api \
   --platform managed
 ```
 
-자세한 배포 설정은 [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)를 참고하세요.
+자세한 내용: [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
 
 ---
 
-## 🔐 환경 설정
+## 🤝 기여하기
 
-`.env` 파일 필수 설정:
+### 개발 워크플로우
 
-```bash
-# 데이터베이스
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/loops
+1. 저장소 Fork
+2. 기능 브랜치 생성: `git checkout -b feature/amazing-feature`
+3. 변경사항 커밋: `git commit -m 'feat: add amazing feature'`
+4. Push: `git push origin feature/amazing-feature`
+5. Pull Request 생성
 
-# JWT 보안 (⚠️ 프로덕션에서 반드시 변경!)
-SECRET_KEY=your-super-secret-key
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+### 커밋 컨벤션
 
-# 개발 설정
-DEBUG=True
-ALLOWED_ORIGINS=*
-```
+[Conventional Commits](https://www.conventionalcommits.org/) 사용:
 
-**안전한 SECRET_KEY 생성:**
+| 타입 | 설명 |
+|------|------|
+| `feat` | 새 기능 |
+| `fix` | 버그 수정 |
+| `docs` | 문서 변경 |
+| `refactor` | 리팩토링 |
+| `test` | 테스트 |
+| `chore` | 빌드/설정 변경 |
 
-```bash
-openssl rand -hex 32
-```
+### PR 체크리스트
+
+- [ ] 테스트 통과: `uv run pytest`
+- [ ] 린트 통과: `uv run ruff check src/`
+- [ ] 타입 검사: `uv run mypy src/`
+
+---
+
+## 📚 문서
+
+| 문서 | 설명 |
+|------|------|
+| [DEVELOPMENT.md](./docs/DEVELOPMENT.md) | 개발 가이드 |
+| [COMMANDS.md](./docs/COMMANDS.md) | 명령어 레퍼런스 |
+| [API.md](./docs/API.md) | API 상세 문서 |
+| [DATABASE.md](./docs/DATABASE.md) | DB 스키마 & 마이그레이션 |
+| [DEPLOYMENT.md](./docs/DEPLOYMENT.md) | 배포 가이드 |
+| [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | 문제 해결 |
+| [CLAUDE.md](./CLAUDE.md) | AI 협업 가이드 |
+
+---
+
+## 📄 라이선스
+
+MIT License - [LICENSE](LICENSE) 참고

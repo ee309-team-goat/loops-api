@@ -190,11 +190,9 @@ __all__ = [
     "TutorMessageResponse",
     "TutorMessageRead",
     "TutorHistoryResponse",
-    # Session Preview
+    # Session Preview (aliases)
     "AvailableCards",
     "CardAllocation",
-    "SessionPreviewRequest",
-    "SessionPreviewResponse",
     # Session Status & Abandon
     "SessionDailyGoalInfo",
     "SessionStatusResponse",

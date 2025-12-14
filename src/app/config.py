@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     # OpenAI / LLM settings
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+
+    # OpenAI / TTS settings
+    openai_tts_model: str = "tts-1"
+    openai_tts_default_voice: str = "alloy"
+
+    # TTS caching / rate limit
+    tts_cache_ttl_seconds: int = 86400
+    tts_cache_max_entries: int = 1024
+    tts_rate_limit_requests: int = 30
+    tts_rate_limit_window_seconds: int = 300
     # Gemini image generation (Google GenAI SDK)
     gemini_api_key: str = ""  # GEMINI_API_KEY
     gemini_image_model: str = "gemini-3-pro-image-preview"

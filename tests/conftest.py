@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -31,9 +32,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 # Set test environment before importing app modules
 os.environ.setdefault("TESTING", "1")
-os.environ.setdefault(
-    "DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/loops_test"
-)
+# Default to sqlite for unit tests so CI doesn't require Postgres.
+_TEST_DB_DIR = Path(__file__).resolve().parents[1] / ".tmp"
+_TEST_DB_DIR.mkdir(parents=True, exist_ok=True)
+_DEFAULT_TEST_DB_URL = f"sqlite+aiosqlite:///{(_TEST_DB_DIR / f'loops_test_{uuid4().hex}.db')}"
+os.environ.setdefault("DATABASE_URL", _DEFAULT_TEST_DB_URL)
+os.environ.setdefault("TEST_DATABASE_URL", _DEFAULT_TEST_DB_URL)
 os.environ.setdefault("DB_SSL_NO_VERIFY", "1")  # Skip SSL verification in tests
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_PUBLISHABLE_KEY", "test_key")
@@ -54,18 +58,20 @@ async def test_engine():
 
     Uses the loops_test database for isolation from development data.
     """
-    test_db_url = os.environ.get(
-        "TEST_DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/loops_test"
-    )
+    test_db_url = os.environ["TEST_DATABASE_URL"]
 
-    engine = create_async_engine(
-        test_db_url,
-        echo=False,
-        future=True,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-    )
+    engine_kwargs: dict = {
+        "echo": False,
+        "future": True,
+        "pool_pre_ping": True,
+    }
+    if test_db_url.startswith("sqlite"):
+        engine_kwargs["connect_args"] = {"check_same_thread": False}
+    else:
+        engine_kwargs["pool_size"] = 5
+        engine_kwargs["max_overflow"] = 10
+
+    engine = create_async_engine(test_db_url, **engine_kwargs)
 
     # Import models to ensure they're registered
 
@@ -242,7 +248,8 @@ def mock_supabase_storage(request, mocker):
     mock_client.storage = mock_storage
 
     mocker.patch(
-        "app.services.supabase_storage_service.get_supabase_admin_client", return_value=mock_client
+        "app.services.supabase_storage_service.get_supabase_admin_client",
+        return_value=mock_client,
     )
 
     yield mock_client

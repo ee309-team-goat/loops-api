@@ -248,7 +248,8 @@ def mock_supabase_storage(request, mocker):
     mock_client.storage = mock_storage
 
     mocker.patch(
-        "app.services.supabase_storage_service.get_supabase_admin_client", return_value=mock_client
+        "app.services.supabase_storage_service.get_supabase_admin_client",
+        return_value=mock_client,
     )
 
     yield mock_client

@@ -77,6 +77,15 @@ class SessionPreviewAllocation(SQLModel):
     total: int = Field(ge=0, description="총 배정 카드 수")
 
 
+# Backward-compatible aliases (older tests / callers)
+class AvailableCards(SessionPreviewAvailable):
+    """Alias of SessionPreviewAvailable."""
+
+
+class CardAllocation(SessionPreviewAllocation):
+    """Alias of SessionPreviewAllocation."""
+
+
 class SessionPreviewResponse(SQLModel):
     """학습 세션 프리뷰 응답 스키마."""
 
@@ -250,42 +259,6 @@ class StudyOverviewResponse(SQLModel):
     review_cards_count: int = Field(description="복습 예정 카드 수")
     total_available: int = Field(description="총 학습 가능 카드 수")
     due_cards: list[DueCardSummary] = Field(description="복습 예정 카드 목록")
-
-
-# ============================================================
-# Session Preview
-# ============================================================
-
-
-class AvailableCards(SQLModel):
-    """세션에 사용할 수 있는 카드 수."""
-
-    new_cards: int = Field(description="가능한 신규 카드 수")
-    review_cards: int = Field(description="가능한 복습 카드 수")
-    relearning_cards: int = Field(description="가능한 재학습(RELEARNING) 카드 수")
-
-
-class CardAllocation(SQLModel):
-    """세션에 배정된 카드 수."""
-
-    new_cards: int = Field(description="배정된 신규 카드 수")
-    review_cards: int = Field(description="배정된 복습 카드 수")
-    total: int = Field(description="총 배정 카드 수")
-
-
-class SessionPreviewRequest(SQLModel):
-    """학습 세션 미리보기 요청 스키마."""
-
-    total_cards: int = Field(ge=1, le=200, description="이번 세션 총 카드 수")
-    review_ratio: float = Field(ge=0.0, le=1.0, description="복습 카드 비율 (0.0~1.0)")
-
-
-class SessionPreviewResponse(SQLModel):
-    """학습 세션 미리보기 응답 스키마."""
-
-    available: AvailableCards = Field(description="사용 가능한 카드 수")
-    allocation: CardAllocation = Field(description="배정된 카드 수")
-    message: str | None = Field(default=None, description="조정/부족 안내 메시지")
 
 
 # ============================================================

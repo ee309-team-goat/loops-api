@@ -316,3 +316,170 @@ class TestProfileLevel:
         assert result["mastered_cards"] == 3
         # Total: 3*5 + 2*2 = 19 reviews
         assert result["total_reviews"] == 19
+
+    async def test_calculate_level_no_mastered_uses_all_cards(self, db_session):
+        """Test level calculation uses all cards when none are mastered."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        # Create only learning cards (no mastered)
+        for _i in range(3):
+            card = await VocabularyCardFactory.create_async(db_session)
+            await UserCardProgressFactory.create_async(
+                db_session,
+                user_id=profile.id,
+                card_id=card.id,
+                card_state=CardState.LEARNING,
+                difficulty=4.0,
+                total_reviews=3,
+                correct_count=2,
+                last_review_date=datetime.utcnow(),
+            )
+
+        result = await ProfileService.calculate_profile_level(db_session, profile.id)
+
+        assert result is not None
+        assert result["mastered_cards"] == 0
+        # Level should be calculated from learning cards
+        assert result["level"] >= 1.0
+
+    async def test_calculate_level_cefr_c2(self, db_session):
+        """Test level calculation returns C2 for high difficulty."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        # Create high difficulty mastered cards
+        for _i in range(5):
+            card = await VocabularyCardFactory.create_async(db_session)
+            await UserCardProgressFactory.create_async(
+                db_session,
+                user_id=profile.id,
+                card_id=card.id,
+                card_state=CardState.REVIEW,
+                difficulty=9.5,  # Very high difficulty
+                total_reviews=10,
+                correct_count=10,  # 100% accuracy
+                last_review_date=datetime.utcnow(),
+            )
+
+        result = await ProfileService.calculate_profile_level(db_session, profile.id)
+
+        assert result is not None
+        assert result["cefr_equivalent"] == "C2"
+        assert result["level"] >= 8.0
+
+
+class TestProfileConfig:
+    """Tests for profile configuration."""
+
+    async def test_update_profile_config(self, db_session):
+        """Test updating profile configuration."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        config_data = {
+            "daily_goal": 50,
+            "theme": "dark",
+            "notification_enabled": False,
+        }
+
+        result = await ProfileService.update_profile_config(db_session, profile, config_data)
+
+        assert result is not None
+        assert result.daily_goal == 50
+        assert result.theme == "dark"
+        assert result.notification_enabled is False
+
+
+class TestGetProfileStreak:
+    """Tests for get_profile_streak method."""
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_get_profile_streak_active(self, db_session):
+        """Test getting streak info when streak is active."""
+        today = date(2024, 1, 15)
+        profile = await ProfileFactory.create_async(
+            db_session,
+            current_streak=5,
+            longest_streak=10,
+            last_study_date=today,
+        )
+
+        result = await ProfileService.get_profile_streak(db_session, profile)
+
+        assert result["current_streak"] == 5
+        assert result["longest_streak"] == 10
+        assert result["last_study_date"] == today
+        assert result["streak_status"] == "active"
+        assert "🔥" in result["message"]
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_get_profile_streak_active_yesterday(self, db_session):
+        """Test getting streak info when last study was yesterday."""
+        yesterday = date(2024, 1, 14)
+        profile = await ProfileFactory.create_async(
+            db_session,
+            current_streak=3,
+            longest_streak=5,
+            last_study_date=yesterday,
+        )
+
+        result = await ProfileService.get_profile_streak(db_session, profile)
+
+        assert result["streak_status"] == "active"
+        assert "🔥" in result["message"]
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_get_profile_streak_broken(self, db_session):
+        """Test getting streak info when streak is broken."""
+        three_days_ago = date(2024, 1, 12)
+        profile = await ProfileFactory.create_async(
+            db_session,
+            current_streak=2,
+            longest_streak=7,
+            last_study_date=three_days_ago,
+        )
+
+        result = await ProfileService.get_profile_streak(db_session, profile)
+
+        assert result["streak_status"] == "broken"
+        assert "💪" in result["message"]
+        assert "3일 전" in result["message"]
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_get_profile_streak_never_studied(self, db_session):
+        """Test getting streak info when user never studied."""
+        profile = await ProfileFactory.create_async(
+            db_session,
+            current_streak=0,
+            longest_streak=0,
+            last_study_date=None,
+        )
+
+        result = await ProfileService.get_profile_streak(db_session, profile)
+
+        assert result["streak_status"] == "broken"
+        assert result["last_study_date"] is None
+        assert "첫 학습" in result["message"]
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_get_profile_streak_with_days_this_month(self, db_session):
+        """Test days_studied_this_month calculation."""
+        profile = await ProfileFactory.create_async(
+            db_session,
+            current_streak=3,
+            longest_streak=3,
+            last_study_date=date(2024, 1, 15),
+        )
+
+        # Create some progress records this month
+        for day in [10, 12, 15]:
+            card = await VocabularyCardFactory.create_async(db_session)
+            await UserCardProgressFactory.create_async(
+                db_session,
+                user_id=profile.id,
+                card_id=card.id,
+                last_review_date=datetime(2024, 1, day, 10, 0, 0),
+                total_reviews=1,
+            )
+
+        result = await ProfileService.get_profile_streak(db_session, profile)
+
+        assert result["days_studied_this_month"] == 3

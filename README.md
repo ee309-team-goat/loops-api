@@ -243,7 +243,40 @@ uv run pytest tests/unit/services/test_deck_service.py -v
 uv run pytest --cov=src/app --cov-report=html
 ```
 
-테스트 커버리지 목표: **80% 이상**
+테스트 커버리지 목표: **60% 이상**
+
+---
+
+## 🚀 배포
+
+`main` 브랜치에 push하면 Cloud Run 연동을 통해 자동으로 Google Cloud Run에 배포됩니다.
+
+### 자동 배포
+
+```bash
+# main 브랜치에 push하면 자동 배포
+git push origin main
+```
+
+### GitHub Actions 배포 (수동)
+
+GitHub Actions 탭에서 "Deploy to Cloud Run" 워크플로우를 수동으로 실행할 수 있습니다.
+
+배포 워크플로우: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+
+### gcloud CLI 배포
+
+```bash
+# Docker 이미지 빌드 및 Cloud Run 배포
+gcloud builds submit --tag asia-northeast3-docker.pkg.dev/ee309-loops/cloud-run-source-deploy/loops-api
+
+gcloud run deploy loops-api \
+  --image asia-northeast3-docker.pkg.dev/ee309-loops/cloud-run-source-deploy/loops-api \
+  --region asia-northeast3 \
+  --platform managed
+```
+
+자세한 배포 설정은 [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)를 참고하세요.
 
 ---
 

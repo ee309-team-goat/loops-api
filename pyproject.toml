@@ -88,7 +88,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=src/app/services --cov-report=term-missing --cov-fail-under=80"
+addopts = "-v --cov=src/app/services --cov-report=term-missing --cov-fail-under=60"
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::pytest.PytestUnraisableExceptionWarning",

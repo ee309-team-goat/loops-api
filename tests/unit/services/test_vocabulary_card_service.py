@@ -181,3 +181,112 @@ class TestVocabularyCardServiceCRUD:
         result = await VocabularyCardService.delete_card(db_session, 99999)
 
         assert result is False
+
+
+class TestGetRelatedWords:
+    """Tests for get_related_words method."""
+
+    async def test_get_related_words_with_data(self, db_session):
+        """Test getting related words from card with related_words data."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="happy",
+            korean_meaning="행복한",
+            related_words=[
+                {
+                    "card_id": 123,
+                    "word": "joyful",
+                    "meaning": "즐거운",
+                    "relation_type": "synonym",
+                    "reason": "Similar positive emotion",
+                },
+                {
+                    "card_id": None,
+                    "word": "sad",
+                    "meaning": "슬픈",
+                    "relation_type": "antonym",
+                    "reason": "Opposite emotion",
+                },
+            ],
+        )
+
+        result = VocabularyCardService.get_related_words(card)
+
+        assert result.card.english_word == "happy"
+        assert result.total_related == 2
+        assert len(result.related_words) == 2
+
+        # Check synonym
+        synonym = next(r for r in result.related_words if r.relation_type == "synonym")
+        assert synonym.english_word == "joyful"
+        assert synonym.korean_meaning == "즐거운"
+        assert synonym.relation_label == "유의어"
+        assert synonym.card_id == 123
+
+        # Check antonym
+        antonym = next(r for r in result.related_words if r.relation_type == "antonym")
+        assert antonym.english_word == "sad"
+        assert antonym.relation_label == "반의어"
+        assert antonym.card_id is None
+
+    async def test_get_related_words_empty(self, db_session):
+        """Test getting related words from card with no related_words."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="lonely",
+            korean_meaning="외로운",
+            related_words=None,
+        )
+
+        result = VocabularyCardService.get_related_words(card)
+
+        assert result.card.english_word == "lonely"
+        assert result.total_related == 0
+        assert len(result.related_words) == 0
+
+    async def test_get_related_words_unknown_relation_type(self, db_session):
+        """Test related words with unknown relation_type gets '기타' label."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="test",
+            korean_meaning="테스트",
+            related_words=[
+                {
+                    "word": "related",
+                    "meaning": "관련된",
+                    "relation_type": "unknown_type",
+                    "reason": "Some reason",
+                }
+            ],
+        )
+
+        result = VocabularyCardService.get_related_words(card)
+
+        assert result.total_related == 1
+        assert result.related_words[0].relation_label == "기타"
+
+    async def test_get_related_words_all_relation_types(self, db_session):
+        """Test all known relation types have correct labels."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="word",
+            korean_meaning="단어",
+            related_words=[
+                {"word": "w1", "meaning": "m1", "relation_type": "etymology", "reason": "r"},
+                {"word": "w2", "meaning": "m2", "relation_type": "synonym", "reason": "r"},
+                {"word": "w3", "meaning": "m3", "relation_type": "antonym", "reason": "r"},
+                {"word": "w4", "meaning": "m4", "relation_type": "topic", "reason": "r"},
+                {"word": "w5", "meaning": "m5", "relation_type": "collocation", "reason": "r"},
+            ],
+        )
+
+        result = VocabularyCardService.get_related_words(card)
+
+        assert result.total_related == 5
+
+        labels = {r.relation_type: r.relation_label for r in result.related_words}
+        assert labels["etymology"] == "어원"
+        assert labels["synonym"] == "유의어"
+        assert labels["antonym"] == "반의어"
+        assert labels["topic"] == "주제 연관"
+        assert labels["collocation"] == "연어"

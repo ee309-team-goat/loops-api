@@ -237,6 +237,112 @@ docker-compose exec api uv run alembic upgrade head
 
 ## ☁️ 클라우드 플랫폼 배포
 
+### Google Cloud Run 배포 (권장)
+
+GitHub Actions를 통한 자동 배포가 설정되어 있습니다. `main` 브랜치에 push하면 자동으로 Cloud Run에 배포됩니다.
+
+#### 사전 설정: Workload Identity Federation
+
+GitHub Actions에서 GCP에 안전하게 인증하기 위해 Workload Identity Federation을 설정합니다.
+
+```bash
+# 1. Workload Identity Pool 생성
+gcloud iam workload-identity-pools create "github-pool" \
+  --location="global" \
+  --display-name="GitHub Actions Pool"
+
+# 2. OIDC Provider 생성
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+  --location="global" \
+  --workload-identity-pool="github-pool" \
+  --display-name="GitHub Provider" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
+
+# 3. Service Account 생성
+gcloud iam service-accounts create github-actions-sa \
+  --display-name="GitHub Actions Service Account"
+
+# 4. 권한 부여
+gcloud projects add-iam-policy-binding ee309-loops \
+  --member="serviceAccount:github-actions-sa@ee309-loops.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding ee309-loops \
+  --member="serviceAccount:github-actions-sa@ee309-loops.iam.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.builder"
+
+gcloud projects add-iam-policy-binding ee309-loops \
+  --member="serviceAccount:github-actions-sa@ee309-loops.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+gcloud projects add-iam-policy-binding ee309-loops \
+  --member="serviceAccount:github-actions-sa@ee309-loops.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+# 5. Workload Identity 연결 (PROJECT_NUMBER와 GITHUB_ORG를 실제 값으로 교체)
+gcloud iam service-accounts add-iam-policy-binding github-actions-sa@ee309-loops.iam.gserviceaccount.com \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/GITHUB_ORG/loops-api"
+```
+
+#### Artifact Registry 저장소 생성
+
+```bash
+gcloud artifacts repositories create cloud-run-source-deploy \
+  --repository-format=docker \
+  --location=asia-northeast3 \
+  --description="Cloud Run Docker images"
+```
+
+#### GitHub Secrets 설정
+
+GitHub 저장소 > Settings > Secrets and variables > Actions에서 다음 시크릿을 추가합니다:
+
+| Secret Name | 값 |
+|-------------|-----|
+| `WIF_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `WIF_SERVICE_ACCOUNT` | `github-actions-sa@ee309-loops.iam.gserviceaccount.com` |
+
+> **PROJECT_NUMBER 확인 방법:**
+>
+> ```bash
+> gcloud projects describe ee309-loops --format="value(projectNumber)"
+> ```
+
+#### Cloud Run 환경 변수 설정
+
+Cloud Run 서비스에 환경 변수를 설정합니다:
+
+```bash
+gcloud run services update loops-api \
+  --region asia-northeast3 \
+  --set-env-vars "DATABASE_URL=your-database-url" \
+  --set-env-vars "SUPABASE_URL=your-supabase-url" \
+  --set-env-vars "SUPABASE_PUBLISHABLE_KEY=your-key" \
+  --set-env-vars "SUPABASE_SECRET_KEY=your-secret" \
+  --set-env-vars "OPENAI_API_KEY=your-openai-key" \
+  --set-env-vars "GEMINI_API_KEY=your-gemini-key"
+```
+
+또는 Secret Manager를 사용하여 민감한 정보를 관리할 수 있습니다.
+
+#### 수동 배포
+
+```bash
+# 1. Docker 이미지 빌드 및 푸시
+gcloud builds submit --tag asia-northeast3-docker.pkg.dev/ee309-loops/cloud-run-source-deploy/loops-api
+
+# 2. Cloud Run에 배포
+gcloud run deploy loops-api \
+  --image asia-northeast3-docker.pkg.dev/ee309-loops/cloud-run-source-deploy/loops-api \
+  --region asia-northeast3 \
+  --platform managed \
+  --allow-unauthenticated
+```
+
+---
+
 ### Fly.io 배포
 
 ```bash

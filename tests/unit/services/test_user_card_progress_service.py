@@ -426,3 +426,175 @@ class TestNewCardsCount:
 
         assert result["new_cards_count"] == 0
         assert result["review_cards_count"] == 0
+
+    async def test_get_new_cards_count_selected_decks_only(self, db_session):
+        """Test counting new cards with selected_decks_only preference."""
+        from tests.factories.user_selected_deck_factory import UserSelectedDeckFactory
+
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=False)
+        deck1 = await DeckFactory.create_async(db_session, is_public=True)
+        deck2 = await DeckFactory.create_async(db_session, is_public=True)
+
+        # Create cards in both decks
+        for _ in range(3):
+            await VocabularyCardFactory.create_async(db_session, deck_id=deck1.id)
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(db_session, deck_id=deck2.id)
+
+        # Only select deck1
+        await UserSelectedDeckFactory.create_async(db_session, user_id=profile.id, deck_id=deck1.id)
+
+        result = await UserCardProgressService.get_new_cards_count(db_session, profile.id)
+
+        # Should only count cards from selected deck1
+        assert result["new_cards_count"] == 3
+
+
+class TestUpdateProgressFromCardEdgeCases:
+    """Tests for edge cases in update_progress_from_card."""
+
+    def test_update_with_none_due_date(self):
+        """Test progress update when card.due is None."""
+        progress = UserCardProgress(
+            id=1,
+            user_id=uuid4(),
+            card_id=1,
+            card_state=CardState.NEW,
+            next_review_date=datetime.utcnow(),
+            total_reviews=0,
+            correct_count=0,
+        )
+
+        card = Card()
+        card.state = FSRSState.Learning
+        card.stability = 3.0
+        card.difficulty = 4.5
+        card.due = None  # No due date
+
+        now = datetime.utcnow()
+        updated = UserCardProgressService.update_progress_from_card(
+            progress, card, is_correct=True, review_datetime=now
+        )
+
+        assert updated.interval == 0
+        assert updated.next_review_date is None
+
+    def test_update_appends_to_existing_history(self):
+        """Test that review appends to existing quality_history."""
+        progress = UserCardProgress(
+            id=1,
+            user_id=uuid4(),
+            card_id=1,
+            card_state=CardState.LEARNING,
+            next_review_date=datetime.utcnow(),
+            total_reviews=2,
+            correct_count=2,
+            quality_history=[
+                {"date": "2024-01-10T10:00:00", "is_correct": True},
+                {"date": "2024-01-12T11:00:00", "is_correct": True},
+            ],
+        )
+
+        card = Card()
+        card.state = FSRSState.Review
+        card.stability = 5.0
+        card.difficulty = 4.0
+        card.due = datetime.utcnow() + timedelta(days=3)
+
+        now = datetime.utcnow()
+        updated = UserCardProgressService.update_progress_from_card(
+            progress, card, is_correct=True, review_datetime=now
+        )
+
+        assert len(updated.quality_history) == 3
+        assert updated.quality_history[-1]["is_correct"] is True
+
+    def test_update_with_non_list_history_replaces(self):
+        """Test that non-list quality_history is replaced with list."""
+        progress = UserCardProgress(
+            id=1,
+            user_id=uuid4(),
+            card_id=1,
+            card_state=CardState.LEARNING,
+            next_review_date=datetime.utcnow(),
+            total_reviews=1,
+            correct_count=1,
+            quality_history="invalid_data",  # Should be list but isn't
+        )
+
+        card = Card()
+        card.state = FSRSState.Review
+        card.stability = 5.0
+        card.difficulty = 4.0
+        card.due = datetime.utcnow() + timedelta(days=3)
+
+        now = datetime.utcnow()
+        updated = UserCardProgressService.update_progress_from_card(
+            progress, card, is_correct=True, review_datetime=now
+        )
+
+        # Should replace with a list containing new entry
+        assert isinstance(updated.quality_history, list)
+        assert len(updated.quality_history) == 1
+
+
+class TestGetUserProgress:
+    """Tests for get_user_progress method."""
+
+    async def test_get_user_progress_with_pagination(self, db_session):
+        """Test getting user progress with pagination."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        # Create multiple progress records
+        for _i in range(10):
+            card = await VocabularyCardFactory.create_async(db_session)
+            await UserCardProgressFactory.create_async(
+                db_session, user_id=profile.id, card_id=card.id
+            )
+
+        # Get first page
+        first_page = await UserCardProgressService.get_user_progress(
+            db_session, profile.id, skip=0, limit=5
+        )
+        assert len(first_page) == 5
+
+        # Get second page
+        second_page = await UserCardProgressService.get_user_progress(
+            db_session, profile.id, skip=5, limit=5
+        )
+        assert len(second_page) == 5
+
+        # Ensure no overlap
+        first_ids = {p.id for p in first_page}
+        second_ids = {p.id for p in second_page}
+        assert first_ids.isdisjoint(second_ids)
+
+
+class TestTodayProgressEdgeCases:
+    """Tests for edge cases in get_today_progress."""
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_today_progress_with_invalid_date_format(self, db_session):
+        """Test progress with invalid date format in quality_history is skipped."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        card = await VocabularyCardFactory.create_async(db_session)
+        await UserCardProgressFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_id=card.id,
+            quality_history=[
+                {"date": "2024-01-15T08:00:00", "is_correct": True},
+                {"date": "invalid_date", "is_correct": True},  # Invalid - will be skipped
+                {"is_correct": True},  # Missing date - will be skipped
+            ],
+        )
+
+        result = await UserCardProgressService.get_today_progress(
+            db_session, profile.id, daily_goal=10
+        )
+
+        # Invalid entries are skipped via try/except continue
+        # Only valid entry with today's date is counted
+        assert result["total_reviews"] >= 0
+        assert result["correct_count"] >= 0

@@ -895,3 +895,467 @@ class TestGenerateClozeQuestion:
         result = StudySessionService._generate_cloze_question(card)
 
         assert result is None
+
+
+class TestGetNextCardErrors:
+    """Additional tests for get_next_card error paths."""
+
+    async def test_get_next_card_card_not_found(self, db_session):
+        """Test get_next_card when card doesn't exist in DB."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        # Create session with non-existent card_id
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[99999],  # Non-existent card
+            status=SessionStatus.ACTIVE,
+            current_index=0,
+        )
+
+        with pytest.raises(NotFoundError) as exc_info:
+            await StudySessionService.get_next_card(
+                db_session, profile.id, session.id, QuizType.WORD_TO_MEANING
+            )
+        assert "Card" in str(exc_info.value.message)
+
+
+class TestSubmitAnswerErrors:
+    """Additional tests for submit_answer error paths."""
+
+    async def test_submit_answer_session_not_found(self, db_session):
+        """Test submit_answer with non-existent session."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        with pytest.raises(NotFoundError) as exc_info:
+            await StudySessionService.submit_answer(
+                db_session,
+                user_id=profile.id,
+                session_id=uuid4(),
+                card_id=1,
+                user_answer="test",
+            )
+        assert "Session" in str(exc_info.value.message)
+
+    async def test_submit_answer_wrong_user(self, db_session):
+        """Test submit_answer with session belonging to different user."""
+        profile1 = await ProfileFactory.create_async(db_session)
+        profile2 = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile1.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            await StudySessionService.submit_answer(
+                db_session,
+                user_id=profile2.id,
+                session_id=session.id,
+                card_id=card.id,
+                user_answer="test",
+            )
+        assert "does not belong" in str(exc_info.value.message)
+
+    async def test_submit_answer_session_not_active(self, db_session):
+        """Test submit_answer with completed session."""
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.COMPLETED,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            await StudySessionService.submit_answer(
+                db_session,
+                user_id=profile.id,
+                session_id=session.id,
+                card_id=card.id,
+                user_answer="test",
+            )
+        assert "not active" in str(exc_info.value.message)
+
+    async def test_submit_answer_card_not_in_session(self, db_session):
+        """Test submit_answer with card not in session."""
+        profile = await ProfileFactory.create_async(db_session)
+        card1 = await VocabularyCardFactory.create_async(db_session)
+        card2 = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card1.id],  # Only card1 in session
+            status=SessionStatus.ACTIVE,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            await StudySessionService.submit_answer(
+                db_session,
+                user_id=profile.id,
+                session_id=session.id,
+                card_id=card2.id,  # card2 not in session
+                user_answer="test",
+            )
+        assert "not in this session" in str(exc_info.value.message)
+
+    async def test_submit_answer_card_not_found(self, db_session):
+        """Test submit_answer with non-existent card."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[99999],  # Non-existent card ID
+            status=SessionStatus.ACTIVE,
+        )
+
+        with pytest.raises(NotFoundError) as exc_info:
+            await StudySessionService.submit_answer(
+                db_session,
+                user_id=profile.id,
+                session_id=session.id,
+                card_id=99999,
+                user_answer="test",
+            )
+        assert "Card" in str(exc_info.value.message)
+
+
+class TestFormatCard:
+    """Tests for _format_card method."""
+
+    async def test_format_card_meaning_to_word(self, db_session):
+        """Test formatting card for MEANING_TO_WORD quiz."""
+        # Create cards with same difficulty
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+            part_of_speech="noun",
+            difficulty_level="beginner",
+        )
+        # Create distractor cards
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(
+                db_session, difficulty_level="beginner", part_of_speech="noun"
+            )
+
+        result = await StudySessionService._format_card(
+            db_session, card, QuizType.MEANING_TO_WORD, is_new=True
+        )
+
+        assert result.quiz_type == QuizType.MEANING_TO_WORD
+        assert "(noun)" in result.question
+        assert result.options is not None
+        assert "apple" in result.options
+
+    async def test_format_card_cloze_fallback(self, db_session):
+        """Test cloze format falls back to word_to_meaning when no cloze data."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+            cloze_sentences=None,
+            example_sentences=None,
+        )
+        # Create distractor cards
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(db_session)
+
+        result = await StudySessionService._format_card(
+            db_session, card, QuizType.CLOZE, is_new=True
+        )
+
+        # Should fallback to word_to_meaning style
+        assert result.question == "apple"
+        assert result.options is not None
+
+    async def test_format_card_listening(self, db_session):
+        """Test formatting card for LISTENING quiz."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+        )
+        # Create distractor cards
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(db_session)
+
+        result = await StudySessionService._format_card(
+            db_session, card, QuizType.LISTENING, is_new=False
+        )
+
+        assert result.quiz_type == QuizType.LISTENING
+        assert "🔊" in result.question
+        assert result.options is not None
+
+    async def test_format_card_image_to_word_no_image(self, db_session):
+        """Test IMAGE_TO_WORD quiz fails without image."""
+        from app.core.exceptions import UnprocessableEntityError
+
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+            image_url=None,
+        )
+
+        with pytest.raises(UnprocessableEntityError):
+            await StudySessionService._format_card(
+                db_session, card, QuizType.IMAGE_TO_WORD, is_new=True
+            )
+
+    async def test_format_card_image_to_word_with_image(self, db_session):
+        """Test IMAGE_TO_WORD quiz with image."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+            image_url="https://example.com/apple.jpg",
+        )
+        # Create distractor cards
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(db_session)
+
+        result = await StudySessionService._format_card(
+            db_session, card, QuizType.IMAGE_TO_WORD, is_new=True
+        )
+
+        assert result.quiz_type == QuizType.IMAGE_TO_WORD
+        assert "🖼️" in result.question
+        assert result.options is not None
+
+
+class TestGenerateOptions:
+    """Tests for _generate_options helper method."""
+
+    async def test_generate_options_fallback(self, db_session):
+        """Test option generation with fallback when not enough matching candidates."""
+        # Create only a few cards (not enough for exact match)
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="unique_word",
+            korean_meaning="고유한 단어",
+            difficulty_level="advanced",
+            part_of_speech="noun",
+        )
+        # Create one card with different difficulty
+        await VocabularyCardFactory.create_async(
+            db_session,
+            difficulty_level="beginner",
+            part_of_speech="verb",
+        )
+
+        options = await StudySessionService._generate_options(
+            db_session,
+            correct_answer="고유한 단어",
+            quiz_type=QuizType.WORD_TO_MEANING,
+            card=card,
+            count=4,
+        )
+
+        assert "고유한 단어" in options
+        # May have less than 4 if not enough cards in DB
+        assert len(options) >= 1
+
+
+class TestCompleteSessionEdgeCases:
+    """Tests for edge cases in complete_session."""
+
+    async def test_complete_session_wrong_user(self, db_session):
+        """Test completing session belonging to different user."""
+        profile1 = await ProfileFactory.create_async(db_session)
+        profile2 = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile1.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            await StudySessionService.complete_session(db_session, profile2.id, session.id)
+        assert "does not belong" in str(exc_info.value.message)
+
+    async def test_complete_session_profile_not_found(self, db_session):
+        """Test completing session when profile doesn't exist."""
+        # This is tricky - we need a session that exists but profile deleted
+        # Create profile, create session, then use different user_id that matches session
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        # Delete the profile to simulate profile not found
+        await db_session.delete(profile)
+        await db_session.commit()
+
+        with pytest.raises(NotFoundError) as exc_info:
+            await StudySessionService.complete_session(db_session, profile.id, session.id)
+        assert "Profile" in str(exc_info.value.message)
+
+
+class TestGetSessionStatusEdgeCases:
+    """Tests for edge cases in get_session_status."""
+
+    async def test_get_session_status_wrong_user(self, db_session):
+        """Test getting session status for different user's session."""
+        profile1 = await ProfileFactory.create_async(db_session)
+        profile2 = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile1.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            await StudySessionService.get_session_status(db_session, profile2.id, session.id)
+        assert "does not belong" in str(exc_info.value.message)
+
+    async def test_get_session_status_profile_not_found(self, db_session):
+        """Test getting session status when profile doesn't exist."""
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        # Delete profile
+        await db_session.delete(profile)
+        await db_session.commit()
+
+        with pytest.raises(NotFoundError) as exc_info:
+            await StudySessionService.get_session_status(db_session, profile.id, session.id)
+        assert "Profile" in str(exc_info.value.message)
+
+
+class TestFormatCardDefault:
+    """Tests for default case in _format_card."""
+
+    async def test_format_card_word_to_meaning(self, db_session):
+        """Test _format_card with WORD_TO_MEANING quiz type."""
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="test",
+            korean_meaning="테스트",
+        )
+        # Create distractor cards
+        for _ in range(5):
+            await VocabularyCardFactory.create_async(db_session)
+
+        result = await StudySessionService._format_card(
+            db_session, card, QuizType.WORD_TO_MEANING, is_new=True
+        )
+
+        assert result.question == "test"
+        assert result.quiz_type == QuizType.WORD_TO_MEANING
+
+
+class TestSubmitAnswerFeedback:
+    """Tests for submit_answer feedback messages."""
+
+    async def test_submit_answer_feedback_with_hint(self, db_session):
+        """Test feedback message includes hint count."""
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+        )
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        result = await StudySessionService.submit_answer(
+            db_session,
+            user_id=profile.id,
+            session_id=session.id,
+            card_id=card.id,
+            user_answer="사과",
+            hint_count=1,
+        )
+
+        assert result.is_correct is True
+        assert "힌트" in result.feedback
+        assert "1" in result.feedback
+
+    async def test_submit_answer_feedback_revealed(self, db_session):
+        """Test feedback message when answer was revealed."""
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+        )
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        result = await StudySessionService.submit_answer(
+            db_session,
+            user_id=profile.id,
+            session_id=session.id,
+            card_id=card.id,
+            user_answer="사과",
+            revealed_answer=True,
+        )
+
+        assert "정답:" in result.feedback
+        assert "사과" in result.feedback
+        assert "apple" in result.feedback
+
+    async def test_submit_answer_feedback_wrong(self, db_session):
+        """Test feedback message for wrong answer."""
+        profile = await ProfileFactory.create_async(db_session)
+        card = await VocabularyCardFactory.create_async(
+            db_session,
+            english_word="apple",
+            korean_meaning="사과",
+        )
+
+        session = await StudySessionFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_ids=[card.id],
+            status=SessionStatus.ACTIVE,
+        )
+
+        result = await StudySessionService.submit_answer(
+            db_session,
+            user_id=profile.id,
+            session_id=session.id,
+            card_id=card.id,
+            user_answer="바나나",
+        )
+
+        assert result.is_correct is False
+        assert "틀렸습니다" in result.feedback
+        assert "정답:" in result.feedback

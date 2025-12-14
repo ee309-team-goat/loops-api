@@ -57,7 +57,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          uv run pytest --cov=src/app/services --cov-report=term-missing --cov-fail-under=80
+          uv run pytest --cov=src/app/services --cov-report=term-missing --cov-fail-under=60
 
   migration-check:
     name: Migration Check

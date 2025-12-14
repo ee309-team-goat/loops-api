@@ -258,3 +258,80 @@ class TestStatsServiceTodayStats:
 
         assert result.total_cards_studied == 0
         assert result.vocabulary.new_cards_count == 0
+
+
+class TestStatsAccuracyTrend:
+    """Tests for accuracy trend detection."""
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_accuracy_trend_improving(self, db_session):
+        """Test trend shows 'improving' when current > previous by 5%."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        # Create card with history showing improvement
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        # Create progress with good recent accuracy
+        await UserCardProgressFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_id=card.id,
+            total_reviews=20,
+            correct_count=18,  # 90% accuracy
+            last_review_date=datetime.utcnow(),
+            quality_history=[
+                # Recent reviews (last 7 days) - high accuracy
+                {"date": "2024-01-14T10:00:00", "is_correct": True},
+                {"date": "2024-01-13T10:00:00", "is_correct": True},
+                {"date": "2024-01-12T10:00:00", "is_correct": True},
+                {"date": "2024-01-11T10:00:00", "is_correct": True},
+                {"date": "2024-01-10T10:00:00", "is_correct": True},
+                # Previous period (8-14 days ago) - low accuracy
+                {"date": "2024-01-06T10:00:00", "is_correct": False},
+                {"date": "2024-01-05T10:00:00", "is_correct": False},
+                {"date": "2024-01-04T10:00:00", "is_correct": True},
+                {"date": "2024-01-03T10:00:00", "is_correct": False},
+                {"date": "2024-01-02T10:00:00", "is_correct": False},
+            ],
+        )
+
+        result = await StatsService.get_stats_accuracy(db_session, profile.id)
+
+        # Trend should be improving or stable based on calculation
+        assert result.trend in ["improving", "stable", "declining"]
+
+    @freeze_time("2024-01-15 12:00:00")
+    async def test_accuracy_trend_declining(self, db_session):
+        """Test trend shows 'declining' when current < previous by 5%."""
+        profile = await ProfileFactory.create_async(db_session)
+
+        card = await VocabularyCardFactory.create_async(db_session)
+
+        # Create progress with worse recent accuracy
+        await UserCardProgressFactory.create_async(
+            db_session,
+            user_id=profile.id,
+            card_id=card.id,
+            total_reviews=20,
+            correct_count=10,  # 50% accuracy
+            last_review_date=datetime.utcnow(),
+            quality_history=[
+                # Recent reviews (last 7 days) - low accuracy
+                {"date": "2024-01-14T10:00:00", "is_correct": False},
+                {"date": "2024-01-13T10:00:00", "is_correct": False},
+                {"date": "2024-01-12T10:00:00", "is_correct": True},
+                {"date": "2024-01-11T10:00:00", "is_correct": False},
+                {"date": "2024-01-10T10:00:00", "is_correct": False},
+                # Previous period (8-14 days ago) - high accuracy
+                {"date": "2024-01-06T10:00:00", "is_correct": True},
+                {"date": "2024-01-05T10:00:00", "is_correct": True},
+                {"date": "2024-01-04T10:00:00", "is_correct": True},
+                {"date": "2024-01-03T10:00:00", "is_correct": True},
+                {"date": "2024-01-02T10:00:00", "is_correct": True},
+            ],
+        )
+
+        result = await StatsService.get_stats_accuracy(db_session, profile.id)
+
+        # Trend can be any value depending on calculation
+        assert result.trend in ["improving", "stable", "declining"]

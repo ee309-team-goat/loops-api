@@ -307,8 +307,8 @@ class TestUpdateSelectedDecks:
         assert "not found" in error
 
 
-class TestGetSelectedDecks:
-    """Tests for get_selected_decks method."""
+class TestGetSelectedDecksCategoryStates:
+    """Additional tests for get_selected_decks (category state cases)."""
 
     async def test_get_selected_decks_select_all(self, db_session):
         """Test getting selected decks when select_all is True."""
@@ -618,3 +618,110 @@ class TestDeselectAllCategoryDecks:
         assert success is True
         assert removed == 0
         assert error is None
+
+
+class TestGetSelectedDecks:
+    """Tests for get_selected_decks method."""
+
+    async def test_get_selected_decks_with_category_states(self, db_session):
+        """Test getting selected decks includes category states."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=False)
+
+        # Create decks in a category
+        deck1 = await DeckFactory.create_async(
+            db_session, is_public=True, category="exam", name="TOEFL Deck"
+        )
+        await DeckFactory.create_async(
+            db_session, is_public=True, category="exam", name="IELTS Deck"
+        )
+
+        # Select only deck1
+        await DeckService.update_selected_decks(
+            db_session, profile.id, select_all=False, deck_ids=[deck1.id]
+        )
+
+        result = await DeckService.get_selected_decks(
+            db_session, profile.id, select_all_decks=False
+        )
+
+        # Should have category states showing partial selection
+        assert result is not None
+        assert len(result.decks) >= 1
+
+    async def test_get_selected_decks_with_all_selected_category(self, db_session):
+        """Test category shows 'all' when all decks selected."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=False)
+
+        # Create all decks in one category
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        # Select all decks in that category
+        await DeckService.select_all_category_decks(db_session, profile.id, "exam")
+
+        result = await DeckService.get_selected_decks(
+            db_session, profile.id, select_all_decks=False
+        )
+
+        # Check result is valid
+        assert result is not None
+        assert len(result.decks) >= 1
+
+    async def test_get_selected_decks_empty_no_selected(self, db_session):
+        """Test getting selected decks when none are selected."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=False)
+
+        # Don't select any decks
+
+        result = await DeckService.get_selected_decks(
+            db_session, profile.id, select_all_decks=False
+        )
+
+        assert result is not None
+        assert len(result.decks) == 0
+
+    async def test_get_selected_decks_select_all_mode(self, db_session):
+        """Test get_selected_decks in select_all mode returns early."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=True)
+
+        result = await DeckService.get_selected_decks(db_session, profile.id, select_all_decks=True)
+
+        assert result is not None
+        assert result.select_all is True
+        assert len(result.decks) == 0
+
+
+class TestGetCategoriesSelectionState:
+    """Additional tests for get_categories selection_state edge cases."""
+
+    async def test_get_categories_with_partial_selection(self, db_session):
+        """Test category shows partial selection state."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=False)
+
+        # Create multiple decks in same category
+        deck1 = await DeckFactory.create_async(db_session, is_public=True, category="exam")
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        # Select only one
+        await DeckService.update_selected_decks(
+            db_session, profile.id, select_all=False, deck_ids=[deck1.id]
+        )
+
+        result = await DeckService.get_categories(db_session, profile.id)
+
+        exam_cat = next((c for c in result if c.id == "exam"), None)
+        assert exam_cat is not None
+        assert exam_cat.selection_state == "partial"
+
+    async def test_get_categories_with_no_selection(self, db_session):
+        """Test category shows none selection state when no decks selected."""
+        profile = await ProfileFactory.create_async(db_session, select_all_decks=False)
+
+        # Create decks but don't select any
+        await DeckFactory.create_async(db_session, is_public=True, category="exam")
+
+        result = await DeckService.get_categories(db_session, profile.id)
+
+        exam_cat = next((c for c in result if c.id == "exam"), None)
+        assert exam_cat is not None
+        assert exam_cat.selection_state == "none"
